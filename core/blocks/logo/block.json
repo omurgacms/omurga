@@ -1,0 +1,12 @@
+{
+  "slug": "logo",
+  "name_key": "blocks.logo",
+  "category": "Varsayilan",
+  "allowed_contexts": ["header", "footer"],
+  "usage": ["header", "footer", "sidebar", "home_main", "page", "post", "any"],
+  "settings": {
+    "width": {"type": "number", "label": "Genislik", "default": 180},
+    "link": {"type": "url", "label": "Link", "default": ""}
+  },
+  "view": "view.php"
+}

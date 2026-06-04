@@ -1,0 +1,13 @@
+{
+  "id": "layout-row",
+  "slug": "layout-row",
+  "name": "Kolon/Satir Yardimci",
+  "description": "Builder icinde yapisal not veya yardimci alan gosterir.",
+  "category": "layout",
+  "icon": "columns",
+  "allowed_contexts": ["page", "header", "footer", "sidebar"],
+  "settings_schema": {
+    "label": {"type": "text", "label": "Etiket", "default": "Satir"}
+  },
+  "view": "view.php"
+}

@@ -1,0 +1,16 @@
+{
+  "slug": "contact-info",
+  "name_key": "blocks.contact_info",
+  "category": "Varsayilan",
+  "allowed_contexts": ["page", "footer", "sidebar"],
+  "usage": ["home_main", "sidebar", "footer", "page", "post", "any"],
+  "settings": {
+    "title": {"type": "text", "label": "Baslik", "default": ""},
+    "phone": {"type": "text", "label": "Telefon", "default": ""},
+    "email": {"type": "text", "label": "E-posta", "default": ""},
+    "address": {"type": "textarea", "label": "Adres", "default": ""},
+    "map_url": {"type": "url", "label": "Harita linki", "default": ""},
+    "whatsapp_url": {"type": "url", "label": "WhatsApp linki", "default": ""}
+  },
+  "view": "view.php"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "html",
+  "slug": "html",
+  "name": "HTML",
+  "description": "Guvenli HTML icerigi ekler.",
+  "category": "content",
+  "icon": "code",
+  "allowed_contexts": ["page", "header", "footer", "sidebar"],
+  "settings_schema": {
+    "html": {"type": "textarea", "label": "HTML", "default": "<p>HTML icerigi</p>"},
+    "allow_script": {"type": "checkbox", "label": "Script izni (Super Admin)", "default": "0"}
+  },
+  "view": "view.php"
+}

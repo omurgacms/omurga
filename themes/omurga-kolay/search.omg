@@ -1,0 +1,13 @@
+@include('header')
+<main class="container">
+  <section class="page-title">
+    <h1>Arama</h1>
+    <p>Arama sonuçları</p>
+  </section>
+  <section class="grid">
+    @foreach(posts as post)
+      @include('components/post-card')
+    @endforeach
+  </section>
+</main>
+@include('footer')

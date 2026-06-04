@@ -1,0 +1,11 @@
+{
+  "slug": "omurga-sabit",
+  "id": "omurga-sabit",
+  "name": "Omurga Sabit",
+  "version": "1.0.0-beta",
+  "description": "Omurga CMS için sade, klasik PHP tabanlı varsayılan tema.",
+  "author": "Omurga CMS",
+  "template_engine": "php",
+  "system_theme": true,
+  "supports": ["menus", "comments", "responsive"]
+}

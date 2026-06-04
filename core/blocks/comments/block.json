@@ -1,0 +1,13 @@
+{
+  "slug": "comments",
+  "name_key": "blocks.comments",
+  "category": "Varsayilan",
+  "allowed_contexts": ["page", "sidebar"],
+  "usage": ["post", "page", "home_main", "sidebar", "any"],
+  "settings": {
+    "title": {"type": "text", "label": "Baslik", "default": ""},
+    "show_list": {"type": "checkbox", "label": "Yorum listesini goster", "default": "1"},
+    "show_form": {"type": "checkbox", "label": "Yorum formunu goster", "default": "1"}
+  },
+  "view": "view.php"
+}

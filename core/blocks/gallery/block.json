@@ -1,0 +1,14 @@
+{
+  "id": "gallery",
+  "slug": "gallery",
+  "name": "Galeri",
+  "description": "Birden fazla gorseli grid olarak gosterir.",
+  "category": "media",
+  "icon": "images",
+  "allowed_contexts": ["page", "sidebar"],
+  "settings_schema": {
+    "images": {"type": "textarea", "label": "Gorseller", "default": ""},
+    "columns": {"type": "select", "label": "Kolon", "default": "3", "options": {"2": "2", "3": "3", "4": "4"}}
+  },
+  "view": "view.php"
+}

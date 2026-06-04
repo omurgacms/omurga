@@ -1,0 +1,14 @@
+{
+  "id": "text",
+  "slug": "text",
+  "name": "Metin",
+  "description": "Duz metin veya kisa aciklama ekler.",
+  "category": "content",
+  "icon": "type",
+  "allowed_contexts": ["page", "header", "footer", "sidebar"],
+  "settings_schema": {
+    "text": {"type": "textarea", "label": "Metin", "default": "Metin icerigi"},
+    "align": {"type": "select", "label": "Hizalama", "default": "left", "options": {"left": "Sol", "center": "Orta", "right": "Sag"}}
+  },
+  "view": "view.php"
+}

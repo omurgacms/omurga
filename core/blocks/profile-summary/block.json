@@ -1,0 +1,13 @@
+{
+  "id": "profile-summary",
+  "slug": "profile-summary",
+  "name": "Profil Ozeti",
+  "description": "Giris yapan kullanici icin kisa profil bilgisi gosterir.",
+  "category": "user",
+  "icon": "user-circle",
+  "allowed_contexts": ["page", "header", "sidebar"],
+  "settings_schema": {
+    "login_text": {"type": "text", "label": "Giris metni", "default": "Giris yap"}
+  },
+  "view": "view.php"
+}

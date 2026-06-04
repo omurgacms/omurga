@@ -1,0 +1,19 @@
+{
+  "id": "form",
+  "name": "Form",
+  "description": "Form Oluşturucu ile hazırlanan bir formu sayfaya ekler.",
+  "category": "content",
+  "icon": "✉",
+  "source": "core",
+  "allowed_contexts": ["page", "sidebar", "footer"],
+  "settings_schema": {
+    "title": {"type": "text", "label": "Başlık", "default": "İletişim Formu"},
+    "form_id": {"type": "text", "label": "Form ID veya Slug", "default": "iletisim-formu"},
+    "show_title": {"type": "checkbox", "label": "Başlığı göster", "default": "1"}
+  },
+  "default_settings": {
+    "title": "İletişim Formu",
+    "form_id": "iletisim-formu",
+    "show_title": "1"
+  }
+}

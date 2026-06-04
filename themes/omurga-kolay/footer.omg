@@ -1,0 +1,8 @@
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <strong>{{ site.name }}</strong>
+    <span>Omurga CMS ile güçlendirildi.</span>
+  </div>
+</footer>
+</body>
+</html>

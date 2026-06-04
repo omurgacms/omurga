@@ -1,0 +1,14 @@
+{
+  "slug": "image",
+  "name_key": "blocks.image",
+  "category": "Varsayilan",
+  "allowed_contexts": ["page", "header", "footer", "sidebar"],
+  "usage": ["header", "home_top", "home_main", "sidebar", "footer", "page", "post", "any"],
+  "settings": {
+    "title": {"type": "text", "label": "Baslik", "default": ""},
+    "image": {"type": "image", "label": "Gorsel", "default": ""},
+    "alt": {"type": "text", "label": "Alt metin", "default": ""},
+    "link": {"type": "url", "label": "Link", "default": ""}
+  },
+  "view": "view.php"
+}

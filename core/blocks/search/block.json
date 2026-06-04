@@ -1,0 +1,11 @@
+{
+  "slug": "search",
+  "name_key": "blocks.search",
+  "category": "Varsayilan",
+  "allowed_contexts": ["page", "header", "footer", "sidebar"],
+  "usage": ["header", "home_top", "home_main", "sidebar", "footer", "page", "post", "any"],
+  "settings": {
+    "title": {"type": "text", "label": "Baslik", "default": ""}
+  },
+  "view": "view.php"
+}

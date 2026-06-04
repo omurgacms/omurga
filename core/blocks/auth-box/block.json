@@ -1,0 +1,14 @@
+{
+  "slug": "auth-box",
+  "name_key": "blocks.auth_box",
+  "category": "Varsayilan",
+  "allowed_contexts": ["page", "header", "footer", "sidebar"],
+  "usage": ["header", "home_top", "home_main", "sidebar", "footer", "page", "post", "any"],
+  "settings": {
+    "title": {"type": "text", "label": "Baslik", "default": ""},
+    "login_url": {"type": "text", "label": "Giris linki", "default": "admin/login.php"},
+    "register_url": {"type": "text", "label": "Kayit linki", "default": ""},
+    "show_register": {"type": "checkbox", "label": "Kayit linkini goster", "default": "1"}
+  },
+  "view": "view.php"
+}

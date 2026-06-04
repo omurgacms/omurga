@@ -1,0 +1,14 @@
+{
+  "id": "video",
+  "slug": "video",
+  "name": "Video",
+  "description": "MP4 veya video embed baglantisi gosterir.",
+  "category": "media",
+  "icon": "video",
+  "allowed_contexts": ["page", "sidebar"],
+  "settings_schema": {
+    "url": {"type": "url", "label": "Video URL", "default": ""},
+    "title": {"type": "text", "label": "Baslik", "default": ""}
+  },
+  "view": "view.php"
+}

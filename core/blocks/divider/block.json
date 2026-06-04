@@ -1,0 +1,13 @@
+{
+  "id": "divider",
+  "slug": "divider",
+  "name": "Ayirici Cizgi",
+  "description": "Bolumler arasina cizgi ekler.",
+  "category": "layout",
+  "icon": "minus",
+  "allowed_contexts": ["page", "header", "footer", "sidebar"],
+  "settings_schema": {
+    "style": {"type": "select", "label": "Stil", "default": "solid", "options": {"solid": "Duz", "dashed": "Kesik", "dotted": "Noktali"}}
+  },
+  "view": "view.php"
+}

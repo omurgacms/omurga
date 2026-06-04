@@ -1,0 +1,13 @@
+{
+  "id": "spacer",
+  "slug": "spacer",
+  "name": "Bosluk",
+  "description": "Dikey bosluk ekler.",
+  "category": "layout",
+  "icon": "space",
+  "allowed_contexts": ["page", "header", "footer", "sidebar"],
+  "settings_schema": {
+    "height": {"type": "number", "label": "Yukseklik", "default": 32}
+  },
+  "view": "view.php"
+}

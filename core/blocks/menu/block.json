@@ -1,0 +1,12 @@
+{
+  "slug": "menu",
+  "name_key": "blocks.menu",
+  "category": "Varsayilan",
+  "allowed_contexts": ["header", "footer", "sidebar"],
+  "usage": ["header", "footer", "sidebar", "home_main", "page", "post", "any"],
+  "settings": {
+    "title": {"type": "text", "label": "Baslik", "default": ""},
+    "location": {"type": "select", "label": "Menu", "default": "main", "options": {"main": "Ana menu", "footer": "Footer menu", "mobile": "Mobil menu", "top": "Ust menu"}}
+  },
+  "view": "view.php"
+}

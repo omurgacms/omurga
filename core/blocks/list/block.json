@@ -1,0 +1,14 @@
+{
+  "id": "list",
+  "slug": "list",
+  "name": "Liste",
+  "description": "Satir satir girilen maddeleri liste olarak gosterir.",
+  "category": "content",
+  "icon": "list",
+  "allowed_contexts": ["page", "footer", "sidebar"],
+  "settings_schema": {
+    "items": {"type": "textarea", "label": "Liste maddeleri", "default": "Birinci madde\nIkinci madde"},
+    "ordered": {"type": "checkbox", "label": "Numarali liste", "default": "0"}
+  },
+  "view": "view.php"
+}

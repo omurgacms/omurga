@@ -1,0 +1,13 @@
+{
+  "slug": "featured-content",
+  "name_key": "blocks.featured_content",
+  "category": "Varsayilan",
+  "allowed_contexts": ["page", "sidebar"],
+  "usage": ["home_main", "sidebar", "page", "post", "any"],
+  "settings": {
+    "title": {"type": "text", "label": "Baslik", "default": ""},
+    "limit": {"type": "number", "label": "Icerik sayisi", "default": 4},
+    "category_id": {"type": "category", "label": "Fallback kategori", "default": ""}
+  },
+  "view": "view.php"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "container",
+  "slug": "container",
+  "name": "Container",
+  "description": "Icerigi sinirlayan sade container alani.",
+  "category": "layout",
+  "icon": "box",
+  "allowed_contexts": ["page", "header", "footer"],
+  "settings_schema": {
+    "max_width": {"type": "number", "label": "Maksimum genislik", "default": 1200},
+    "note": {"type": "text", "label": "Yonetim notu", "default": ""}
+  },
+  "view": "view.php"
+}

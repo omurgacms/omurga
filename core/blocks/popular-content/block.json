@@ -1,0 +1,13 @@
+{
+  "slug": "popular-content",
+  "name_key": "blocks.popular_content",
+  "category": "Varsayilan",
+  "allowed_contexts": ["page", "sidebar"],
+  "usage": ["home_main", "sidebar", "footer", "page", "post", "any"],
+  "settings": {
+    "title": {"type": "text", "label": "Baslik", "default": ""},
+    "limit": {"type": "number", "label": "Icerik sayisi", "default": 6},
+    "sort_by": {"type": "select", "label": "Siralama", "default": "comments", "options": {"comments": "Yorum sayisi", "views": "Goruntulenme"}}
+  },
+  "view": "view.php"
+}

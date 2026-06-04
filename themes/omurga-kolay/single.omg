@@ -1,0 +1,14 @@
+@include('header')
+<main class="container narrow">
+  <article class="single">
+    <small>{{ post.category }} · {{ post.date }}</small>
+    <h1>{{ post.title }}</h1>
+    @if(post.image)
+      <img class="cover" src="{{ post.image }}" alt="{{ post.title }}">
+    @endif
+    <div class="content">{!! post.content !!}</div>
+  </article>
+  <omg:comments />
+  <omg:comment-form />
+</main>
+@include('footer')

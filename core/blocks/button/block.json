@@ -1,0 +1,15 @@
+{
+  "slug": "button",
+  "name_key": "blocks.button",
+  "category": "Varsayilan",
+  "allowed_contexts": ["page", "header", "footer", "sidebar"],
+  "usage": ["header", "home_top", "home_main", "sidebar", "footer", "page", "post", "any"],
+  "settings": {
+    "text": {"type": "text", "label": "Buton metni", "default": "Detay"},
+    "link": {"type": "url", "label": "Link", "default": ""},
+    "new_tab": {"type": "checkbox", "label": "Yeni sekmede ac", "default": "0"},
+    "align": {"type": "select", "label": "Hizalama", "default": "left", "options": {"left": "Sol", "center": "Orta", "right": "Sag"}},
+    "style": {"type": "select", "label": "Stil", "default": "filled", "options": {"filled": "Dolu", "outline": "Cizgili", "plain": "Sade"}}
+  },
+  "view": "view.php"
+}

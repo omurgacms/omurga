@@ -1,0 +1,13 @@
+{
+  "id": "breadcrumb",
+  "slug": "breadcrumb",
+  "name": "Breadcrumb",
+  "description": "Basit sayfa yolu gosterir.",
+  "category": "navigation",
+  "icon": "chevrons-right",
+  "allowed_contexts": ["page", "header"],
+  "settings_schema": {
+    "home_label": {"type": "text", "label": "Anasayfa etiketi", "default": "Anasayfa"}
+  },
+  "view": "view.php"
+}
