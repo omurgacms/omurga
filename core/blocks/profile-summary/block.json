@@ -1,0 +1,30 @@
+{
+  "id": "profile-summary",
+  "slug": "profile-summary",
+  "name": "Profil",
+  "description": "Giriş yapan kullanıcının kısa profil bilgisini gösterir.",
+  "category": "user",
+  "icon": "user-circle",
+  "allowed_contexts": [
+    "header",
+    "footer",
+    "sidebar",
+    "page",
+    "any"
+  ],
+  "settings_schema": {
+    "login_text": {
+      "type": "text",
+      "label": "Giris metni",
+      "default": "Giris yap"
+    }
+  },
+  "view": "view.php",
+  "usage": [
+    "header",
+    "footer",
+    "sidebar",
+    "page",
+    "any"
+  ]
+}

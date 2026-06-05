@@ -1,0 +1,14 @@
+@include('header')
+<main class="container">
+  <section class="hero">
+    <span>Omurga CMS 1.0 Beta</span>
+    <h1>{{ site.name }}</h1>
+    <p>{{ site.description }}</p>
+  </section>
+  <section class="grid">
+    @foreach(posts as post)
+      @include('components/post-card')
+    @endforeach
+  </section>
+</main>
+@include('footer')

@@ -1,0 +1,41 @@
+{
+  "slug": "latest-content",
+  "name_key": "blocks.latest_content",
+  "category": "news",
+  "allowed_contexts": [
+    "home",
+    "post",
+    "sidebar",
+    "footer"
+  ],
+  "usage": [
+    "home_main",
+    "sidebar",
+    "footer",
+    "post"
+  ],
+  "settings": {
+    "title": {
+      "type": "text",
+      "label": "Baslik",
+      "default": ""
+    },
+    "limit": {
+      "type": "number",
+      "label": "Icerik sayisi",
+      "default": 6
+    },
+    "view": {
+      "type": "select",
+      "label": "Gorunum",
+      "default": "card",
+      "options": {
+        "card": "Kart",
+        "list": "Liste"
+      }
+    }
+  },
+  "view": "view.php",
+  "name": "Son İçerikler",
+  "description": "En yeni yayınlanan içerikleri listeler."
+}

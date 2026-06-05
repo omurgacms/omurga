@@ -1,0 +1,6 @@
+{
+  "name": "Haber Ajansı",
+  "slug": "haber-ajansi",
+  "content": "content.json",
+  "settings": "settings.json"
+}

@@ -1,0 +1,40 @@
+{
+  "id": "text",
+  "slug": "text",
+  "name": "Metin",
+  "description": "Başlık ve paragraf metni ekler.",
+  "category": "content",
+  "icon": "type",
+  "allowed_contexts": [
+    "page",
+    "post",
+    "sidebar",
+    "footer",
+    "any"
+  ],
+  "settings_schema": {
+    "text": {
+      "type": "textarea",
+      "label": "Metin",
+      "default": "Metin icerigi"
+    },
+    "align": {
+      "type": "select",
+      "label": "Hizalama",
+      "default": "left",
+      "options": {
+        "left": "Sol",
+        "center": "Orta",
+        "right": "Sag"
+      }
+    }
+  },
+  "view": "view.php",
+  "usage": [
+    "page",
+    "post",
+    "sidebar",
+    "footer",
+    "any"
+  ]
+}

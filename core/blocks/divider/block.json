@@ -1,0 +1,35 @@
+{
+  "id": "divider",
+  "slug": "divider",
+  "name": "Ayraç",
+  "description": "Yatay ayraç çizgisi ekler.",
+  "category": "layout",
+  "icon": "minus",
+  "allowed_contexts": [
+    "page",
+    "post",
+    "sidebar",
+    "footer",
+    "any"
+  ],
+  "settings_schema": {
+    "style": {
+      "type": "select",
+      "label": "Stil",
+      "default": "solid",
+      "options": {
+        "solid": "Duz",
+        "dashed": "Kesik",
+        "dotted": "Noktali"
+      }
+    }
+  },
+  "view": "view.php",
+  "usage": [
+    "page",
+    "post",
+    "sidebar",
+    "footer",
+    "any"
+  ]
+}

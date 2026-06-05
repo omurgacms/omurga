@@ -1,0 +1,13 @@
+{
+  "name": "Örnek Omurga Teması",
+  "slug": "ornek-omurga-temasi",
+  "version": "1.0.0",
+  "author": "Omurga Topluluğu",
+  "description": "Resmi tema standardı için örnek tema yapısı.",
+  "template_engine": "omg",
+  "supports": {
+    "builder": true,
+    "demos": true,
+    "dark_mode": true
+  }
+}

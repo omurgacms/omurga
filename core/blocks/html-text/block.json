@@ -1,0 +1,42 @@
+{
+  "slug": "html-text",
+  "name_key": "blocks.html_text",
+  "category": "content",
+  "allowed_contexts": [
+    "page",
+    "post",
+    "sidebar",
+    "footer",
+    "any"
+  ],
+  "usage": [
+    "header",
+    "home_top",
+    "home_main",
+    "sidebar",
+    "footer",
+    "page",
+    "post",
+    "any"
+  ],
+  "settings": {
+    "title": {
+      "type": "text",
+      "label": "Baslik",
+      "default": ""
+    },
+    "text": {
+      "type": "textarea",
+      "label": "Metin",
+      "default": ""
+    },
+    "html": {
+      "type": "textarea",
+      "label": "Guvenli HTML",
+      "default": ""
+    }
+  },
+  "view": "view.php",
+  "name": "HTML / Metin",
+  "description": "Başlık, metin ve HTML içeriğini birlikte gösterir."
+}

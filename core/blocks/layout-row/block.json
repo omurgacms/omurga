@@ -1,0 +1,32 @@
+{
+  "id": "layout-row",
+  "slug": "layout-row",
+  "name": "Satır",
+  "description": "Blokları satır düzeninde gruplamak için kullanılır.",
+  "category": "layout",
+  "icon": "columns",
+  "allowed_contexts": [
+    "page",
+    "post",
+    "header",
+    "footer",
+    "sidebar",
+    "any"
+  ],
+  "settings_schema": {
+    "label": {
+      "type": "text",
+      "label": "Etiket",
+      "default": "Satir"
+    }
+  },
+  "view": "view.php",
+  "usage": [
+    "page",
+    "post",
+    "header",
+    "footer",
+    "sidebar",
+    "any"
+  ]
+}

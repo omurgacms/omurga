@@ -1,0 +1,24 @@
+{
+  "id": "user-menu",
+  "slug": "user-menu",
+  "name": "Kullanıcı Menüsü",
+  "description": "Kullanıcı işlemleri için kısa menü gösterir.",
+  "category": "user",
+  "icon": "user-cog",
+  "allowed_contexts": [
+    "header",
+    "footer",
+    "sidebar",
+    "page",
+    "any"
+  ],
+  "settings_schema": {},
+  "view": "view.php",
+  "usage": [
+    "header",
+    "footer",
+    "sidebar",
+    "page",
+    "any"
+  ]
+}

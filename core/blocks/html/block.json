@@ -1,0 +1,35 @@
+{
+  "id": "html",
+  "slug": "html",
+  "name": "HTML",
+  "description": "Güvenilir özel HTML kodu ekler.",
+  "category": "content",
+  "icon": "code",
+  "allowed_contexts": [
+    "page",
+    "post",
+    "sidebar",
+    "footer",
+    "any"
+  ],
+  "settings_schema": {
+    "html": {
+      "type": "textarea",
+      "label": "HTML",
+      "default": "<p>HTML icerigi</p>"
+    },
+    "allow_script": {
+      "type": "checkbox",
+      "label": "Script izni (Super Admin)",
+      "default": "0"
+    }
+  },
+  "view": "view.php",
+  "usage": [
+    "page",
+    "post",
+    "sidebar",
+    "footer",
+    "any"
+  ]
+}

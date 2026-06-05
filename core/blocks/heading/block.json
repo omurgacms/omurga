@@ -1,0 +1,15 @@
+{
+  "id": "heading",
+  "slug": "heading",
+  "name": "Baslik",
+  "description": "Sayfaya sade bir baslik ekler.",
+  "category": "content",
+  "icon": "heading",
+  "allowed_contexts": ["page", "header", "footer", "sidebar"],
+  "settings_schema": {
+    "text": {"type": "text", "label": "Baslik", "default": "Baslik"},
+    "level": {"type": "select", "label": "Seviye", "default": "h2", "options": {"h1": "H1", "h2": "H2", "h3": "H3", "h4": "H4"}},
+    "align": {"type": "select", "label": "Hizalama", "default": "left", "options": {"left": "Sol", "center": "Orta", "right": "Sag"}}
+  },
+  "view": "view.php"
+}

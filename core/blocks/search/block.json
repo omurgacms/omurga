@@ -1,0 +1,32 @@
+{
+  "slug": "search",
+  "name_key": "blocks.search",
+  "category": "navigation",
+  "allowed_contexts": [
+    "header",
+    "footer",
+    "sidebar",
+    "page",
+    "any"
+  ],
+  "usage": [
+    "header",
+    "home_top",
+    "home_main",
+    "sidebar",
+    "footer",
+    "page",
+    "post",
+    "any"
+  ],
+  "settings": {
+    "title": {
+      "type": "text",
+      "label": "Baslik",
+      "default": ""
+    }
+  },
+  "view": "view.php",
+  "name": "Arama",
+  "description": "Site içi arama formu gösterir."
+}

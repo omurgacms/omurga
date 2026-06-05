@@ -1,0 +1,41 @@
+{
+  "slug": "popular-content",
+  "name_key": "blocks.popular_content",
+  "category": "news",
+  "allowed_contexts": [
+    "home",
+    "post",
+    "sidebar",
+    "footer"
+  ],
+  "usage": [
+    "home_main",
+    "sidebar",
+    "footer",
+    "post"
+  ],
+  "settings": {
+    "title": {
+      "type": "text",
+      "label": "Baslik",
+      "default": ""
+    },
+    "limit": {
+      "type": "number",
+      "label": "Icerik sayisi",
+      "default": 6
+    },
+    "sort_by": {
+      "type": "select",
+      "label": "Siralama",
+      "default": "comments",
+      "options": {
+        "comments": "Yorum sayisi",
+        "views": "Goruntulenme"
+      }
+    }
+  },
+  "view": "view.php",
+  "name": "Popüler İçerikler",
+  "description": "Popüler veya çok okunan içerikleri listeler."
+}

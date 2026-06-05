@@ -1,0 +1,26 @@
+{
+  "id": "breadcrumb",
+  "slug": "breadcrumb",
+  "name": "Breadcrumb",
+  "description": "Sayfa konum yolunu gösterir.",
+  "category": "navigation",
+  "icon": "chevrons-right",
+  "allowed_contexts": [
+    "page",
+    "post",
+    "any"
+  ],
+  "settings_schema": {
+    "home_label": {
+      "type": "text",
+      "label": "Anasayfa etiketi",
+      "default": "Anasayfa"
+    }
+  },
+  "view": "view.php",
+  "usage": [
+    "page",
+    "post",
+    "any"
+  ]
+}

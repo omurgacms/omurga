@@ -1,0 +1,30 @@
+{
+  "id": "social-links",
+  "slug": "social-links",
+  "name": "Sosyal Medya",
+  "description": "Sosyal medya bağlantılarını gösterir.",
+  "category": "navigation",
+  "icon": "share-2",
+  "allowed_contexts": [
+    "header",
+    "footer",
+    "sidebar",
+    "page",
+    "any"
+  ],
+  "settings_schema": {
+    "links": {
+      "type": "textarea",
+      "label": "Linkler",
+      "default": "Facebook|https://facebook.com\nInstagram|https://instagram.com"
+    }
+  },
+  "view": "view.php",
+  "usage": [
+    "header",
+    "footer",
+    "sidebar",
+    "page",
+    "any"
+  ]
+}

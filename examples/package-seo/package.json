@@ -1,0 +1,11 @@
+{
+  "id": "ornek-seo",
+  "name": "Ornek SEO Paketi",
+  "version": "1.0.0",
+  "description": "Omurga CMS icin ornek SEO paketi.",
+  "author": "Omurga CMS",
+  "type": "package",
+  "entry": "package.php",
+  "permissions": ["settings"],
+  "requires": []
+}

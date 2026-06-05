@@ -1,0 +1,37 @@
+{
+  "id": "container",
+  "slug": "container",
+  "name": "Kolon / Kapsayıcı",
+  "description": "İçerikleri kapsayıcı veya kolon düzeninde gruplar.",
+  "category": "layout",
+  "icon": "box",
+  "allowed_contexts": [
+    "page",
+    "post",
+    "header",
+    "footer",
+    "sidebar",
+    "any"
+  ],
+  "settings_schema": {
+    "max_width": {
+      "type": "number",
+      "label": "Maksimum genislik",
+      "default": 1200
+    },
+    "note": {
+      "type": "text",
+      "label": "Yonetim notu",
+      "default": ""
+    }
+  },
+  "view": "view.php",
+  "usage": [
+    "page",
+    "post",
+    "header",
+    "footer",
+    "sidebar",
+    "any"
+  ]
+}

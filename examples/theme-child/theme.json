@@ -1,0 +1,11 @@
+{
+  "id": "ornek-child",
+  "name": "Ornek Child Tema",
+  "version": "1.0.0",
+  "description": "Omurga CMS icin ornek alt tema.",
+  "author": "Omurga CMS",
+  "template_engine": "omg",
+  "type": "theme",
+  "parent": "omurga-kolay",
+  "supports": []
+}

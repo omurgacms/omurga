@@ -1,0 +1,9 @@
+{
+  "slug": "ornek-paket",
+  "name": "Örnek Paket",
+  "version": "1.0.0",
+  "description": "Omurga Developer API örnek paketi.",
+  "main": "package.php",
+  "permissions": [],
+  "admin_pages": []
+}

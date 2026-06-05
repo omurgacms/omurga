@@ -1,0 +1,33 @@
+{
+  "slug": "comments",
+  "name_key": "blocks.comments",
+  "category": "news",
+  "allowed_contexts": [
+    "post",
+    "sidebar"
+  ],
+  "usage": [
+    "post",
+    "sidebar"
+  ],
+  "settings": {
+    "title": {
+      "type": "text",
+      "label": "Baslik",
+      "default": ""
+    },
+    "show_list": {
+      "type": "checkbox",
+      "label": "Yorum listesini goster",
+      "default": "1"
+    },
+    "show_form": {
+      "type": "checkbox",
+      "label": "Yorum formunu goster",
+      "default": "1"
+    }
+  },
+  "view": "view.php",
+  "name": "Yorumlar",
+  "description": "Son yorumları veya içerik yorum alanını gösterir."
+}

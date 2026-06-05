@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="{{ site.language }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <meta name="description" content="{{ meta }}">
+  <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+</head>
+<body>
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="brand" href="{{ site.url }}">{{ site.name }}</a>
+    <nav class="nav">
+      <a href="{{ site.url }}">Anasayfa</a>
+      <a href="{{ url('/kategori/genel') }}">Genel</a>
+      <a href="{{ url('/admin') }}">Panel</a>
+    </nav>
+  </div>
+</header>

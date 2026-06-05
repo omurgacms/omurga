@@ -1,0 +1,15 @@
+{
+  "id": "file-download",
+  "slug": "file-download",
+  "name": "Dosya Indirme",
+  "description": "Bir dosya indirme baglantisi gosterir.",
+  "category": "media",
+  "icon": "download",
+  "allowed_contexts": ["page", "sidebar", "footer"],
+  "settings_schema": {
+    "title": {"type": "text", "label": "Baslik", "default": "Dosya indir"},
+    "file": {"type": "media", "label": "Dosya", "default": ""},
+    "description": {"type": "textarea", "label": "Aciklama", "default": ""}
+  },
+  "view": "view.php"
+}

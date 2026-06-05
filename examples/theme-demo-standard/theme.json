@@ -1,0 +1,8 @@
+{
+  "slug": "ornek-tema",
+  "name": "Örnek Tema",
+  "version": "1.0.0",
+  "settings": {
+    "primary_color": {"type":"color", "label":"Ana Renk", "default":"#f97316"}
+  }
+}

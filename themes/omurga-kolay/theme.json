@@ -1,0 +1,11 @@
+{
+  "slug": "omurga-kolay",
+  "id": "omurga-kolay",
+  "name": "Omurga Kolay",
+  "version": "1.0.2-beta",
+  "description": "Omurga CMS için sade, hızlı ve OMG tabanlı varsayılan tema.",
+  "author": "Omurga CMS",
+  "template_engine": "omg",
+  "system_theme": true,
+  "supports": ["builder", "menus", "comments", "responsive"]
+}

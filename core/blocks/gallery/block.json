@@ -1,0 +1,36 @@
+{
+  "id": "gallery",
+  "slug": "gallery",
+  "name": "Galeri",
+  "description": "Çoklu görselleri galeri düzeninde gösterir.",
+  "category": "media",
+  "icon": "images",
+  "allowed_contexts": [
+    "page",
+    "post",
+    "any"
+  ],
+  "settings_schema": {
+    "images": {
+      "type": "textarea",
+      "label": "Gorseller",
+      "default": ""
+    },
+    "columns": {
+      "type": "select",
+      "label": "Kolon",
+      "default": "3",
+      "options": {
+        "2": "2",
+        "3": "3",
+        "4": "4"
+      }
+    }
+  },
+  "view": "view.php",
+  "usage": [
+    "page",
+    "post",
+    "any"
+  ]
+}

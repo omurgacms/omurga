@@ -1,0 +1,47 @@
+{
+  "slug": "image",
+  "name_key": "blocks.image",
+  "category": "media",
+  "allowed_contexts": [
+    "page",
+    "post",
+    "sidebar",
+    "footer",
+    "any"
+  ],
+  "usage": [
+    "header",
+    "home_top",
+    "home_main",
+    "sidebar",
+    "footer",
+    "page",
+    "post",
+    "any"
+  ],
+  "settings": {
+    "title": {
+      "type": "text",
+      "label": "Baslik",
+      "default": ""
+    },
+    "image": {
+      "type": "image",
+      "label": "Gorsel",
+      "default": ""
+    },
+    "alt": {
+      "type": "text",
+      "label": "Alt metin",
+      "default": ""
+    },
+    "link": {
+      "type": "url",
+      "label": "Link",
+      "default": ""
+    }
+  },
+  "view": "view.php",
+  "name": "Görsel",
+  "description": "Tek görsel, bağlantı ve açıklama gösterir."
+}

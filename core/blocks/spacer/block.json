@@ -1,0 +1,32 @@
+{
+  "id": "spacer",
+  "slug": "spacer",
+  "name": "Boşluk",
+  "description": "Dikey boşluk ekler.",
+  "category": "layout",
+  "icon": "space",
+  "allowed_contexts": [
+    "page",
+    "post",
+    "header",
+    "footer",
+    "sidebar",
+    "any"
+  ],
+  "settings_schema": {
+    "height": {
+      "type": "number",
+      "label": "Yukseklik",
+      "default": 32
+    }
+  },
+  "view": "view.php",
+  "usage": [
+    "page",
+    "post",
+    "header",
+    "footer",
+    "sidebar",
+    "any"
+  ]
+}

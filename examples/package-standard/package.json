@@ -1,0 +1,9 @@
+{
+  "name": "Örnek Omurga Paketi",
+  "slug": "ornek-omurga-paketi",
+  "version": "1.0.0",
+  "author": "Omurga Topluluğu",
+  "description": "Resmi paket standardı ve izin sistemi için örnek paket.",
+  "main": "package.php",
+  "permissions": ["settings", "admin_pages", "blocks"]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "map",
+  "slug": "map",
+  "name": "Harita",
+  "description": "Guvenli harita baglantisi veya iframe alani.",
+  "category": "media",
+  "icon": "map",
+  "allowed_contexts": ["page", "footer", "sidebar"],
+  "settings_schema": {
+    "url": {"type": "url", "label": "Harita URL", "default": ""},
+    "title": {"type": "text", "label": "Baslik", "default": "Harita"}
+  },
+  "view": "view.php"
+}

@@ -1,0 +1,17 @@
+{
+  "name": "Editörün Seçimi",
+  "slug": "editor-secimi",
+  "description": "Haber ekleme ekranındaki Editörün Seçimi işaretli haberleri listeler.",
+  "category": "Özel Bloklar",
+  "usage": ["home_main", "sidebar", "page", "post"],
+  "settings": {
+    "title": {"type": "text", "label": "Başlık", "default": "Editörün Seçimi"},
+    "limit": {"type": "number", "label": "Haber Sayısı", "default": 4},
+    "source": {"type": "select", "label": "İçerik Kaynağı", "default": "meta", "options": {"meta": "İşaretli haberler", "latest": "Son haberler"}},
+    "meta_key": {"type": "text", "label": "Meta Anahtarı", "default": "editor_choice"},
+    "meta_value": {"type": "text", "label": "Meta Değeri", "default": "1"}
+  },
+  "post_meta": {
+    "editor_choice": {"type": "checkbox", "label": "Editörün Seçimi Bloğunda Göster", "default": false}
+  }
+}

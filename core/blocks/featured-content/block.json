@@ -1,0 +1,35 @@
+{
+  "slug": "featured-content",
+  "name_key": "blocks.featured_content",
+  "category": "news",
+  "allowed_contexts": [
+    "home",
+    "post",
+    "sidebar"
+  ],
+  "usage": [
+    "home_main",
+    "sidebar",
+    "post"
+  ],
+  "settings": {
+    "title": {
+      "type": "text",
+      "label": "Baslik",
+      "default": ""
+    },
+    "limit": {
+      "type": "number",
+      "label": "Icerik sayisi",
+      "default": 4
+    },
+    "category_id": {
+      "type": "category",
+      "label": "Fallback kategori",
+      "default": ""
+    }
+  },
+  "view": "view.php",
+  "name": "Öne Çıkan İçerikler",
+  "description": "Öne çıkarılmış içerikleri listeler."
+}
