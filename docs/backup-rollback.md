@@ -1,6 +1,6 @@
 # Omurga Yedekleme ve Rollback Sistemi
 
-Omurga 1.0.2 Beta ile yedekleme sistemi iki katmanlı çalışır:
+Omurga 1.0.2.2 Beta ile yedekleme sistemi iki katmanlı çalışır:
 
 ## 1. Site Yedekleri
 

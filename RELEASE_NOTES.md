@@ -1,6 +1,34 @@
-# Omurga CMS 1.0.2 Beta Release Notes
+# Omurga CMS 1.0.5 Beta Yayın Notları
 
-Omurga CMS 1.0.2 Beta is a public beta release.
+Omurga CMS 1.0.5 Beta, temiz dağıtım ve varsayılan tema paketi sürümüdür.
+
+## Eklendi
+
+- Haber V1, Kurumsal V1 ve Topluluk V1 varsayılan tema paketleri eklendi.
+- `demos/` altında tema demo yapısı eklendi.
+- Kurulum profiline göre tema seçimi yapısı 1.0.5 Beta dağıtımına uyarlandı.
+
+## Düzeltildi
+
+- Dağıtım paketinden kurulu sisteme ait `config.php`, `installed.lock`, log ve cache çıktıları çıkarıldı.
+- `packages/` klasörü temiz dağıtım yapısına uygun bırakıldı.
+- Sürüm bilgileri 1.0.5 Beta olarak güncellendi.
+
+## Varsayılan
+
+- Hızlı/boş kurulumda Haber V1 varsayılan tema olarak gelir.
+
+---
+
+# Omurga CMS 1.0.3.15 Beta
+
+Bu sürüm REST API altyapısını ekler. Harici uygulamalar içerik okuyabilir, API anahtarıyla yazı/sayfa oluşturabilir ve medya/kullanıcı verilerine kontrollü erişebilir.
+
+# Omurga CMS 1.0.3.15 Beta Release Notes
+
+Omurga CMS 1.0.3.15 Beta is a public beta release.
+
+- Aynı sürüm veya düşük sürüm güncelleme paketleri artık engellenmez; kullanıcı onayıyla uygulanır ve işlem loglanır.
 
 ## What's included
 
@@ -26,9 +54,9 @@ This is a beta release. Test before using it on a production website and always 
 
 ---
 
-# Omurga CMS 1.0.2 Beta Yayın Notları
+# Omurga CMS 1.0.3.15 Beta Yayın Notları
 
-Omurga CMS 1.0.2 Beta herkese açık beta sürümüdür.
+Omurga CMS 1.0.3.15 Beta herkese açık beta sürümüdür.
 
 ## İçerikler
 
@@ -51,3 +79,6 @@ Omurga CMS 1.0.2 Beta herkese açık beta sürümüdür.
 ## Not
 
 Bu sürüm beta durumundadır. Canlı sitede kullanmadan önce test edin ve mutlaka yedek alın.
+
+## Omurga CMS 1.0.3.15 Beta
+Bu sürüm editör önizleme deneyimini ve profil düzenleme akışını düzeltir.

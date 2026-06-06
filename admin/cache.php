@@ -4,7 +4,7 @@ require_cap('users.manage');
 verify_csrf();
 
 /**
- * Omurga CMS 1.0.2 Beta
+ * Omurga CMS 1.0.2.2 Beta
  * Cache ekranı dayanıklı hale getirildi.
  * Bazı kurulumlarda v2.4 cache helper fonksiyonları eksik kaldığında 500 hatası oluşuyordu.
  */

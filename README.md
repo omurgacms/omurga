@@ -1,3 +1,17 @@
+# Omurga CMS 1.0.5 Beta
+
+Omurga CMS; haber, kurumsal ve topluluk siteleri için geliştirilen hafif, tema/paket destekli içerik yönetim sistemidir.
+
+Bu dağıtımda hazır gelen temalar:
+
+- **Haber V1**: Varsayılan haber teması
+- **Kurumsal V1**: Şirket/hizmet tanıtım teması
+- **Topluluk V1**: Dernek, platform ve topluluk teması
+
+Kurulumda seçilen profile göre ilgili tema aktif edilir. Demo içerikler isteğe bağlı kullanılmak üzere `demos/` klasöründe ve tema klasörlerinde bulunur.
+
+---
+
 # Omurga CMS
 
 <p align="center">
@@ -14,7 +28,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.0%20Beta-blue">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.5%20Beta-blue">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
   <img alt="Status" src="https://img.shields.io/badge/status-beta-orange">
 </p>
@@ -23,7 +37,7 @@
 
 ## English
 
-**Omurga CMS 1.0.2 Beta** is a beta release of a simple, extensible content management system designed for news, municipality, corporate and community websites.
+**Omurga CMS 1.0.5 Beta** is a beta release of a simple, extensible content management system designed for news, municipality, corporate and community websites.
 
 > Status: **Beta**  
 > Website: **https://omurgacms.com**
@@ -43,21 +57,24 @@
 
 ### Default themes
 
-Omurga CMS 1.0.2 Beta ships with two simple default themes:
+Omurga CMS 1.0.5 Beta ships with three default themes:
 
-#### Omurga Kolay
+#### Haber V1
 
-- OMG-based theme.
-- A simple starter theme for users who want to build themes without PHP.
-- Uses files such as `home.omg`, `single.omg`, `page.omg`, `category.omg`.
+- Default news theme.
+- Designed for news portals and content-heavy websites.
 
-#### Omurga Sabit
+#### Kurumsal V1
 
-- PHP-based theme.
-- A simple starter theme for classic PHP theme development.
-- Uses files such as `home.php`, `single.php`, `page.php`, `category.php`.
+- Corporate/company theme.
+- Designed for service, promotion and company websites.
 
-For safety, Omurga keeps at least two themes installed. Active themes and system themes cannot be deleted from the admin panel.
+#### Topluluk V1
+
+- Community/association theme.
+- Designed for public, association and community-oriented websites.
+
+The installer activates the matching theme based on the selected profile. If no profile is selected, Haber V1 is used as the default theme.
 
 ### Installation
 
@@ -118,7 +135,7 @@ Omurga CMS is released under the MIT License. See `LICENSE`.
 
 ## Türkçe
 
-**Omurga CMS 1.0.2 Beta**, haber, belediye, kurumsal ve topluluk web siteleri için geliştirilen sade ve genişletilebilir bir içerik yönetim sisteminin beta sürümüdür.
+**Omurga CMS 1.0.5 Beta**, haber, belediye, kurumsal ve topluluk web siteleri için geliştirilen sade ve genişletilebilir bir içerik yönetim sisteminin beta sürümüdür.
 
 > Durum: **Beta**  
 > Proje sitesi: **https://omurgacms.com**
@@ -138,7 +155,7 @@ Omurga CMS is released under the MIT License. See `LICENSE`.
 
 ### Varsayılan temalar
 
-Omurga CMS 1.0.2 Beta iki sade sistem temasıyla gelir:
+Omurga CMS 1.0.5 Beta üç varsayılan tema ile gelir:
 
 #### Omurga Kolay
 
@@ -208,3 +225,12 @@ Geliştirici belgeleri `docs/` klasöründedir:
 ### Lisans
 
 Omurga CMS MIT lisansı ile yayınlanır. Ayrıntılar için `LICENSE` dosyasına bakın.
+
+
+## REST API
+
+Omurga 1.0.5 Beta ile `/api` uçları ve panelden API anahtarı yönetimi eklendi. Detaylar: `docs/rest-api.md`.
+
+## Builder API
+
+Omurga 1.0.5 Beta ile tema ve paket geliştiricileri için Builder API eklendi. Geliştiriciler artık `omurga_register_builder_block()`, `omurga_register_builder_region()` ve `omurga_register_builder_template()` yardımcılarıyla çekirdeğe dokunmadan builder blokları, bölgeleri ve hazır yerleşimler tanımlayabilir. Detaylar: `docs/builder-api.md`.

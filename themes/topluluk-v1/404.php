@@ -1,0 +1,1 @@
+<?php include __DIR__.'/header.php'; ?><div class="dt-page"><h1>Sayfa bulunamadı</h1><div class="dt-page-content"><p>Aradığınız sayfa bulunamadı.</p></div></div><?php include __DIR__.'/footer.php'; ?>

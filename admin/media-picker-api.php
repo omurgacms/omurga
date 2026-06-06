@@ -1,8 +1,9 @@
 <?php
 require_once dirname(__DIR__).'/bootstrap.php';
-require_admin();
 header('Content-Type: application/json; charset=utf-8');
+function om_media_picker_json(array $payload, int $status=200): void { http_response_code($status); echo json_encode($payload, JSON_UNESCAPED_UNICODE); exit; }
 try{
+    require_admin();
     if(!can('media.select') && !can('media.manage') && current_user_role()!=='admin') throw new RuntimeException('Yetkisiz işlem.');
     $q=trim((string)($_GET['q'] ?? ''));
     $type=trim((string)($_GET['type'] ?? ''));
@@ -37,6 +38,5 @@ try{
     }
     echo json_encode(['ok'=>true,'items'=>$items,'page'=>$page], JSON_UNESCAPED_UNICODE);
 }catch(Throwable $e){
-    http_response_code(400);
-    echo json_encode(['ok'=>false,'message'=>$e->getMessage()], JSON_UNESCAPED_UNICODE);
+    om_media_picker_json(['ok'=>false,'message'=>$e->getMessage()], 400);
 }

@@ -1,0 +1,1 @@
+<?php if (!defined('OMURGA_ROOT')) { exit; } ?><!doctype html><meta charset="utf-8"><title>Sayfa bulunamadı</title><link rel="stylesheet" href="<?=e(kv1_asset('assets/css/style.css'))?>"><main class="kv1-error"><h1>404</h1><p>Aradığınız sayfa bulunamadı.</p><a href="<?=e(omurga_url())?>">Ana sayfaya dön</a></main>

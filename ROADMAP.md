@@ -1,6 +1,6 @@
 # Omurga CMS Roadmap
 
-## Omurga CMS 1.0.2 Beta
+## Omurga CMS 1.0.3.15 Beta
 
 - [x] OMG template theme support
 - [x] PHP theme support
@@ -33,3 +33,5 @@
 - [ ] Migration system
 - [ ] Full developer documentation
 - [ ] Production-ready release package
+
+- Builder API: tamamlandı (1.0.3.15 Beta).

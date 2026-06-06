@@ -2,10 +2,60 @@
   "slug": "omurga-kolay",
   "id": "omurga-kolay",
   "name": "Omurga Kolay",
-  "version": "1.0.2-beta",
+  "version": "1.0.3.7-beta",
   "description": "Omurga CMS için sade, hızlı ve OMG tabanlı varsayılan tema.",
   "author": "Omurga CMS",
   "template_engine": "omg",
   "system_theme": true,
-  "supports": ["builder", "menus", "comments", "responsive"]
+  "supports": [
+    "builder",
+    "menus",
+    "comments",
+    "responsive"
+  ],
+  "menu_locations": {
+    "main": "Ana Menü",
+    "mobile": "Mobil Menü",
+    "footer": "Footer Menü",
+    "top": "Üst Menü"
+  },
+  "regions": {
+    "header": "Üst Alan",
+    "home_top": "Ana Sayfa Üstü",
+    "home_main": "Ana İçerik",
+    "sidebar": "Yan Alan",
+    "post_inside": "Yazı Detay İçi",
+    "footer": "Alt Alan"
+  },
+  "settings": {
+    "logo": {
+      "type": "image",
+      "label": "Logo",
+      "default": ""
+    },
+    "primary_color": {
+      "type": "color",
+      "label": "Ana Renk",
+      "default": "#f97316"
+    },
+    "show_author": {
+      "type": "checkbox",
+      "label": "Yazıda yazarı göster",
+      "default": "1"
+    },
+    "layout_width": {
+      "type": "select",
+      "label": "İçerik genişliği",
+      "default": "normal",
+      "options": {
+        "normal": "Normal",
+        "wide": "Geniş"
+      }
+    }
+  },
+  "hooks": [
+    "omurga_theme_loaded",
+    "omurga_before_post_render",
+    "omurga_before_omg_render"
+  ]
 }

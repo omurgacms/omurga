@@ -1,0 +1,1 @@
+<?php include __DIR__.'/header.php'; ?><div class="dt-page"><h1>Bir hata oluştu</h1><div class="dt-page-content"><p>Lütfen daha sonra tekrar deneyin.</p></div></div><?php include __DIR__.'/footer.php'; ?>

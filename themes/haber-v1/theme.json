@@ -1,0 +1,219 @@
+{
+  "slug": "haber-v1",
+  "id": "haber-v1",
+  "name": "Haber V1",
+  "version": "1.0.0",
+  "description": "Omurga CMS için modern, sade ve demo odaklı varsayılan haber teması. Kendi paneli, demo içe aktarma, reklam alanları, yazar kartları ve kategori kontrollü ana sayfa içerir.",
+  "author": "Omurga CMS",
+  "template_engine": "php",
+  "system_theme": false,
+  "supports": [
+    "menus",
+    "comments",
+    "responsive",
+    "demo-content",
+    "news-layout"
+  ],
+  "menu_locations": {
+    "top": "Üst Menü",
+    "main": "Ana Menü",
+    "mobile": "Mobil Menü",
+    "footer": "Footer Menü"
+  },
+  "regions": {
+    "header": "Üst Alan",
+    "home_top": "Ana Sayfa Üstü",
+    "home_main": "Ana İçerik",
+    "sidebar": "Yan Alan",
+    "post_inside": "Yazı Detay İçi",
+    "footer": "Alt Alan"
+  },
+  "settings": {
+    "logo": {
+      "type": "image",
+      "label": "Logo",
+      "default": ""
+    },
+    "primary_color": {
+      "type": "color",
+      "label": "Ana Renk",
+      "default": "#D32F2F"
+    },
+    "site_label": {
+      "type": "text",
+      "label": "Logo yazısı",
+      "default": "HABER V1"
+    },
+    "show_breaking": {
+      "type": "checkbox",
+      "label": "Son dakika şeridi",
+      "default": "1"
+    },
+    "show_markets": {
+      "type": "checkbox",
+      "label": "Piyasa şeridi",
+      "default": "1"
+    },
+    "show_authors": {
+      "type": "checkbox",
+      "label": "Yazarlar alanı",
+      "default": "1"
+    },
+    "show_sidebar": {
+      "type": "checkbox",
+      "label": "Sidebar",
+      "default": "1"
+    },
+    "hero_category": {
+      "type": "text",
+      "label": "Manşet kategorisi slug",
+      "default": "gundem"
+    },
+    "local_category": {
+      "type": "text",
+      "label": "Yerel blok kategorisi slug",
+      "default": "yerel"
+    },
+    "economy_category": {
+      "type": "text",
+      "label": "Ekonomi blok kategorisi slug",
+      "default": "ekonomi"
+    },
+    "sport_category": {
+      "type": "text",
+      "label": "Spor blok kategorisi slug",
+      "default": "spor"
+    },
+    "tech_category": {
+      "type": "text",
+      "label": "Teknoloji blok kategorisi slug",
+      "default": "teknoloji"
+    },
+    "market_dollar": {
+      "type": "text",
+      "label": "Dolar",
+      "default": "32,41"
+    },
+    "market_euro": {
+      "type": "text",
+      "label": "Euro",
+      "default": "35,17"
+    },
+    "market_gold": {
+      "type": "text",
+      "label": "Altın",
+      "default": "3.241"
+    },
+    "market_bist": {
+      "type": "text",
+      "label": "BIST 100",
+      "default": "9.842"
+    },
+    "footer_text": {
+      "type": "text",
+      "label": "Footer yazısı",
+      "default": ""
+    },
+    "epaper_url": {
+      "type": "url",
+      "label": "E-Gazete linki",
+      "default": "#"
+    },
+    "subscribe_url": {
+      "type": "url",
+      "label": "Abone ol linki",
+      "default": "#"
+    },
+    "facebook_url": {
+      "type": "url",
+      "label": "Facebook",
+      "default": ""
+    },
+    "x_url": {
+      "type": "url",
+      "label": "X / Twitter",
+      "default": ""
+    },
+    "instagram_url": {
+      "type": "url",
+      "label": "Instagram",
+      "default": ""
+    },
+    "show_ad_placeholders": {
+      "type": "checkbox",
+      "label": "Boş reklam alanlarını göster",
+      "default": "1"
+    },
+    "ad_header": {
+      "type": "textarea",
+      "label": "Header reklam kodu",
+      "default": ""
+    },
+    "ad_home_after_hero": {
+      "type": "textarea",
+      "label": "Manşet altı reklam kodu",
+      "default": ""
+    },
+    "ad_sidebar": {
+      "type": "textarea",
+      "label": "Sidebar reklam kodu",
+      "default": ""
+    },
+    "ad_article": {
+      "type": "textarea",
+      "label": "Yazı içi reklam kodu",
+      "default": ""
+    },
+    "author_1_name": {
+      "type": "text",
+      "label": "Yazar 1 adı",
+      "default": "Ahmet Yılmaz"
+    },
+    "author_1_title": {
+      "type": "text",
+      "label": "Yazar 1 açıklama",
+      "default": "Günün politik notları"
+    },
+    "author_1_initials": {
+      "type": "text",
+      "label": "Yazar 1 baş harf",
+      "default": "AY"
+    },
+    "author_2_name": {
+      "type": "text",
+      "label": "Yazar 2 adı",
+      "default": "Elif Kaya"
+    },
+    "author_2_title": {
+      "type": "text",
+      "label": "Yazar 2 açıklama",
+      "default": "Ekonomi ve piyasalar"
+    },
+    "author_2_initials": {
+      "type": "text",
+      "label": "Yazar 2 baş harf",
+      "default": "EK"
+    },
+    "author_3_name": {
+      "type": "text",
+      "label": "Yazar 3 adı",
+      "default": "Murat Demir"
+    },
+    "author_3_title": {
+      "type": "text",
+      "label": "Yazar 3 açıklama",
+      "default": "Yerelden kısa kısa"
+    },
+    "author_3_initials": {
+      "type": "text",
+      "label": "Yazar 3 baş harf",
+      "default": "MD"
+    }
+  },
+  "demos": {
+    "default": {
+      "name": "Haber V1 Demo",
+      "description": "15 haber, kategoriler, etiketler, menüler, sayfalar ve görseller."
+    }
+  }
+}

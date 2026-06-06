@@ -1,0 +1,28 @@
+{
+  "name": "Haber V1 Demo",
+  "posts": 15,
+  "categories": [
+    "Gündem",
+    "Yerel",
+    "Ekonomi",
+    "Spor",
+    "Teknoloji",
+    "Dünya",
+    "Kültür Sanat",
+    "Siyaset"
+  ],
+  "menus": [
+    "main",
+    "mobile",
+    "top",
+    "footer"
+  ],
+  "pages": [
+    "Hakkımızda",
+    "İletişim",
+    "Gizlilik Politikası"
+  ],
+  "description": "15 haber, kategoriler, etiketler, menüler, sayfalar, demo görseller ve Haber V1 görünüm ayarları.",
+  "content_policy": "Tema değişse veya görünüm sıfırlansa bile yazılar, sayfalar, kategoriler, etiketler, görseller ve menüler silinmez.",
+  "reset_policy": "Sadece Haber V1 görünüm/tema ayarları sıfırlanır."
+}

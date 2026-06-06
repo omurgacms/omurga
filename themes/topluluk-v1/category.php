@@ -1,0 +1,3 @@
+<?php include __DIR__.'/header.php'; $items=$posts ?? tv1_posts(12); ?>
+<div class="dt-list-wrap"><div class="dt-section-header"><div class="dt-section-title"><span>Kategori</span><?=e($category['name'] ?? 'İçerikler')?></div></div><div class="dt-list-grid"><?php foreach($items as $p): ?><article class="dt-list-card"><h2><a href="<?=e(tv1_post_url($p))?>"><?=e($p['title'] ?? '')?></a></h2><p><?=e(tv1_excerpt(($p['spot'] ?? '') ?: ($p['content'] ?? ''),130))?></p></article><?php endforeach; if(!$items): ?><div class="dt-no-content">Bu kategoride içerik bulunamadı.</div><?php endif; ?></div></div>
+<?php include __DIR__.'/footer.php'; ?>

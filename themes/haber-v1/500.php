@@ -1,0 +1,1 @@
+<?php include __DIR__.'/header.php'; ?><main class='article-wrap'><article class='article-card'><h1>Sistem hatası</h1><p>Beklenmeyen bir hata oluştu.</p></article></main><?php include __DIR__.'/footer.php'; ?>

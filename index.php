@@ -7,6 +7,7 @@ if(function_exists('omurga_frontend_maintenance_lock_active') && omurga_frontend
 }
 $postsT=table_name('posts'); $catsT=table_name('categories'); $formsT=table_name('forms');
 $siteName=setting('site_name','Omurga'); $desc=setting('site_description','Web sitelerinin gÃ¼Ã§lÃ¼ yayÄ±n altyapÄ±sÄ±'); $st=site_type(); $slug=current_path();
+if($slug==='api' || str_starts_with($slug,'api/')){ omurga_api_dispatch(); }
 
 function omurga_posts_by_category_slug(string $categorySlug, int $limit=6): array {
     $postsT=table_name('posts'); $catsT=table_name('categories');

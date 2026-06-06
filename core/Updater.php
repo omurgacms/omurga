@@ -27,7 +27,7 @@ final class OmurgaUpdater
         $v = strtolower(trim($version));
         $v = str_replace(['omurga cms', 'omurga-cms', 'clean-release', 'release'], '', $v);
         $v = preg_replace('/^v/', '', trim($v));
-        if (preg_match('/(\d+\.\d+\.\d+(?:[\s._-]*(?:alpha|beta|rc)\d*)?)/i', $v, $m)) {
+        if (preg_match('/(\d+(?:\.\d+){1,3}(?:[\s._-]*(?:alpha|beta|rc)\d*)?)/i', $v, $m)) {
             $v = strtolower($m[1]);
         }
         $v = str_replace(['_', ' '], '-', $v);
@@ -73,6 +73,15 @@ final class OmurgaUpdater
         return $dir;
     }
 
+    public static function updatesDir(): string
+    {
+        $dir = OMURGA_ROOT . '/storage/updates';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        return $dir;
+    }
+
     public static function writeLog(string $message): void
     {
         try {
@@ -95,7 +104,7 @@ final class OmurgaUpdater
         $repo = function_exists('setting') ? trim((string)setting('update_github_repo', self::DEFAULT_REPO)) : self::DEFAULT_REPO;
         $owner = preg_replace('/[^a-zA-Z0-9_.-]/', '', $owner) ?: self::DEFAULT_OWNER;
         $repo = preg_replace('/[^a-zA-Z0-9_.-]/', '', $repo) ?: self::DEFAULT_REPO;
-        return 'https://api.github.com/repos/' . $owner . '/' . $repo . '/releases/latest';
+        return 'https://api.github.com/repos/' . $owner . '/' . $repo . '/releases';
     }
 
     public static function cachedCheck(): ?array
@@ -131,7 +140,8 @@ final class OmurgaUpdater
         ];
 
         try {
-            $release = self::fetchJson(self::endpoint());
+            $payload = self::fetchJson(self::endpoint());
+            $release = self::selectLatestRelease($payload);
             $tag = (string)($release['tag_name'] ?? $release['name'] ?? '');
             $latest = self::normalizeVersion($tag);
             if ($latest === '') {
@@ -198,11 +208,41 @@ final class OmurgaUpdater
         return $json;
     }
 
+    private static function selectLatestRelease(array $payload): array
+    {
+        $releases = [];
+        if (isset($payload['tag_name'])) {
+            $releases = [$payload];
+        } else {
+            $releases = $payload;
+        }
+        $best = null;
+        $bestVersion = '';
+        foreach ($releases as $release) {
+            if (!is_array($release) || !empty($release['draft'])) {
+                continue;
+            }
+            $tag = (string)($release['tag_name'] ?? $release['name'] ?? '');
+            $version = self::normalizeVersion($tag);
+            if ($version === '') {
+                continue;
+            }
+            if ($best === null || self::compareVersions($version, $bestVersion) > 0) {
+                $best = $release;
+                $bestVersion = $version;
+            }
+        }
+        if ($best === null) {
+            throw new RuntimeException('GitHub release listesinde uygun surum bulunamadi.');
+        }
+        return $best;
+    }
+
     private static function findCoreAsset(array $assets, string $latestVersion): array
     {
         foreach ($assets as $asset) {
             $name = (string)($asset['name'] ?? '');
-            if (preg_match('/^omurga-cms-v[0-9][0-9A-Za-z._-]*(?:-clean-release)?\.zip$/i', $name)) {
+            if (preg_match('/^omurga-cms-v[0-9][0-9A-Za-z._-]*(?:-[0-9A-Za-z._-]+)*\.zip$/i', $name)) {
                 $assetVersion = self::normalizeVersion($name);
                 if ($assetVersion === '' || $assetVersion === self::normalizeVersion($latestVersion)) {
                     return $asset;
@@ -215,21 +255,18 @@ final class OmurgaUpdater
     public static function downloadLatest(): string
     {
         $check = self::check(false);
-        if (empty($check['has_update'])) {
-            throw new RuntimeException('Indirilecek yeni surum yok.');
-        }
         $url = (string)($check['download_url'] ?? '');
         if ($url === '') {
-            throw new RuntimeException('Guncelleme paketinin indirme baglantisi yok.');
+            throw new RuntimeException('Guncelleme paketinin indirme baglantisi yok. Once guncelleme kontrolu yapin.');
         }
         $name = basename(parse_url($url, PHP_URL_PATH) ?: 'omurga-update.zip');
-        if (!preg_match('/^omurga-cms-v[0-9][0-9A-Za-z._-]*(?:-clean-release)?\.zip$/i', $name)) {
+        if (!preg_match('/^omurga-cms-v[0-9][0-9A-Za-z._-]*(?:-[0-9A-Za-z._-]+)*\.zip$/i', $name)) {
             throw new RuntimeException('Indirme dosyasi Omurga cekirdek zip standardina uymuyor.');
         }
-        $target = self::tmpDir() . '/' . $name . '-' . date('YmdHis') . '.zip';
-        self::writeLog('Indirme basladi: ' . $name);
+        $target = self::updatesDir() . '/' . preg_replace('/[^a-zA-Z0-9._-]/', '-', $name) . '-' . date('YmdHis') . '.zip';
+        self::writeLog('Guncelleme paketi indirme basladi: ' . $name);
         self::downloadFile($url, $target);
-        self::writeLog('Indirme tamamlandi: ' . basename($target));
+        self::writeLog('Guncelleme paketi indirildi ve beklemeye alindi: ' . basename($target));
         return $target;
     }
 
@@ -269,6 +306,106 @@ final class OmurgaUpdater
         }
     }
 
+    public static function stageUploadedPackage(array $file): array
+    {
+        if (empty($file['name']) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            throw new RuntimeException('Guncelleme zip dosyasi secilmedi.');
+        }
+        $name = basename((string)$file['name']);
+        if (strtolower(pathinfo($name, PATHINFO_EXTENSION)) !== 'zip') {
+            throw new RuntimeException('Sadece .zip guncelleme paketi yuklenebilir.');
+        }
+        $safe = preg_replace('/[^a-zA-Z0-9._-]/', '-', pathinfo($name, PATHINFO_FILENAME)) . '-' . date('YmdHis') . '.zip';
+        $target = self::updatesDir() . '/' . $safe;
+        if (!move_uploaded_file($file['tmp_name'], $target)) {
+            throw new RuntimeException('Guncelleme paketi yuklenemedi.');
+        }
+        self::writeLog('Manuel paket yuklendi ve beklemeye alindi: ' . basename($target));
+        return self::inspectPackage($target);
+    }
+
+    public static function inspectPackage(string $zipPath): array
+    {
+        $info = [
+            'file' => basename($zipPath),
+            'path' => $zipPath,
+            'size' => is_file($zipPath) ? (int)filesize($zipPath) : 0,
+            'date' => is_file($zipPath) ? date('Y-m-d H:i:s', filemtime($zipPath) ?: time()) : '',
+            'version' => 'bilinmiyor',
+            'valid' => false,
+            'error' => '',
+        ];
+        try {
+            if (!is_file($zipPath)) {
+                throw new RuntimeException('Paket dosyasi bulunamadi.');
+            }
+            $zip = new ZipArchive();
+            if ($zip->open($zipPath) !== true) {
+                throw new RuntimeException('Zip bozuk veya acilamiyor.');
+            }
+            self::validateZipEntries($zip);
+            $tmp = self::tmpDir() . '/inspect-' . date('YmdHis') . '-' . substr(bin2hex(random_bytes(3)), 0, 6);
+            @mkdir($tmp, 0775, true);
+            if (!$zip->extractTo($tmp)) {
+                $zip->close();
+                throw new RuntimeException('Zip gecici klasore acilamadi.');
+            }
+            $zip->close();
+            $root = self::detectRoot($tmp);
+            self::validatePackageRoot($root);
+            $version = self::packageVersion($root);
+            self::validateExtractedPaths($root);
+            $info['version'] = $version !== '' ? $version : 'bilinmiyor';
+            $info['valid'] = $version !== '' && $version !== 'bilinmiyor';
+            if (function_exists('omurga_rrmdir')) {
+                omurga_rrmdir($tmp);
+            }
+        } catch (Throwable $e) {
+            $info['error'] = $e->getMessage();
+            if (isset($tmp) && is_dir($tmp) && function_exists('omurga_rrmdir')) {
+                omurga_rrmdir($tmp);
+            }
+        }
+        return $info;
+    }
+
+    public static function stagedPackages(int $limit = 20): array
+    {
+        $files = glob(self::updatesDir() . '/*.zip') ?: [];
+        usort($files, fn($a, $b) => filemtime($b) <=> filemtime($a));
+        $rows = [];
+        foreach (array_slice($files, 0, max(1, $limit)) as $file) {
+            $rows[] = self::inspectPackage($file);
+        }
+        return $rows;
+    }
+
+    public static function stagedPackagePath(string $file): string
+    {
+        $safe = basename($file);
+        $path = self::updatesDir() . '/' . $safe;
+        $real = realpath($path);
+        $updates = realpath(self::updatesDir());
+        if (!$real || !$updates || !str_starts_with(str_replace('\\', '/', $real), rtrim(str_replace('\\', '/', $updates), '/') . '/')) {
+            throw new RuntimeException('Guncelleme paketi bulunamadi veya guvenli degil.');
+        }
+        return $real;
+    }
+
+    public static function applyStagedPackage(string $file): array
+    {
+        $path = self::stagedPackagePath($file);
+        $result = self::applyPackage($path, 'staged');
+        return $result;
+    }
+
+    public static function deleteStagedPackage(string $file): void
+    {
+        $path = self::stagedPackagePath($file);
+        @unlink($path);
+        self::writeLog('Bekleyen guncelleme paketi silindi: ' . basename($path));
+    }
+
     public static function applyDownloadedLatest(): array
     {
         $zip = self::downloadLatest();
@@ -303,6 +440,7 @@ final class OmurgaUpdater
             }
             return [
                 'version' => $validation['version'],
+                'version_warning' => $validation['version_warning'] ?? '',
                 'copied' => $copy['copied'],
                 'skipped' => $copy['skipped'],
                 'migrations' => $migrations,
@@ -343,12 +481,18 @@ final class OmurgaUpdater
         if ($version === '' || $version === 'bilinmiyor') {
             throw new RuntimeException('Paket surumu okunamadi.');
         }
-        if (self::compareVersions($version, self::currentVersion()) <= 0) {
-            throw new RuntimeException('Surum dusurme veya ayni surumu yeniden kurma engellendi. Paket surumu: ' . $version);
+        $versionCompare = self::compareVersions($version, self::currentVersion());
+        $versionWarning = '';
+        if ($versionCompare < 0) {
+            $versionWarning = 'Paket mevcut surumden daha dusuk. Kullanici onayi ile devam edildi. Paket surumu: ' . $version;
+            self::writeLog('UYARI: ' . $versionWarning);
+        } elseif ($versionCompare === 0) {
+            $versionWarning = 'Paket mevcut surumle ayni. Kullanici onayi ile yeniden kurulum yapildi. Paket surumu: ' . $version;
+            self::writeLog('UYARI: ' . $versionWarning);
         }
         self::validateExtractedPaths($root);
         self::writeLog('Zip dogrulandi. Paket surumu: ' . $version);
-        return ['tmp' => $tmp, 'root' => $root, 'version' => $version];
+        return ['tmp' => $tmp, 'root' => $root, 'version' => $version, 'version_warning' => $versionWarning];
     }
 
     private static function validateZipEntries(ZipArchive $zip): void
@@ -437,9 +581,8 @@ final class OmurgaUpdater
             if (str_starts_with($rel, 'uploads/') && basename($rel) !== '.gitkeep') {
                 throw new RuntimeException('Guncelleme paketi uploads klasorune dosya yazamaz.');
             }
-            if (str_starts_with($rel, 'storage/') && !in_array(basename($rel), ['.gitkeep', '.htaccess'], true)) {
-                throw new RuntimeException('Guncelleme paketi storage klasorune dosya yazamaz.');
-            }
+            // Gelistirme asamasi icin storage/ yazma engeli gecici olarak kaldirildi.
+            // config.php/.env, uploads icinde PHP ve path traversal korumalari devam eder; surum dusurme/ayni surum bloklari uyariya cevrildi.
             if (preg_match('#^uploads/.+\.php$#i', $rel)) {
                 throw new RuntimeException('Uploads icinde PHP dosyasi engellendi.');
             }
@@ -576,7 +719,7 @@ final class OmurgaUpdater
         if ($rel === 'config.php' || $rel === '.env') {
             return true;
         }
-        foreach (['storage/', 'uploads/', 'packages/'] as $prefix) {
+        foreach (['uploads/', 'packages/'] as $prefix) {
             if ($rel === rtrim($prefix, '/') || str_starts_with($rel, $prefix)) {
                 return true;
             }

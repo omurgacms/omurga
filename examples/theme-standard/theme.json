@@ -1,13 +1,24 @@
 {
-  "name": "Örnek Omurga Teması",
-  "slug": "ornek-omurga-temasi",
-  "version": "1.0.0",
-  "author": "Omurga Topluluğu",
-  "description": "Resmi tema standardı için örnek tema yapısı.",
-  "template_engine": "omg",
-  "supports": {
-    "builder": true,
-    "demos": true,
-    "dark_mode": true
+  "name": "Omurga Standart Tema",
+  "slug": "theme-standard",
+  "version": "1.0.3.7-beta",
+  "author": "Omurga CMS",
+  "description": "Tema geliştiriciler için standart örnek tema manifesti.",
+  "template_engine": "php",
+  "supports": ["menus", "comments", "responsive", "builder"],
+  "menu_locations": {
+    "main": "Ana Menü",
+    "mobile": "Mobil Menü",
+    "footer": "Footer Menü"
+  },
+  "regions": {
+    "header": "Üst Alan",
+    "home_main": "Ana İçerik",
+    "sidebar": "Yan Alan",
+    "footer": "Alt Alan"
+  },
+  "settings": {
+    "primary_color": {"type":"color", "label":"Ana Renk", "default":"#f97316"},
+    "show_author": {"type":"checkbox", "label":"Yazıda yazarı göster", "default":"1"}
   }
 }

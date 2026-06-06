@@ -1,4 +1,4 @@
-# Omurga CMS 1.0.2 Beta Hooks
+# Omurga CMS 1.0.2.2 Beta Hooks
 
 Omurga hook sistemi action ve filter olarak iki temel API sunar.
 

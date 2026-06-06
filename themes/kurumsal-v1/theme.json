@@ -1,0 +1,75 @@
+{
+  "slug": "kurumsal-v1",
+  "id": "kurumsal-v1",
+  "name": "Kurumsal V1",
+  "version": "1.0.0",
+  "description": "Omurga CMS için modern kurumsal şirket, ajans ve hizmet firması teması. Kendi paneli ve demo kurulum sistemi içerir.",
+  "author": "Omurga CMS",
+  "template_engine": "php",
+  "system_theme": false,
+  "supports": [
+    "menus",
+    "responsive",
+    "demo-content",
+    "corporate-layout"
+  ],
+  "menu_locations": {
+    "top": "Üst Menü",
+    "main": "Ana Menü",
+    "mobile": "Mobil Menü",
+    "footer": "Footer Menü"
+  },
+  "regions": {
+    "header": "Üst Alan",
+    "home_top": "Ana Sayfa Üstü",
+    "home_main": "Ana İçerik",
+    "sidebar": "Yan Alan",
+    "footer": "Alt Alan"
+  },
+  "settings": {
+    "site_label": {"type": "text", "label": "Logo yazısı", "default": "Kurumsal V1"},
+    "site_label_accent": {"type": "text", "label": "Logo vurgu yazısı", "default": "Studio"},
+    "logo": {"type": "image", "label": "Logo", "default": ""},
+    "primary_color": {"type": "color", "label": "Ana renk", "default": "#c8a96e"},
+    "dark_bg": {"type": "color", "label": "Arka plan", "default": "#0a0a0a"},
+    "hero_tag": {"type": "text", "label": "Hero üst etiketi", "default": "Kurumsal Çözüm Ortağı"},
+    "hero_title": {"type": "text", "label": "Hero başlığı", "default": "Markanızı güçlü bir dijital deneyime dönüştürüyoruz."},
+    "hero_highlight": {"type": "text", "label": "Hero vurgusu", "default": "dijital"},
+    "hero_text": {"type": "textarea", "label": "Hero açıklaması", "default": "Web tasarımından kurumsal kimliğe, işletmenizi dijital dünyada daha profesyonel ve güvenilir gösterecek çözümler üretiyoruz."},
+    "hero_button_text": {"type": "text", "label": "Ana buton yazısı", "default": "Teklif Al"},
+    "hero_button_url": {"type": "url", "label": "Ana buton linki", "default": "#contact"},
+    "secondary_button_text": {"type": "text", "label": "İkinci buton yazısı", "default": "Çalışmalarımız"},
+    "secondary_button_url": {"type": "url", "label": "İkinci buton linki", "default": "#work"},
+    "stat_1_number": {"type": "text", "label": "İstatistik 1 sayı", "default": "80+"},
+    "stat_1_label": {"type": "text", "label": "İstatistik 1 yazı", "default": "Tamamlanan Proje"},
+    "stat_2_number": {"type": "text", "label": "İstatistik 2 sayı", "default": "5★"},
+    "stat_2_label": {"type": "text", "label": "İstatistik 2 yazı", "default": "Müşteri Puanı"},
+    "stat_3_number": {"type": "text", "label": "İstatistik 3 sayı", "default": "3+"},
+    "stat_3_label": {"type": "text", "label": "İstatistik 3 yazı", "default": "Yıl Deneyim"},
+    "services_title": {"type": "text", "label": "Hizmetler başlığı", "default": "Sunduğumuz Hizmetler"},
+    "services_intro": {"type": "textarea", "label": "Hizmetler açıklaması", "default": "İşlevsellik ile estetiği dengeli biçimde bir araya getiriyor, markanıza özel sürdürülebilir çözümler üretiyoruz."},
+    "portfolio_title": {"type": "text", "label": "Portföy başlığı", "default": "Seçilmiş Çalışmalar"},
+    "portfolio_intro": {"type": "textarea", "label": "Portföy açıklaması", "default": "Her proje müşterinin vizyonunu anlamakla başlar. Ortaya çıkan sadece güzel bir tasarım değil, değer yaratan bir çözümdür."},
+    "show_manager": {"type": "checkbox", "label": "Yönetici mesajı", "default": "1"},
+    "manager_title": {"type": "text", "label": "Yönetici başlığı", "default": "Kurucudan Mesaj"},
+    "manager_name": {"type": "text", "label": "Yönetici adı", "default": "Omurga Kurumsal"},
+    "manager_text": {"type": "textarea", "label": "Yönetici mesajı", "default": "Her projede sade, güvenilir ve uzun ömürlü bir dijital yapı kurmayı hedefliyoruz."},
+    "process_title": {"type": "text", "label": "Süreç başlığı", "default": "Çalışma Sürecimiz"},
+    "cta_title": {"type": "text", "label": "CTA başlığı", "default": "Projenizi hayata geçirelim."},
+    "cta_text": {"type": "textarea", "label": "CTA açıklaması", "default": "Fikriniz varsa, geri kalanını birlikte planlayalım. İlk görüşme ücretsiz ve bağlayıcı değildir."},
+    "cta_button_text": {"type": "text", "label": "CTA buton yazısı", "default": "Ücretsiz Görüşme Talep Et"},
+    "cta_button_url": {"type": "url", "label": "CTA buton linki", "default": "mailto:merhaba@example.com"},
+    "contact_email": {"type": "text", "label": "E-posta", "default": "merhaba@example.com"},
+    "contact_phone": {"type": "text", "label": "Telefon", "default": "+90 555 000 00 00"},
+    "footer_text": {"type": "text", "label": "Footer yazısı", "default": "Tüm hakları saklıdır."},
+    "instagram_url": {"type": "url", "label": "Instagram", "default": "#"},
+    "behance_url": {"type": "url", "label": "Behance", "default": "#"},
+    "linkedin_url": {"type": "url", "label": "LinkedIn", "default": "#"}
+  },
+  "demos": {
+    "default": {
+      "name": "Kurumsal V1 Demo",
+      "description": "Kurumsal sayfalar, hizmetler, projeler, menüler ve tema görünüm ayarları."
+    }
+  }
+}

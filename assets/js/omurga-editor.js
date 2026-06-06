@@ -184,21 +184,36 @@
     const q=document.getElementById('omMediaSearch');
     const t=document.getElementById('omMediaType');
     const url=mediaEndpoint()+'?page='+encodeURIComponent(mediaPage)+'&q='+encodeURIComponent(q?q.value:'')+'&type='+encodeURIComponent(t?t.value:'');
-    fetch(url,{credentials:'same-origin'}).then(r=>r.json()).then(data=>{ if(data && data.ok) renderMediaItems(data.items, append); }).catch(()=>{});
+    fetch(url,{credentials:'same-origin'}).then(async r=>{
+      const text=await r.text();
+      let data=null;
+      try{ data=JSON.parse(text); }catch(e){ throw new Error((text||'Medya listesi alınamadı.').slice(0,180)); }
+      if(!r.ok || !data || !data.ok) throw new Error((data && data.message) || 'Medya listesi alınamadı.');
+      renderMediaItems(data.items, append);
+    }).catch(err=>{
+      const grid=document.getElementById('omMediaGrid');
+      if(grid && !append) grid.innerHTML='<div class="om-media-empty">'+esc(err.message || 'Medya listesi alınamadı.')+'</div>';
+    });
   }
   function uploadMediaFiles(files){
     if(!files || !files.length || !window.fetch) return;
     const status=document.getElementById('omMediaUploadStatus');
     const alt=document.getElementById('omMediaUploadAlt');
     const webp=document.getElementById('omMediaUploadWebp');
-    const csrf=modal ? modal.querySelector('input[name="csrf_token"]') : null;
+    const csrf=modal ? (modal.querySelector('input[name="_csrf"]') || modal.querySelector('input[name="csrf_token"]')) : null;
     const fd=new FormData();
     Array.from(files).forEach(file=>fd.append('files[]', file));
     if(alt) fd.append('alt_text', alt.value || '');
     if(webp && webp.checked) fd.append('make_webp', '1');
     if(csrf) fd.append(csrf.name, csrf.value);
     if(status) status.textContent='Yükleniyor...';
-    fetch(mediaUploadEndpoint(), {method:'POST', body:fd, credentials:'same-origin'}).then(r=>r.json()).then(data=>{
+    fetch(mediaUploadEndpoint(), {method:'POST', body:fd, credentials:'same-origin'}).then(async r=>{
+      const text=await r.text();
+      let data=null;
+      try{ data=JSON.parse(text); }catch(e){ throw new Error((text||'Yükleme başarısız.').slice(0,180)); }
+      if(!r.ok && data && data.message) throw new Error(data.message);
+      return data;
+    }).then(data=>{
       if(!data || !data.ok) throw new Error((data && data.message) || 'Yükleme başarısız.');
       renderMediaItems(data.items || [], false);
       if(status) status.textContent=data.message || 'Yüklendi.';

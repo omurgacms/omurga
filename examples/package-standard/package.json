@@ -1,9 +1,19 @@
 {
-  "name": "Örnek Omurga Paketi",
-  "slug": "ornek-omurga-paketi",
+  "name": "Omurga Standart Paket Örneği",
+  "slug": "package-standard",
   "version": "1.0.0",
-  "author": "Omurga Topluluğu",
-  "description": "Resmi paket standardı ve izin sistemi için örnek paket.",
+  "description": "Paket API için standart örnek.",
+  "author": "Omurga",
+  "min_php": "8.1",
+  "min_omurga": "1.0.3.7-beta",
   "main": "package.php",
-  "permissions": ["settings", "admin_pages", "blocks"]
+  "requires": [],
+  "permissions": ["settings", "admin_pages", "blocks"],
+  "settings": {
+    "enabled": {"type":"checkbox", "label":"Paket aktif", "default":"1"},
+    "title": {"type":"text", "label":"Başlık", "default":"Standart Paket"}
+  },
+  "admin_pages": [
+    {"id":"package-standard", "title":"Standart Paket", "file":"admin.php", "capability":"plugins.manage"}
+  ]
 }

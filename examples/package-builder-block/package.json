@@ -1,0 +1,8 @@
+{
+  "name": "Omurga Builder Blok Örneği",
+  "slug": "builder-block-example",
+  "version": "1.0.0",
+  "author": "Omurga",
+  "min_omurga": "1.0.3.12-beta",
+  "description": "Builder API ile özel blok ekleme örneği."
+}

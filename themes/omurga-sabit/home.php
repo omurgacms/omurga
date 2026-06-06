@@ -1,7 +1,7 @@
 <?php include __DIR__.'/header.php'; ?>
 <main class="container">
   <section class="hero">
-      <span>Omurga CMS 1.0.2 Beta</span>
+      <span>Omurga CMS 1.0.2.2 Beta</span>
     <h1><?= e(setting('site_name','Omurga')) ?></h1>
     <p><?= e(setting('site_description','Sade, genişletilebilir ve hızlı içerik yönetim sistemi.')) ?></p>
   </section>

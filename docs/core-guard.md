@@ -1,6 +1,6 @@
 # Omurga Çekirdek Koruma Sistemi
 
-Omurga 1.0.2 Beta ile tema ve paketlerin çekirdeğe zarar vermesini azaltmak için çekirdek koruma sistemi eklendi.
+Omurga 1.0.2.2 Beta ile tema ve paketlerin çekirdeğe zarar vermesini azaltmak için çekirdek koruma sistemi eklendi.
 
 ## Korunan alanlar
 

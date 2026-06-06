@@ -1,6 +1,6 @@
 # Omurga Developer API Standardı
 
-Bu standart Omurga CMS 1.0.2 Beta için tema ve paket geliştiricilerinin çekirdeğe dokunmadan güvenli geliştirme yapmasını sağlar.
+Bu standart Omurga CMS 1.0.2.2 Beta için tema ve paket geliştiricilerinin çekirdeğe dokunmadan güvenli geliştirme yapmasını sağlar.
 
 ## Temel Kurallar
 

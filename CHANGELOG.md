@@ -1,4 +1,74 @@
-## Omurga CMS 1.0.2 Beta - Güvenli Güncelleme Sistemi
+## 1.0.5 Beta
+
+- Haber V1, Kurumsal V1 ve Topluluk V1 temaları dağıtım paketine eklendi.
+- Tema demo yapısı `demos/` altında düzenlendi.
+- Kurulum profil seçimine göre varsayılan tema eşlemesi korundu.
+- Temiz dağıtım için config, lock, log, cache ve eski paket çıktıları paketten çıkarıldı.
+- Resmi sürüm bilgisi 1.0.5 Beta olarak güncellendi.
+
+
+## 1.0.3.15 Beta
+
+- Admin panelde kalan DLE/mavi renk tonları Omurga turuncu + slate renk sistemine uyarlandı.
+- Mavi bilgi/sekme/vurgu renkleri sadeleştirildi.
+- PHP syntax kontrolü yapıldı.
+
+# Omurga CMS 1.0.3.15 Beta
+
+- Medya seçici ve medya yükleme API'leri JSON uyumlu hale getirildi.
+- Yazı ve sayfa editörlerinde öne çıkan görsel/görsel ekleme sırasında güvenlik hataları artık düz metin yerine JSON döndürür.
+- Medya yükleme CSRF token gönderimi düzeltildi.
+
+# Omurga CMS 1.0.3.15 Beta
+
+- REST API sistemi eklendi.
+- API anahtarı yönetim ekranı eklendi.
+- Posts, pages, categories, tags, media ve users endpointleri eklendi.
+- API dokümantasyonu eklendi.
+
+# Omurga CMS 1.0.3.15 Beta
+
+- Tema API yardımcıları eklendi.
+- `theme.json` manifest standardı netleştirildi.
+- Tema bazlı menü konumları desteklendi.
+- Tema ayar API yardımcıları eklendi.
+- Aktif temanın `functions.php` dosyası güvenli şekilde yüklenir.
+- Hook sistemi tema geliştiriciler için dokümante edildi.
+- Varsayılan tema dokümantasyonu eklendi.
+
+# Omurga CMS 1.0.3.15 Beta
+
+- Admin menü görünümü sadeleştirildi.
+- Kategori/grup bazlı renkli işaretlemeler azaltıldı.
+- Aktif sayfa vurgusu daha sade hale getirildi.
+- Panel logosu tıklanabilir yapıldı ve panel ana sayfasına bağlandı.
+
+# Omurga CMS 1.0.3.15 Beta
+
+## Yazılar Ekranı Kullanılabilirlik Düzenlemesi
+
+- 1.0.3 modern liste tasarımı korundu.
+- Yazılar ekranında satır ve işlem alanları ekrandan taşmayacak şekilde düzenlendi.
+- Mobilde gelişmiş arama kaldırıldı; sadece küçük arama alanı ve Ara butonu bırakıldı.
+- Masaüstünde gelişmiş arama WordPress benzeri kısa ve yatay filtre alanı olarak düzenlendi.
+- Toplu İşlemler alanına yayınla, taslağa al, çöpe taşı, kategori değiştir, etiket ekle ve etiket kaldır seçenekleri eklendi.
+- Satır işlemlerinde taşmayı azaltmak için ek işlemler üç nokta menüsüne alındı.
+
+# Omurga CMS 1.0.3.15 Beta
+
+- Menü Yönetimi sayfasının boş ekran verme riski giderildi.
+- Menü ekranına yetki geriye uyumluluğu, varsayılan menü fallback’i ve hata yakalama eklendi.
+- Sayfa/kategori/etiket hazır bağlantı listeleri hata verse bile menü ekranı açılmaya devam eder.
+
+# Omurga CMS 1.0.3.15 Beta
+
+- Güncelleme sisteminde aynı sürüm ve sürüm düşürme blokları kaldırıldı; kullanıcı onayıyla devam eden uyarı akışına çevrildi.
+- GitHub release kontrolü `/releases` listesi üzerinden beta/pre-release sürümleri de okuyacak şekilde korundu.
+- Sistem Sağlığı ve Güncellemeler ekran ayrımı korundu.
+
+- Aynı sürüm veya düşük sürüm güncelleme paketleri artık engellenmez; kullanıcı onayıyla uygulanır ve işlem loglanır.
+
+## Omurga CMS 1.0.3.15 Beta - Güvenli Güncelleme Sistemi
 
 - Admin paneline `Güncellemeler` ekranı eklendi.
 - GitHub Releases üzerinden cache destekli güncelleme kontrolü eklendi.
@@ -129,3 +199,8 @@ Bu sürüm beta durumundadır. Canlı kullanım öncesi yedek alın.
 - Hızlı işlem kartları düzenlendi.
 - Sistem sağlığı ve güvenlik merkezi özetleri dashboard'a eklendi.
 - Son aktiviteler ve bekleyen yorumlar dashboard'da gösterildi.
+
+## 1.0.3.15 Beta
+- Yazı ve sayfa editörüne kaydetmeden kullanılabilen Editör Önizleme penceresi eklendi.
+- Üst menüdeki Profilim bağlantısı gerçek profil düzenleme ekranına bağlandı.
+- /admin/users.php profil modunda kullanıcı listesi yerine sadece mevcut kullanıcının bilgilerini gösterir.

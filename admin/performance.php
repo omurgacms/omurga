@@ -4,7 +4,7 @@ require_cap('users.manage');
 verify_csrf();
 
 /**
- * Omurga CMS 1.0.2 Beta
+ * Omurga CMS 1.0.2.2 Beta
  * Performans ekranı dayanıklı hale getirildi.
  * Cache helper fonksiyonları eksik olsa bile ekran 500 vermeden açılır.
  */

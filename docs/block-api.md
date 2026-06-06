@@ -1,4 +1,4 @@
-# Omurga CMS 1.0.2 Beta Block API
+# Omurga CMS 1.0.2.2 Beta Block API
 
 Omurga bloklari artik tek merkezi registry uzerinden calisir. Cekirdek,
 aktif tema ve aktif paketler ayni tanim standardini kullanir.

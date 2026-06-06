@@ -1,0 +1,1 @@
+document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('.hv1-card-link').forEach(function(el){el.addEventListener('click',function(){var url=el.getAttribute('data-url'); if(url) location.href=url;});});});

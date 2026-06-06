@@ -1,6 +1,6 @@
 # Güvenlik Taraması Bilgilendirme Modu
 
-Omurga CMS 1.0.2 Beta aşamasında tema ve paket güvenlik taraması engelleyici değil, bilgilendirici çalışır.
+Omurga CMS 1.0.2.2 Beta aşamasında tema ve paket güvenlik taraması engelleyici değil, bilgilendirici çalışır.
 
 ## Davranış
 

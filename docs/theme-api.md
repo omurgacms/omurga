@@ -1,6 +1,6 @@
-# Omurga CMS 1.0.2 Beta Theme API
+# Omurga CMS 1.0.2.2 Beta Theme API
 
-Omurga CMS 1.0.2 Beta resmi tema standardi `.omg` template sistemidir. Her tema klasorunde `theme.json` zorunludur.
+Omurga CMS 1.0.2.2 Beta resmi tema standardi `.omg` template sistemidir. Her tema klasorunde `theme.json` zorunludur.
 
 ## Zorunlu Yapi
 

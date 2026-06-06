@@ -1,11 +1,15 @@
 <?php
 require_once dirname(__DIR__).'/bootstrap.php';
-require_admin();
 header('Content-Type: application/json; charset=utf-8');
+function om_media_api_json(array $payload, int $status=200): void { http_response_code($status); echo json_encode($payload, JSON_UNESCAPED_UNICODE); exit; }
 try{
+    require_admin();
     if(!can('media.manage') && !can('media.upload') && current_user_role()!=='admin') throw new RuntimeException('Medya yükleme yetkin yok.');
     if($_SERVER['REQUEST_METHOD']!=='POST') throw new RuntimeException('Geçersiz istek.');
-    verify_csrf();
+    $csrf = (string)($_POST['_csrf'] ?? $_POST['csrf_token'] ?? '');
+    if(!$csrf || !hash_equals($_SESSION['csrf_token'] ?? '', $csrf)){
+        om_media_api_json(['ok'=>false,'message'=>'Güvenlik doğrulaması başarısız. Lütfen sayfayı yenileyip tekrar deneyin.'], 419);
+    }
     if(empty($_FILES['files'])) throw new RuntimeException('Dosya seçilmedi.');
     $files=$_FILES['files'];
     $names=is_array($files['name']) ? $files['name'] : [$files['name']];
@@ -39,6 +43,5 @@ try{
     }
     echo json_encode(['ok'=>true,'items'=>$items,'skipped'=>$skipped,'message'=>count($items).' dosya yüklendi'.($skipped?' · '.$skipped.' atlandı':'')], JSON_UNESCAPED_UNICODE);
 }catch(Throwable $e){
-    http_response_code(400);
-    echo json_encode(['ok'=>false,'message'=>$e->getMessage()], JSON_UNESCAPED_UNICODE);
+    om_media_api_json(['ok'=>false,'message'=>$e->getMessage()], 400);
 }

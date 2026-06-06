@@ -100,12 +100,12 @@ $autosaveInterval = max(15, min(300, (int)setting('autosave_interval_seconds','3
 ?>
 <div class="toolbar editor-head">
   <div><h1><?= $isStaticPage ? ($id?'Sayfa Düzenle':'Yeni Sayfa') : ((!$id && ($post['type']??'')==='news')?'Yazı Ekle':($id?e($currentLabel).' Düzenle':'Yeni '.e($currentLabel))) ?></h1><p><?= $isStaticPage ? 'Sabit sayfa: kategori ve etiket kullanılmaz, menüden veya doğrudan linkle ulaşılır.' : 'Sade içerik girişi. Vitrin/tasarım alanları çekirdekte değildir; gerekirse tema, blok veya paket alanlarından gelir.' ?></p></div>
-  <div class="toolbar-actions"><button type="button" class="btn light" id="omFocusModeBtn">Odaklanma Modu</button><a class="btn light" href="<?= $isStaticPage ? 'pages.php' : 'posts.php?type='.e($post['type']) ?>">Listeye Dön</a><?php if($id): ?><a class="btn dark" target="_blank" href="<?=e($previewUrl)?>">Önizle</a><?php endif; ?></div>
+  <div class="toolbar-actions"><button type="button" class="btn light" id="omFocusModeBtn">Odaklanma Modu</button><button type="button" class="btn light" id="omEditorPreviewBtn">Editör Önizleme</button><a class="btn light" href="<?= $isStaticPage ? 'pages.php' : 'posts.php?type='.e($post['type']) ?>">Listeye Dön</a><?php if($id): ?><a class="btn dark" target="_blank" href="<?=e($previewUrl)?>">Site Önizleme</a><?php endif; ?></div>
 </div>
 <form method="post" enctype="multipart/form-data" class="editor-layout" id="omContentEditForm"><input type="hidden" name="_csrf" value="<?=csrf_token()?>"><input type="hidden" name="post_id" value="<?=e($id)?>"><input type="hidden" name="autosave_draft_key" value="<?=e($autosaveDraftKey)?>">
   <div class="om-focus-savebar"><strong>Temiz Yazım Modu</strong><button type="button" class="btn light" id="omFocusExitBtn">Normal Moda Dön</button><button class="btn primary"><?=can('posts.publish')?'Kaydet / Yayınla':'İncelemeye Gönder'?></button></div>
   <div class="autosave-strip" style="display:flex;gap:10px;align-items:center;justify-content:space-between;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;margin-bottom:12px">
-    <div><strong>Otomatik Kaydetme</strong><br><small id="omAutosaveStatus">Yazı yazarken her <?=e($autosaveInterval)?> saniyede bir taslak saklanır.</small></div>
+    <div><strong>Otomatik kayıt</strong> <small id="omAutosaveStatus">Her <?=e($autosaveInterval)?> saniyede taslak saklanır.</small></div>
     <?php if($autosavePayloadB64): ?><button type="button" class="btn light" id="omRestoreAutosaveBtn" data-payload="<?=e($autosavePayloadB64)?>">Son otomatik kaydı geri yükle</button><?php endif; ?>
   </div>
   <section class="editor-maincol">
@@ -113,17 +113,19 @@ $autosaveInterval = max(15, min(300, (int)setting('autosave_interval_seconds','3
       <input type="hidden" name="type" value="<?=e($isStaticPage ? 'page' : ($post['type'] ?: primary_content_type()))?>">
       <input type="hidden" id="editorTypeInput" name="editor_type" value="<?=e($editorType)?>">
       <textarea id="contentBlocksInput" name="content_blocks" hidden><?=e($editorBlocksJson)?></textarea>
-      <label>Kalıcı bağlantı / Slug<input id="slugInput" name="slug" value="<?=e($post['slug'])?>" placeholder="Boş bırakılırsa başlıktan oluşur"><small><?= $isStaticPage ? 'Sayfa adresi kökten çalışır: /sayfa-adi' : 'Yazı adresi içerik tabanıyla çalışır: /yazi/yazi-adi' ?></small></label>
-      <label>Başlık<input id="titleInput" class="title-input" name="title" required value="<?=e($post['title'])?>" placeholder="Yazı başlığını yaz..."></label>
-      <label>Spot / Kısa Açıklama<textarea name="spot" class="spot-input" maxlength="320" placeholder="Kısa özet yaz..."> <?=e($post['spot'])?></textarea></label>
-      <div class="om-editor-wrap dle-square-editor" data-om-editor><div class="om-editor-top"><strong>Yazı Metni</strong><span>Omurga CMS editör deneyimi</span></div><div class="om-editor-toolbar" aria-label="Omurga editör araçları"><button type="button" data-cmd="bold"><b>B</b></button><button type="button" data-cmd="italic"><i>I</i></button><button type="button" data-format="h2">Ara Başlık</button><button type="button" data-format="h3">Alt Başlık</button><button type="button" data-cmd="insertUnorderedList">Liste</button><button type="button" data-cmd="insertOrderedList">Numaralı</button><button type="button" data-action="quote">Alıntı</button><button type="button" data-action="link">Link</button><button type="button" data-action="media">Görsel</button><button type="button" data-action="video">Video</button><button type="button" data-action="ad">Reklam</button><button type="button" data-action="gallery">Galeri</button><button type="button" data-action="readmore">Devamını Oku</button><button type="button" data-action="html">HTML</button></div><textarea id="contentEditor" name="content" class="content-editor om-editor-source" hidden><?=e($post['content'])?></textarea><div id="omVisualEditor" class="om-visual-editor" contenteditable="true" data-placeholder="İçerik metnini yaz..."></div><div id="omHtmlEditorBox" class="om-html-editor-box" style="display:none"><textarea id="omHtmlEditor" spellcheck="false"></textarea></div><div class="om-editor-status"><span>Kelime: <b id="wordCount"><?=$wordCount?></b></span><span>SEO açıklaması: <b id="metaCount"><?=mb_strlen((string)$post['meta_description'],'UTF-8')?></b>/160</span><span>Kaydetmeden önce içerik otomatik senkronize edilir.</span></div></div>
+      <label class="om-title-row">Başlık<input id="titleInput" class="title-input" name="title" required value="<?=e($post['title'])?>" placeholder="<?= $isStaticPage ? 'Sayfa başlığını yaz...' : 'Yazı başlığını yaz...' ?>"></label>
+      <div class="om-edit-meta-row">
+        <label>Kalıcı bağlantı / Slug<input id="slugInput" name="slug" value="<?=e($post['slug'])?>" placeholder="Boş bırakılırsa başlıktan oluşur"><small><?= $isStaticPage ? 'Sayfa adresi kökten çalışır: /sayfa-adi' : 'Yazı adresi içerik tabanıyla çalışır: /yazi/yazi-adi' ?></small></label>
+        <label>Spot / Kısa Açıklama<textarea name="spot" class="spot-input" maxlength="320" placeholder="Kısa özet yaz..."><?=e(trim((string)$post['spot']))?></textarea></label>
+      </div>
+      <div class="om-editor-wrap dle-square-editor" data-om-editor><div class="om-editor-top"><strong>İçerik</strong><span>Metin, görsel ve bloklarla içerik oluştur</span></div><div class="om-editor-toolbar" aria-label="Omurga editör araçları"><button type="button" data-cmd="bold"><b>B</b></button><button type="button" data-cmd="italic"><i>I</i></button><button type="button" data-format="h2">Ara Başlık</button><button type="button" data-format="h3">Alt Başlık</button><button type="button" data-cmd="insertUnorderedList">Liste</button><button type="button" data-cmd="insertOrderedList">Numaralı</button><button type="button" data-action="quote">Alıntı</button><button type="button" data-action="link">Link</button><button type="button" data-action="media">Görsel</button><button type="button" data-action="video">Video</button><button type="button" data-action="ad">Reklam</button><button type="button" data-action="gallery">Galeri</button><button type="button" data-action="readmore">Devamını Oku</button><button type="button" data-action="html">HTML</button></div><textarea id="contentEditor" name="content" class="content-editor om-editor-source" hidden><?=e($post['content'])?></textarea><div id="omVisualEditor" class="om-visual-editor" contenteditable="true" data-placeholder="İçerik metnini yaz..."></div><div id="omHtmlEditorBox" class="om-html-editor-box" style="display:none"><textarea id="omHtmlEditor" spellcheck="false"></textarea></div><div class="om-editor-status"><span>Kelime: <b id="wordCount"><?=$wordCount?></b></span><span>SEO açıklaması: <b id="metaCount"><?=mb_strlen((string)$post['meta_description'],'UTF-8')?></b>/160</span><span>Kaydetmeden önce içerik otomatik senkronize edilir.</span></div></div>
     </div>
     <div class="card seo-card"><h2>Video ve Galeri</h2><label>Video URL<input name="video_url" value="<?=e($post['video_url'] ?? '')?>" placeholder="YouTube, Vimeo veya MP4 bağlantısı"></label><label>Galeri Görselleri<textarea id="galleryImagesInput" name="gallery_images" placeholder="Her satıra bir görsel yolu veya URL yaz. Birden fazla URL için alt alta yazabilirsin."><?=e($galleryText)?></textarea><small>Video ve galeri Omurga çekirdeğinde standart içerik alanıdır.</small></label><div class="gallery-picker-actions"><button type="button" class="btn light" data-om-media-gallery="#galleryImagesInput">Medyadan seç</button><button type="button" class="btn light" id="omAddGalleryUrls">Birden fazla URL ekle</button><button type="button" class="btn light" id="omClearGalleryPreview">Önizlemeyi yenile</button></div><div id="galleryPreview" class="gallery-preview" data-gallery-preview="#galleryImagesInput"></div><small>Galeri için medyadan birden fazla görsel seçebilir veya URL/yol listesini alt alta girebilirsin.</small></div>
     <div class="card seo-card"><h2>SEO</h2><div class="mini-grid two"><label>SEO Başlığı<input name="seo_title" value="<?=e($post['seo_title'])?>" placeholder="Boşsa başlık kullanılır"></label><label>Odak Kelime<input name="focus_keyword" value="<?=e($post['focus_keyword'])?>"></label></div><label>Meta Açıklama<input id="metaDescription" name="meta_description" value="<?=e($post['meta_description'])?>" maxlength="255" placeholder="Google açıklaması"></label><div class="seo-preview"><b id="seoPreviewTitle"><?=e($post['seo_title'] ?: $post['title'] ?: 'Başlık önizlemesi')?></b><small><?=e($previewUrl ?: omurga_url('ornek-yazi'))?></small><p id="seoPreviewDesc"><?=e($post['meta_description'] ?: $post['spot'] ?: 'Meta açıklaması burada görünecek.')?></p></div><div class="mini-grid two"><label>Sosyal Medya Başlığı<input name="social_title" value="<?=e($post['social_title'])?>"></label><label>Sosyal Medya Açıklaması<input name="social_description" value="<?=e($post['social_description'])?>" maxlength="255"></label></div><div class="mini-grid two"><label>Canonical URL<input name="canonical_url" value="<?=e($post['canonical_url'] ?? '')?>" placeholder="Boşsa kendi bağlantısı kullanılır"></label><label class="check-line" style="align-self:end"><input type="checkbox" name="seo_noindex" value="1" <?=!empty($post['seo_noindex'])?'checked':''?>> Google’da gösterme (noindex)</label></div><small>Not: Bu kutu işaretlenirse içerik noindex olur. Normal içeriklerde boş bırak.</small></div>
     <?=omurga_render_admin_boxes('post-edit', ['post'=>$post,'id'=>$id])?>
   </section>
   <aside class="editor-sidecol">
-    <div class="side-box publish-box"><h3>Yayın</h3><label>Durum<select name="status"><?php foreach(omurga_status_options_for_current_user($post['status'] ?? 'draft') as $sk=>$sv): ?><option value="<?=e($sk)?>" <?=($post['status']??'draft')===$sk?'selected':''?>><?=e($sv)?></option><?php endforeach; ?></select></label><label>Yayın Tarihi<input type="datetime-local" name="published_at" value="<?=e(omurga_datetime_local($post['published_at']??''))?>"></label><label>Sıralama<input type="number" name="sort_order" value="<?=e($post['sort_order'])?>"></label><button class="btn primary save-main" style="width:100%;justify-content:center"><?=can('posts.publish')?'Kaydet / Yayınla':'İncelemeye Gönder'?></button><?php if($id): ?><a class="btn light" style="width:100%;justify-content:center;margin-top:8px" target="_blank" href="<?=e($previewUrl)?>">Site Önizleme</a><?php endif; ?></div>
+    <div class="side-box publish-box"><h3>Yayın</h3><label>Durum<select name="status"><?php foreach(omurga_status_options_for_current_user($post['status'] ?? 'draft') as $sk=>$sv): ?><option value="<?=e($sk)?>" <?=($post['status']??'draft')===$sk?'selected':''?>><?=e($sv)?></option><?php endforeach; ?></select></label><label>Yayın Tarihi<input type="datetime-local" name="published_at" value="<?=e(omurga_datetime_local($post['published_at']??''))?>"></label><label>Sıralama<input type="number" name="sort_order" value="<?=e($post['sort_order'])?>"></label><button class="btn primary save-main" style="width:100%;justify-content:center"><?=can('posts.publish')?'Kaydet / Yayınla':'İncelemeye Gönder'?></button><button type="button" class="btn light" id="omEditorPreviewSideBtn" style="width:100%;justify-content:center;margin-top:8px">Editör Önizleme</button><?php if($id): ?><a class="btn light" style="width:100%;justify-content:center;margin-top:8px" target="_blank" href="<?=e($previewUrl)?>">Site Önizleme</a><?php endif; ?></div>
     <?php if($id): $revCount=count(omurga_recent_revisions($id, 50)); ?><div class="side-box"><h3>Revizyonlar</h3><p style="margin:0 0 10px;color:#64748b">Bu içerik için <?=e($revCount)?> kayıtlı revizyon var.</p><a class="btn light" style="width:100%;justify-content:center" href="revisions.php?post_id=<?=e($id)?>">Revizyonları Gör</a></div><?php endif; ?>
     <div class="side-box"><h3>Tasarım Şablonu</h3><label>Şablon<select name="design_template"><?php foreach($templateOptions as $tk=>$tpl): ?><option value="<?=e($tk)?>" <?=$currentTemplate===$tk?'selected':''?>><?=e($tpl['name'] ?? $tk)?><?=empty($tpl['exists'])?' (dosya yok)':''?></option><?php endforeach; ?></select></label><small>Şablonlar aktif temadan gelir.</small><a class="btn light" style="width:100%;justify-content:center;margin-top:8px" href="templates.php">Şablonları Gör</a></div>
     <?php if(!$isStaticPage): ?><div class="side-box"><h3>Yorumlar</h3><label class="check-line"><input type="checkbox" name="comments_enabled" value="1" <?=om_post_comments_enabled($post)?'checked':''?>> <?=e(om_t('comments.allow_comments','Yorumlara izin ver'))?></label><small><?=e(om_t('comments.waiting_approval','Yeni yorumlar onay bekler.'))?></small></div><?php endif; ?>
@@ -139,9 +141,75 @@ $autosaveInterval = max(15, min(300, (int)setting('autosave_interval_seconds','3
   </aside>
 </form>
 
+
+<div class="om-preview-modal" id="omEditorPreviewModal" aria-hidden="true">
+  <div class="om-preview-backdrop" data-close-preview></div>
+  <div class="om-preview-panel" role="dialog" aria-modal="true" aria-labelledby="omPreviewTitleLabel">
+    <div class="om-preview-head">
+      <div>
+        <small>Kaydetmeden önce görünüm</small>
+        <h2 id="omPreviewTitleLabel">Editör Önizlemesi</h2>
+      </div>
+      <button type="button" class="btn light" data-close-preview>Kapat</button>
+    </div>
+    <div class="om-preview-body">
+      <img id="omPreviewImage" class="om-preview-image" alt="Öne çıkan görsel önizlemesi" style="display:none">
+      <h1 id="omPreviewTitle">Başlık önizlemesi</h1>
+      <p id="omPreviewSpot" class="om-preview-spot"></p>
+      <div id="omPreviewContent" class="om-preview-content"></div>
+    </div>
+  </div>
+</div>
+<style>
+.om-preview-modal{position:fixed;inset:0;z-index:9999;display:none}.om-preview-modal.open{display:block}.om-preview-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(2px)}.om-preview-panel{position:relative;margin:5vh auto;background:#fff;border-radius:20px;box-shadow:0 24px 80px rgba(15,23,42,.25);width:min(940px,calc(100vw - 28px));max-height:90vh;overflow:auto}.om-preview-head{position:sticky;top:0;background:#fff;border-bottom:1px solid #e5e7eb;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;z-index:1}.om-preview-head h2{margin:2px 0 0;font-size:20px}.om-preview-head small{color:#64748b;font-weight:700}.om-preview-body{padding:22px;max-width:820px;margin:0 auto}.om-preview-image{width:100%;max-height:360px;object-fit:cover;border-radius:16px;margin-bottom:18px;background:#f1f5f9}.om-preview-body h1{font-size:clamp(28px,4vw,44px);line-height:1.1;margin:0 0 12px;color:#0f172a}.om-preview-spot{font-size:18px;color:#64748b;margin:0 0 20px}.om-preview-content{font-size:17px;line-height:1.75;color:#1f2937}.om-preview-content img{max-width:100%;height:auto;border-radius:12px}.om-preview-content iframe{max-width:100%}@media(max-width:640px){.om-preview-panel{margin:0;width:100%;height:100%;max-height:none;border-radius:0}.om-preview-body{padding:18px}.om-preview-head{padding:12px 14px}}
+</style>
+
 <?php require __DIR__.'/_media_picker.php'; ?>
-<script src="../assets/js/omurga-editor.js?v=1.0.2-beta"></script>
+<script src="../assets/js/omurga-editor.js?v=1.0.5-beta"></script>
 <script>(function(){const title=document.getElementById('titleInput'), slug=document.getElementById('slugInput'), meta=document.getElementById('metaDescription'), metaCount=document.getElementById('metaCount'), seoTitle=document.getElementById('seoPreviewTitle'), seoDesc=document.getElementById('seoPreviewDesc'); const tr={'ş':'s','Ş':'s','ı':'i','İ':'i','ğ':'g','Ğ':'g','ü':'u','Ü':'u','ö':'o','Ö':'o','ç':'c','Ç':'c'}; function slugify(s){return (s||'').replace(/[şŞıİğĞüÜöÖçÇ]/g,m=>tr[m]||m).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')} if(title&&slug){title.addEventListener('input',()=>{ if(!slug.dataset.touched && !slug.value) slug.placeholder=slugify(title.value)||'otomatik-olusturulur'; if(seoTitle) seoTitle.textContent=title.value||'Başlık önizlemesi';}); slug.addEventListener('input',()=>slug.dataset.touched='1');} if(meta){meta.addEventListener('input',()=>{ if(metaCount) metaCount.textContent=meta.value.length; if(seoDesc) seoDesc.textContent=meta.value||'Meta açıklaması burada görünecek.';});}})();</script>
+
+
+<script>(function(){
+  var form=document.getElementById('omContentEditForm');
+  var modal=document.getElementById('omEditorPreviewModal');
+  if(!form||!modal) return;
+  function syncEditor(){
+    try{
+      var visual=document.getElementById('omVisualEditor');
+      var source=document.getElementById('contentEditor');
+      if(visual&&source) source.value=visual.innerHTML;
+      if(window.OmurgaEditor && typeof window.OmurgaEditor.sync==='function') window.OmurgaEditor.sync();
+    }catch(e){}
+  }
+  function val(sel){ var el=form.querySelector(sel); return el ? (el.value||'') : ''; }
+  function imageUrl(path){
+    path=(path||'').trim();
+    if(!path) return '';
+    if(/^https?:\/\//i.test(path) || path.indexOf('../')===0 || path.indexOf('/')===0) return path;
+    return '../'+path.replace(/^\/+/, '');
+  }
+  function openPreview(){
+    syncEditor();
+    var title=val('[name="title"]').trim() || 'Başlık önizlemesi';
+    var spot=val('[name="spot"]').trim();
+    var content=val('[name="content"]');
+    var img=val('[name="featured_image"]');
+    modal.querySelector('#omPreviewTitle').textContent=title;
+    var spotEl=modal.querySelector('#omPreviewSpot');
+    spotEl.textContent=spot;
+    spotEl.style.display=spot?'block':'none';
+    var imgEl=modal.querySelector('#omPreviewImage');
+    if(img){ imgEl.src=imageUrl(img); imgEl.style.display='block'; } else { imgEl.removeAttribute('src'); imgEl.style.display='none'; }
+    modal.querySelector('#omPreviewContent').innerHTML=content || '<p style="color:#94a3b8">Henüz içerik yazılmadı.</p>';
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden','false');
+  }
+  function closePreview(){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
+  document.getElementById('omEditorPreviewBtn')?.addEventListener('click',openPreview);
+  document.getElementById('omEditorPreviewSideBtn')?.addEventListener('click',openPreview);
+  modal.querySelectorAll('[data-close-preview]').forEach(function(el){el.addEventListener('click',closePreview);});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&modal.classList.contains('open')) closePreview();});
+})();</script>
 
 <script>(function(){
   var form=document.getElementById('omContentEditForm');

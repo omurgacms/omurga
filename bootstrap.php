@@ -2,11 +2,12 @@
 session_start();
 
 define('OMURGA_ROOT', __DIR__);
-define('OMURGA_VERSION', '1.0.2-beta');
+define('OMURGA_VERSION', '1.0.5-beta');
 define('OMURGA_SCHEMA_VERSION', '4.0.0');
 define('OMURGA_INIT', true);
 require_once OMURGA_ROOT.'/core/hooks.php';
 require_once OMURGA_ROOT.'/core/BlockRegistry.php';
+require_once OMURGA_ROOT.'/core/BuilderApi.php';
 require_once OMURGA_ROOT.'/core/DeveloperApi.php';
 require_once OMURGA_ROOT.'/core/PlatformApi.php';
 require_once OMURGA_ROOT.'/core/Updater.php';
@@ -112,7 +113,7 @@ function can(string $cap): bool {
     if($registered && in_array($role, $registered['default_roles'] ?? [], true)) return true;
     return false;
 }
-function omurga_role_labels(): array {
+function omurga_default_role_labels(): array {
     return [
         'super_admin'=>'Süper Yönetici',
         'admin'=>'Yönetici',
@@ -122,7 +123,42 @@ function omurga_role_labels(): array {
         'member'=>'Üye',
     ];
 }
-function omurga_capability_catalog(): array {
+function omurga_normalize_capability(string $cap): string {
+    $cap=trim(strtolower($cap));
+    $cap=preg_replace('/[^a-z0-9_.-]+/', '.', $cap) ?: '';
+    $cap=trim($cap, '.-_');
+    return $cap;
+}
+function omurga_normalize_role_key(string $role): string {
+    $role=trim(strtolower($role));
+    $role=strtr($role, ['ı'=>'i','ğ'=>'g','ü'=>'u','ş'=>'s','ö'=>'o','ç'=>'c']);
+    $role=preg_replace('/[^a-z0-9_\-]+/', '_', $role) ?: '';
+    return trim($role, '_-');
+}
+function omurga_custom_roles(): array { return setting_json('custom_roles', []); }
+function omurga_update_custom_roles(array $roles): void { update_setting_json('custom_roles', $roles); }
+function omurga_custom_permissions(): array { return setting_json('custom_permissions', []); }
+function omurga_update_custom_permissions(array $perms): void { update_setting_json('custom_permissions', $perms); }
+function omurga_default_role_descriptions(): array {
+    return [
+        'super_admin'=>'Çekirdek yönetim, kullanıcı, rol, paket, tema ve güvenlik dahil tüm alanlara erişir. Bu rol korumalıdır.',
+        'admin'=>'Siteyi yönetir; günlük yönetim için tam yetkilidir fakat Süper Yönetici rolünü değiştiremez.',
+        'editor'=>'Yazı, sayfa, yorum, kategori, etiket, medya ve form süreçlerini yönetir.',
+        'author'=>'Kendi içeriklerini oluşturur/düzenler ve incelemeye gönderir.',
+        'reporter'=>'Haber/muhabir akışı için içerik taslağı oluşturur ve incelemeye gönderir.',
+        'member'=>'Panelde sadece kısıtlı içerik görünümü olan temel kullanıcıdır.',
+    ];
+}
+function omurga_role_labels(): array {
+    $labels=omurga_default_role_labels();
+    foreach(omurga_custom_roles() as $role=>$data){
+        $key=omurga_normalize_role_key((string)$role);
+        if(!$key) continue;
+        $labels[$key]=(string)($data['label'] ?? $key);
+    }
+    return $labels;
+}
+function omurga_core_capability_catalog(): array {
     return [
         'content.view'=>'İçerikleri görüntüleyebilir',
         'posts.view'=>'Yazıları görüntüleyebilir',
@@ -160,44 +196,77 @@ function omurga_capability_catalog(): array {
         'security.manage'=>'Güvenlik merkezini yönetebilir',
         'system.manage'=>'Sistem sağlığını ve günlükleri yönetebilir',
         'system.update'=>'Sistem güncellemelerini yönetebilir',
+        'api.manage'=>'REST API ayarlarını yönetebilir',
+        'api.read'=>'REST API üzerinden veri okuyabilir',
+        'api.write'=>'REST API üzerinden veri yazabilir',
     ];
 }
-function omurga_role_capabilities(): array {
+function omurga_capability_catalog(): array {
+    $caps=omurga_core_capability_catalog();
+    foreach(omurga_custom_permissions() as $cap=>$label){
+        $key=omurga_normalize_capability((string)$cap);
+        if($key) $caps[$key]=(string)$label;
+    }
+    foreach(($GLOBALS['omurga_plugin_permissions'] ?? []) as $cap=>$meta){
+        $key=omurga_normalize_capability((string)$cap);
+        if($key) $caps[$key]=(string)($meta['label'] ?? $key);
+    }
+    ksort($caps);
+    return $caps;
+}
+function omurga_default_role_capabilities(): array {
     return [
         'super_admin'=>['*'],
-        'admin'=>['content.view','posts.view','posts.create','posts.edit','posts.publish','posts.delete','posts.review','pages.manage','comments.manage','categories.manage','tags.manage','media.manage','media.select','media.upload','media.edit','media.delete','menus.manage','themes.manage','layout.manage','blocks.manage','design.manage','plugins.manage','plugin_api.manage','users.manage','roles.manage','settings.manage','seo.manage','seo.view','forms.manage','ads.manage','backups.manage','security.manage','system.manage'],
+        'admin'=>['content.view','posts.view','posts.create','posts.edit','posts.publish','posts.delete','posts.review','pages.manage','comments.manage','categories.manage','tags.manage','media.manage','media.select','media.upload','media.edit','media.delete','menus.manage','themes.manage','layout.manage','blocks.manage','design.manage','plugins.manage','plugin_api.manage','users.manage','roles.manage','settings.manage','api.manage','api.read','api.write','seo.manage','seo.view','forms.manage','ads.manage','backups.manage','security.manage','system.manage','system.update'],
         'editor'=>['content.view','posts.view','posts.create','posts.edit','posts.publish','posts.delete','posts.review','pages.manage','comments.manage','categories.manage','tags.manage','media.manage','media.select','media.upload','media.edit','media.delete','seo.view','forms.manage'],
         'author'=>['content.view','posts.view','posts.create','posts.edit_own','posts.submit_review','media.manage','media.select','media.upload','seo.view'],
         'reporter'=>['content.view','posts.view','posts.create','posts.edit_own','posts.submit_review','media.manage','media.select','media.upload','seo.view'],
         'member'=>['content.view'],
     ];
 }
+function omurga_role_capabilities(): array {
+    $map=omurga_default_role_capabilities();
+    foreach(omurga_custom_roles() as $role=>$data){
+        $key=omurga_normalize_role_key((string)$role);
+        if(!$key || $key==='super_admin') continue;
+        $caps=[];
+        foreach((array)($data['capabilities'] ?? []) as $cap){
+            $cap=omurga_normalize_capability((string)$cap);
+            if($cap) $caps[]=$cap;
+        }
+        $map[$key]=array_values(array_unique($caps));
+    }
+    return $map;
+}
 function omurga_role_description(string $role): string {
-    $descriptions=[
-        'super_admin'=>'Çekirdek yönetim, kullanıcı, rol, paket, tema ve güvenlik dahil tüm alanlara erişir. Bu rol korumalıdır.',
-        'admin'=>'Siteyi yönetir; günlük yönetim için tam yetkilidir fakat Süper Yönetici rolünü değiştiremez.',
-        'editor'=>'Yazı, sayfa, yorum, kategori, etiket, medya ve form süreçlerini yönetir.',
-        'author'=>'Kendi içeriklerini oluşturur/düzenler ve incelemeye gönderir.',
-        'reporter'=>'Haber/muhabir akışı için içerik taslağı oluşturur ve incelemeye gönderir.',
-        'member'=>'Panelde sadece kısıtlı içerik görünümü olan temel kullanıcıdır.',
-    ];
+    $role=omurga_normalize_role_key($role);
+    $custom=omurga_custom_roles();
+    if(isset($custom[$role]['description'])) return (string)$custom[$role]['description'];
+    $descriptions=omurga_default_role_descriptions();
     return $descriptions[$role] ?? '';
 }
-function omurga_role_is_protected(string $role): bool { return $role==='super_admin'; }
-function omurga_is_super_admin(?array $user=null): bool { $user=$user ?: current_user(); return (($user['role'] ?? '') === 'super_admin'); }
-function omurga_has_super_admin(): bool {
-    try{ $s=db()->query("SELECT COUNT(*) FROM ".table_name('users')." WHERE role='super_admin'"); return ((int)$s->fetchColumn())>0; }catch(Throwable $e){ return false; }
+function omurga_role_is_protected(string $role): bool { return omurga_normalize_role_key($role)==='super_admin'; }
+function omurga_role_is_core(string $role): bool { return array_key_exists(omurga_normalize_role_key($role), omurga_default_role_labels()); }
+function omurga_save_role_definition(string $role, string $label, string $description, array $capabilities): array {
+    $role=omurga_normalize_role_key($role);
+    if(!$role) return [false, 'Rol anahtarı boş olamaz.'];
+    if($role==='super_admin') return [false, 'Süper Yönetici rolü değiştirilemez.'];
+    $caps=[]; foreach($capabilities as $cap){ $cap=omurga_normalize_capability((string)$cap); if($cap) $caps[]=$cap; }
+    $caps=array_values(array_unique($caps)); sort($caps);
+    if(current_user_role()===$role && !in_array('roles.manage',$caps,true) && !omurga_is_super_admin()) return [false, 'Kendi rolünüzden rol yönetim yetkisini kaldıramazsınız.'];
+    $roles=omurga_custom_roles();
+    $roles[$role]=['label'=>trim($label) ?: $role, 'description'=>trim($description), 'capabilities'=>$caps, 'updated_at'=>date('c')];
+    omurga_update_custom_roles($roles);
+    return [true, 'Rol kaydedildi.'];
 }
-function omurga_can_assign_role(string $role): bool {
-    if($role==='super_admin') return omurga_is_super_admin() || !omurga_has_super_admin();
-    return can('users.manage');
-}
-function omurga_can_modify_user(array $target): bool {
-    $current=current_user();
-    if(!$current) return false;
-    if((int)($target['id'] ?? 0)===(int)($current['id'] ?? 0)) return true;
-    if(($target['role'] ?? '')==='super_admin' && !omurga_is_super_admin($current)) return false;
-    return can('users.manage');
+function omurga_delete_role_definition(string $role, string $reassign='reporter'): array {
+    $role=omurga_normalize_role_key($role); $reassign=omurga_normalize_role_key($reassign);
+    if(!$role || $role==='super_admin') return [false, 'Bu rol silinemez.'];
+    if(current_user_role()===$role) return [false, 'Kendi aktif rolünüzü silemezsiniz.'];
+    if(!array_key_exists($reassign, omurga_role_labels()) || $reassign===$role) $reassign='reporter';
+    $roles=omurga_custom_roles(); unset($roles[$role]); omurga_update_custom_roles($roles);
+    try{ db()->prepare('UPDATE '.table_name('users').' SET role=? WHERE role=?')->execute([$reassign,$role]); }catch(Throwable $e){}
+    return [true, 'Rol silindi. Bu roldeki kullanıcılar yeni role aktarıldı.'];
 }
 function omurga_status_labels(): array {
     return ['draft'=>'Taslak','pending'=>'İncelemede','published'=>'Yayında','scheduled'=>'Planlandı','archived'=>'Arşivde','trash'=>'Çöp Kutusu'];
@@ -429,7 +498,7 @@ function omurga_safe_extract_zip(ZipArchive $zip, string $destination): void {
 }
 
 
-/* Omurga v1.0.2: Çekirdek koruma, paket izinleri ve bütünlük kontrolü */
+/* Omurga v1.0.2.1.1: Çekirdek koruma, paket izinleri ve bütünlük kontrolü */
 function omurga_normalize_path(string $path): string {
     return str_replace('\\','/', $path);
 }
@@ -895,12 +964,36 @@ function default_blocks_for_type(?string $type=null): array {
 function home_blocks(): array { $blocks=setting_json('home_blocks', []); if(!$blocks) $blocks=default_blocks_for_type(); usort($blocks, fn($a,$b)=>(int)($a['sort']??0)<=>(int)($b['sort']??0)); return $blocks; }
 function block_enabled(string $key): bool { foreach(home_blocks() as $b){ if(($b['key']??'')===$key) return !empty($b['enabled']); } return false; }
 function block_conf(string $key): array { foreach(home_blocks() as $b){ if(($b['key']??'')===$key) return $b; } return []; }
-function omurga_menu_locations(): array {
+function omurga_default_menu_locations(): array {
     return ['main'=>'Ana Menü','mobile'=>'Mobil Menü','footer'=>'Footer Menü','top'=>'Üst Menü'];
+}
+function omurga_theme_menu_locations(?string $slug=null): array {
+    $meta = omurga_theme_meta($slug);
+    $locations = $meta['menu_locations'] ?? [];
+    if(!is_array($locations)) return [];
+    $out = [];
+    foreach($locations as $key=>$label){
+        $safe = preg_replace('/[^a-z0-9_\-]/','', strtolower((string)$key));
+        if($safe==='') continue;
+        $out[$safe] = is_array($label) ? (string)($label['label'] ?? $key) : (string)$label;
+    }
+    return $out;
+}
+function omurga_menu_locations(?string $slug=null): array {
+    $locations = array_replace(omurga_default_menu_locations(), omurga_theme_menu_locations($slug), omurga_registered_runtime_menu_locations());
+    return function_exists('omurga_apply_filters') ? omurga_apply_filters('omurga_menu_locations', $locations, $slug ?: omurga_active_theme()) : $locations;
 }
 function omurga_normalize_menu_location(string $location='main'): string {
     $location=preg_replace('/[^a-z0-9_\-]/','', strtolower($location ?: 'main'));
     return array_key_exists($location, omurga_menu_locations()) ? $location : 'main';
+}
+function omurga_register_menu_location(string $key, string $label): void {
+    $key=preg_replace('/[^a-z0-9_\-]/','', strtolower($key));
+    if($key==='') return;
+    $GLOBALS['omurga_runtime_menu_locations'][$key]=$label;
+}
+function omurga_registered_runtime_menu_locations(): array {
+    return $GLOBALS['omurga_runtime_menu_locations'] ?? [];
 }
 function default_menu_items(string $location='main'): array {
     $location=omurga_normalize_menu_location($location);
@@ -1039,6 +1132,32 @@ function theme_setting_bool(string $key, bool $default=false, ?string $slug=null
     $v = theme_setting($key, $default ? '1' : '0', $slug);
     return in_array((string)$v, ['1','true','yes','on'], true);
 }
+
+function om_theme_setting(string $key, $default=null, ?string $slug=null) { return theme_setting($key, $default, $slug); }
+function om_theme_setting_bool(string $key, bool $default=false, ?string $slug=null): bool { return theme_setting_bool($key, $default, $slug); }
+function om_theme_asset(string $path='', ?string $slug=null): string { return omurga_theme_url(ltrim($path,'/'), $slug ?: omurga_active_theme()); }
+function om_theme_meta(?string $slug=null): array { return omurga_theme_meta($slug); }
+function om_theme_supports(string $feature, ?string $slug=null): bool {
+    $meta=omurga_theme_meta($slug); $supports=$meta['supports'] ?? [];
+    return is_array($supports) && in_array($feature, $supports, true);
+}
+function om_theme_regions(?string $slug=null): array { return omurga_theme_regions($slug); }
+function om_region(string $region, array $context=[]): string { return omurga_render_region($region, $context); }
+function om_menu(string $location='main'): string { return omurga_menu($location); }
+function om_asset(string $path=''): string { return om_theme_asset($path); }
+function om_body_class(string $extra=''): string {
+    $classes=['omurga-site','theme-'.omurga_active_theme()];
+    if($extra!=='') $classes[]=$extra;
+    return e(implode(' ', array_filter($classes)));
+}
+function omurga_load_active_theme_functions(): void {
+    static $loaded=[]; $slug=omurga_active_theme();
+    if(isset($loaded[$slug])) return;
+    $file=omurga_theme_dir($slug).'/functions.php';
+    if(is_file($file)) { $loaded[$slug]=true; require_once $file; }
+    else { $loaded[$slug]=true; }
+}
+
 
 function omurga_theme_regions(?string $slug=null): array {
     $meta=omurga_theme_meta($slug);
@@ -2170,7 +2289,7 @@ function omurga_active_theme(): string {
 }
 
 
-/* Omurga Extension Update Helpers v1.0.2 */
+/* Omurga Extension Update Helpers v1.0.2.1 */
 function omurga_normalize_version(string $version): string {
     $version=trim($version);
     $version=preg_replace('/^v/i','',$version) ?: $version;
@@ -2659,6 +2778,239 @@ function omurga_render_post_content(array $post): string {
     return (string)omurga_apply_filters('omurga_after_post_render', omurga_render_shortcodes((string)($post['content'] ?? '')), $post);
 }
 
+
+
+/* Omurga REST API v1 */
+function omurga_api_enabled(): bool { return setting('api_enabled','1') !== '0'; }
+function omurga_api_tokens(): array { return setting_json('api_tokens', []); }
+function omurga_update_api_tokens(array $tokens): void { update_setting_json('api_tokens', array_values($tokens)); }
+function omurga_api_make_token(): string { return 'omg_'.bin2hex(random_bytes(24)); }
+function omurga_api_hash_token(string $token): string { return hash('sha256', $token); }
+function omurga_api_token_last4(string $token): string { return substr($token, -4); }
+function omurga_api_authorization_header(): string {
+    $headers=[];
+    if(function_exists('getallheaders')) $headers=getallheaders() ?: [];
+    foreach(['Authorization','authorization','HTTP_AUTHORIZATION','REDIRECT_HTTP_AUTHORIZATION'] as $key){
+        if(isset($headers[$key])) return (string)$headers[$key];
+        if(isset($_SERVER[$key])) return (string)$_SERVER[$key];
+    }
+    return '';
+}
+function omurga_api_request_token(): string {
+    $auth=trim(omurga_api_authorization_header());
+    if(preg_match('/^Bearer\s+(.+)$/i',$auth,$m)) return trim($m[1]);
+    if(!empty($_GET['api_token'])) return trim((string)$_GET['api_token']);
+    if(!empty($_POST['api_token'])) return trim((string)$_POST['api_token']);
+    return '';
+}
+function omurga_api_current_token(): ?array {
+    $token=omurga_api_request_token();
+    if($token==='') return null;
+    $hash=omurga_api_hash_token($token);
+    foreach(omurga_api_tokens() as $row){
+        if(!is_array($row) || empty($row['hash'])) continue;
+        if(hash_equals((string)$row['hash'], $hash)){
+            if(($row['status'] ?? 'active') !== 'active') return null;
+            return $row + ['token_hash'=>$hash];
+        }
+    }
+    return null;
+}
+function omurga_api_token_has_scope(?array $token, string $scope): bool {
+    if(!$token) return false;
+    $scopes=$token['scopes'] ?? [];
+    if(!is_array($scopes)) $scopes=[];
+    return in_array('*',$scopes,true) || in_array($scope,$scopes,true);
+}
+function omurga_api_require_scope(string $scope): array {
+    $token=omurga_api_current_token();
+    if(!$token || !omurga_api_token_has_scope($token,$scope)){
+        omurga_api_error('Bu işlem için API yetkisi yok.', 401, 'unauthorized');
+    }
+    return $token;
+}
+function omurga_api_json($data, int $status=200): void {
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    header('X-Omurga-Version: '.OMURGA_VERSION);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT);
+    exit;
+}
+function omurga_api_error(string $message, int $status=400, string $code='error', array $extra=[]): void {
+    omurga_api_json(['success'=>false,'error'=>['code'=>$code,'message'=>$message]+$extra], $status);
+}
+function omurga_api_input(): array {
+    $raw=(string)file_get_contents('php://input');
+    $type=$_SERVER['CONTENT_TYPE'] ?? '';
+    if(stripos($type,'application/json')!==false){
+        $data=json_decode($raw,true);
+        return is_array($data) ? $data : [];
+    }
+    return $_POST ?: [];
+}
+function omurga_api_int_param(string $key, int $default, int $min=1, int $max=100): int {
+    $v=(int)($_GET[$key] ?? $default);
+    return max($min, min($max, $v));
+}
+function omurga_api_post_payload(array $row): array {
+    $id=(int)($row['id'] ?? 0);
+    $type=(string)($row['type'] ?? 'post');
+    return [
+        'id'=>$id,
+        'type'=>$type,
+        'title'=>$row['title'] ?? '',
+        'slug'=>$row['slug'] ?? '',
+        'spot'=>$row['spot'] ?? '',
+        'excerpt'=>excerpt(($row['spot'] ?? '') ?: ($row['content'] ?? ''), 180),
+        'content'=>$row['content'] ?? '',
+        'status'=>$row['status'] ?? '',
+        'url'=>$type==='page' ? page_url($row) : post_url($row),
+        'category'=>[
+            'id'=>isset($row['category_id']) ? (int)$row['category_id'] : null,
+            'name'=>$row['category_name'] ?? null,
+            'slug'=>$row['category_slug'] ?? null,
+        ],
+        'tags'=>$id>0 ? tag_names_for_post($id) : [],
+        'featured_image'=>$row['featured_image'] ?? '',
+        'featured_image_url'=>image_url($row['featured_image'] ?? ''),
+        'author'=>[
+            'id'=>isset($row['author_id']) ? (int)$row['author_id'] : null,
+            'name'=>$row['author_name'] ?? null,
+        ],
+        'seo'=>[
+            'title'=>$row['seo_title'] ?? '',
+            'description'=>$row['meta_description'] ?? '',
+            'canonical'=>$row['canonical_url'] ?? '',
+            'noindex'=>(int)($row['seo_noindex'] ?? 0)===1,
+        ],
+        'published_at'=>$row['published_at'] ?? null,
+        'created_at'=>$row['created_at'] ?? null,
+        'updated_at'=>$row['updated_at'] ?? null,
+    ];
+}
+function omurga_api_route_path(): string {
+    $path=current_path();
+    if(str_starts_with($path,'api/')) return trim(substr($path,4),'/');
+    if($path==='api') return '';
+    $script=str_replace('\\','/', $_SERVER['SCRIPT_NAME'] ?? '');
+    if(str_ends_with($script,'/api/index.php')){
+        $uri=parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '';
+        $base=dirname($script);
+        if($base && str_starts_with($uri,$base)) $uri=substr($uri, strlen($base));
+        return trim($uri,'/');
+    }
+    return '';
+}
+function omurga_api_find_post(string $idOrSlug, string $type='post', bool $publicOnly=true): ?array {
+    $posts=table_name('posts'); $cats=table_name('categories'); $users=table_name('users');
+    $where="p.type".($type==='page'?"='page'":"<>'page'");
+    if($publicOnly) $where.=" AND p.status='published'";
+    if(ctype_digit($idOrSlug)){
+        $st=db()->prepare("SELECT p.*, c.name category_name, c.slug category_slug, u.name author_name FROM $posts p LEFT JOIN $cats c ON c.id=p.category_id LEFT JOIN $users u ON u.id=p.author_id WHERE p.id=? AND $where LIMIT 1");
+        $st->execute([(int)$idOrSlug]);
+    } else {
+        $st=db()->prepare("SELECT p.*, c.name category_name, c.slug category_slug, u.name author_name FROM $posts p LEFT JOIN $cats c ON c.id=p.category_id LEFT JOIN $users u ON u.id=p.author_id WHERE p.slug=? AND $where LIMIT 1");
+        $st->execute([$idOrSlug]);
+    }
+    $row=$st->fetch(); return $row ?: null;
+}
+function omurga_api_upsert_post(array $data, string $type='post', ?int $id=null): int {
+    $posts=table_name('posts');
+    $title=trim((string)($data['title'] ?? ''));
+    if($title==='') omurga_api_error('Başlık zorunludur.',422,'validation_error');
+    $slug=slugify((string)($data['slug'] ?? $title));
+    $slug=omurga_unique_slug($slug, $id ?: 0);
+    $status=(string)($data['status'] ?? 'draft');
+    if(!in_array($status,['draft','pending','published','scheduled','trash'],true)) $status='draft';
+    $categoryId=!empty($data['category_id']) ? (int)$data['category_id'] : null;
+    $fields=[
+        'title'=>$title,'slug'=>$slug,'spot'=>(string)($data['spot'] ?? ''),'content'=>(string)($data['content'] ?? ''),
+        'type'=>$type,'status'=>$status,'category_id'=>$categoryId,'featured_image'=>(string)($data['featured_image'] ?? ''),
+        'seo_title'=>(string)($data['seo_title'] ?? ''),'meta_description'=>(string)($data['meta_description'] ?? ''),
+        'canonical_url'=>(string)($data['canonical_url'] ?? ''),'seo_noindex'=>!empty($data['seo_noindex'])?1:0,
+        'author_id'=>$_SESSION['omurga_user_id'] ?? null,
+        'published_at'=>$status==='published' ? date('Y-m-d H:i:s') : ($data['published_at'] ?? null),
+    ];
+    if($id){
+        $sets=[]; $params=[];
+        foreach($fields as $k=>$v){ $sets[]="$k=?"; $params[]=$v; }
+        $params[]=$id;
+        db()->prepare("UPDATE $posts SET ".implode(',',$sets)." WHERE id=?")->execute($params);
+        $postId=$id;
+    } else {
+        $cols=array_keys($fields); $marks=implode(',', array_fill(0,count($cols),'?'));
+        db()->prepare("INSERT INTO $posts (".implode(',',$cols).") VALUES ($marks)")->execute(array_values($fields));
+        $postId=(int)db()->lastInsertId();
+    }
+    if(isset($data['tags'])) sync_post_tags($postId, is_array($data['tags']) ? implode(',', $data['tags']) : (string)$data['tags']);
+    if(isset($data['category_ids']) && is_array($data['category_ids'])) omurga_sync_post_categories($postId, $data['category_ids']);
+    return $postId;
+}
+function omurga_api_dispatch(): void {
+    if(!omurga_api_enabled()) omurga_api_error('REST API kapalı.',403,'api_disabled');
+    omurga_migrate();
+    $method=strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+    $path=omurga_api_route_path();
+    $parts=$path===''?[]:array_values(array_filter(explode('/',$path), 'strlen'));
+    if($method==='OPTIONS') omurga_api_json(['success'=>true]);
+    if(!$parts){ omurga_api_json(['success'=>true,'name'=>'Omurga REST API','version'=>'v1','omurga_version'=>OMURGA_VERSION,'endpoints'=>['/api/status','/api/posts','/api/pages','/api/categories','/api/tags','/api/media']]); }
+    if($parts[0]==='status') omurga_api_json(['success'=>true,'version'=>OMURGA_VERSION,'site'=>setting('site_name','Omurga'),'time'=>date('c')]);
+    $resource=$parts[0]; $id=$parts[1] ?? null;
+    $publicOnly=omurga_api_current_token() ? false : true;
+    try{
+        if(in_array($resource,['posts','pages'],true)){
+            $type=$resource==='pages'?'page':'post';
+            if($method==='GET'){
+                if($id){ $row=omurga_api_find_post($id,$type,$publicOnly); if(!$row) omurga_api_error('Kayıt bulunamadı.',404,'not_found'); omurga_api_json(['success'=>true,'data'=>omurga_api_post_payload($row)]); }
+                $limit=omurga_api_int_param('limit',10,1,100); $page=omurga_api_int_param('page',1,1,100000); $offset=($page-1)*$limit;
+                $posts=table_name('posts'); $cats=table_name('categories'); $users=table_name('users');
+                $where=[$type==='page'?"p.type='page'":"p.type<>'page'"]; $params=[];
+                if($publicOnly) $where[]="p.status='published'"; elseif(!empty($_GET['status'])){ $where[]='p.status=?'; $params[]=(string)$_GET['status']; }
+                if(!empty($_GET['category_id']) && $type!=='page'){ $where[]='p.category_id=?'; $params[]=(int)$_GET['category_id']; }
+                if(!empty($_GET['search'])){ $where[]='(p.title LIKE ? OR p.spot LIKE ? OR p.content LIKE ?)'; $q='%'.(string)$_GET['search'].'%'; array_push($params,$q,$q,$q); }
+                $sql="SELECT p.*, c.name category_name, c.slug category_slug, u.name author_name FROM $posts p LEFT JOIN $cats c ON c.id=p.category_id LEFT JOIN $users u ON u.id=p.author_id WHERE ".implode(' AND ',$where)." ORDER BY COALESCE(p.published_at,p.created_at) DESC,p.id DESC LIMIT $limit OFFSET $offset";
+                $st=db()->prepare($sql); $st->execute($params); $rows=$st->fetchAll();
+                omurga_api_json(['success'=>true,'data'=>array_map('omurga_api_post_payload',$rows),'pagination'=>['page'=>$page,'limit'=>$limit,'count'=>count($rows)]]);
+            }
+            if(in_array($method,['POST','PUT','PATCH'],true)){
+                omurga_api_require_scope('write');
+                $data=omurga_api_input();
+                $postId=$id ? (int)$id : null;
+                if($method==='POST' && !$postId) $postId=omurga_api_upsert_post($data,$type,null); else { if(!$postId) omurga_api_error('ID gerekli.',422,'validation_error'); $postId=omurga_api_upsert_post($data,$type,$postId); }
+                $row=omurga_api_find_post((string)$postId,$type,false);
+                omurga_api_json(['success'=>true,'data'=>$row?omurga_api_post_payload($row):['id'=>$postId]], $method==='POST'?201:200);
+            }
+            if($method==='DELETE'){
+                omurga_api_require_scope('write'); if(!$id) omurga_api_error('ID gerekli.',422,'validation_error');
+                omurga_post_trash((int)$id,$type); omurga_api_json(['success'=>true,'message'=>'Kayıt çöpe taşındı.']);
+            }
+        }
+        if($resource==='categories'){
+            $cats=table_name('categories');
+            if($method==='GET'){
+                if($id){ $st=db()->prepare("SELECT * FROM $cats WHERE id=? OR slug=? LIMIT 1"); $st->execute([(int)$id,$id]); $row=$st->fetch(); if(!$row) omurga_api_error('Kategori bulunamadı.',404,'not_found'); omurga_api_json(['success'=>true,'data'=>$row]); }
+                $rows=db()->query("SELECT * FROM $cats ORDER BY sort_order ASC,name ASC")->fetchAll(); omurga_api_json(['success'=>true,'data'=>$rows]);
+            }
+        }
+        if($resource==='tags'){
+            $tags=table_name('tags'); db()->exec("CREATE TABLE IF NOT EXISTS $tags (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(120) NOT NULL, slug VARCHAR(140) NOT NULL UNIQUE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            if($method==='GET'){ $rows=db()->query("SELECT * FROM $tags ORDER BY name ASC LIMIT 500")->fetchAll(); omurga_api_json(['success'=>true,'data'=>$rows]); }
+        }
+        if($resource==='media'){
+            omurga_api_require_scope($method==='GET' ? 'read' : 'write');
+            $media=table_name('media');
+            if($method==='GET'){
+                $limit=omurga_api_int_param('limit',20,1,100); $rows=db()->query("SELECT * FROM $media ORDER BY id DESC LIMIT $limit")->fetchAll(); omurga_api_json(['success'=>true,'data'=>$rows]);
+            }
+        }
+        if($resource==='users'){
+            omurga_api_require_scope('write');
+            $users=table_name('users'); $rows=db()->query("SELECT id,name,email,username,role,status,created_at FROM $users ORDER BY id DESC LIMIT 200")->fetchAll(); omurga_api_json(['success'=>true,'data'=>$rows]);
+        }
+    }catch(Throwable $e){ omurga_write_error($e); omurga_api_error('API işlemi tamamlanamadı.',500,'server_error'); }
+    omurga_api_error('Endpoint bulunamadı.',404,'not_found');
+}
+
 function current_path(): string { $uri=parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH); $base=parse_url(omurga_url(),PHP_URL_PATH)?:''; if($base&&str_starts_with($uri,$base)) $uri=substr($uri,strlen($base)); return trim($uri,'/'); }
     if(!omurga_is_installed() && !str_contains($_SERVER['SCRIPT_NAME']??'', '/install/')){
         $script=str_replace('\\','/', $_SERVER['SCRIPT_NAME'] ?? '/index.php');
@@ -3055,7 +3407,7 @@ function omurga_migrate_14(): void {
     static $done=false; if($done) return; $done=true;
     if(!omurga_is_installed()) return;
     try{
-        if(setting('active_theme', null)===null) update_setting('active_theme','omurga-kolay');
+        if(setting('active_theme', null)===null) update_setting('active_theme','haber-v1');
         update_setting('omurga_version', OMURGA_VERSION);
         update_setting('db_version', OMURGA_VERSION);
     }catch(Throwable $e){ omurga_write_error($e); }
@@ -3428,7 +3780,7 @@ function omurga_recent_error_lines(int $limit=100): array {
 
 
 
-/* Omurga v1.0.2: Security Center + System Health helpers */
+/* Omurga v1.0.2.1.1: Security Center + System Health helpers */
 if(!function_exists('omurga_bool_badge_level')){
 function omurga_bool_badge_level(bool $ok, string $warn='warning'): string { return $ok ? 'ok' : $warn; }
 }
@@ -3755,7 +4107,7 @@ function create_uploads_backup(): ?string {
 }
 
 
-/* Omurga CMS 1.0.2 Beta - Package API */
+/* Omurga CMS 1.0.5 Beta - Package API */
 function omurga_packages_dir(): string { $dir=OMURGA_ROOT.'/packages'; if(!is_dir($dir)) @mkdir($dir,0775,true); return $dir; }
 function omurga_package_slug(string $slug): string { return preg_replace('/[^a-z0-9_-]/','', strtolower($slug)); }
 function omurga_active_packages(): array { return setting_json('active_packages', []); }
@@ -3868,6 +4220,8 @@ function omurga_install_package_zip(string $zipPath, array $options=[]): array {
     }
     omurga_extension_copy_dir($root,$target);
     omurga_rrmdir($tmpBase);
+    if(!$exists) omurga_package_include_lifecycle($slug,'install.php');
+    if($exists) omurga_package_include_lifecycle($slug,'update.php');
     $activateAfter=!empty($options['activate_after_upload']);
     if($activateAfter) omurga_activate_package($slug);
     return [
@@ -3887,6 +4241,7 @@ function omurga_delete_package(string $slug, bool $backup=true): array {
     $target=omurga_package_path($slug);
     if(!is_dir($target)) throw new RuntimeException('Paket klasörü bulunamadı.');
     if(omurga_package_is_active($slug)) omurga_deactivate_package($slug);
+    omurga_package_include_lifecycle($slug,'uninstall.php');
     $info=omurga_read_package_json($target.'/package.json') ?: ['version'=>''];
     $backupPath=null;
     if($backup) $backupPath=omurga_backup_extension_dir('package',$slug,$target,(string)($info['version'] ?? ''));
@@ -3902,6 +4257,7 @@ function omurga_activate_package(string $slug): bool {
     omurga_update_active_packages($active);
     $file=$all[$slug]['package_file'] ?? '';
     if(is_file($file)){ try{ require_once $file; }catch(Throwable $e){ omurga_write_error($e); } }
+    omurga_run_package_migrations($slug);
     omurga_action('omurga_package_activated', $slug, $all[$slug]);
     return true;
 }
@@ -3965,6 +4321,99 @@ function omurga_package_blocks(): array {
         foreach($found as $key=>$block){ $block['package']=$slug; $block['category']=$block['category'] ?? 'Paket Blokları'; $blocks[$key]=$block; }
     }
     return $blocks;
+}
+
+
+function omurga_package_asset_url(string $slug, string $path=''): string {
+    $slug=omurga_package_slug($slug);
+    $path=ltrim(str_replace(['..', chr(92)], ['', '/'], $path), '/');
+    return omurga_url('packages/'.$slug.($path!==''?'/'.$path:''));
+}
+function omurga_package_setting_key(string $slug): string { return 'package_settings_'.omurga_package_slug($slug); }
+function omurga_package_settings(string $slug): array {
+    $slug=omurga_package_slug($slug);
+    $defs=function_exists('omurga_registered_package_settings') ? omurga_registered_package_settings($slug) : [];
+    $manifest=[]; $all=omurga_all_packages(); if(isset($all[$slug]) && is_array($all[$slug]['settings'] ?? null)) $manifest=$all[$slug]['settings'];
+    $defaults=[];
+    foreach(array_replace($manifest,$defs) as $key=>$field){ if(is_array($field) && array_key_exists('default',$field)) $defaults[$key]=$field['default']; }
+    return array_replace($defaults, setting_json(omurga_package_setting_key($slug), []));
+}
+function omurga_package_setting(string $slug, string $key, $default=null){ $settings=omurga_package_settings($slug); return $settings[$key] ?? $default; }
+function omurga_update_package_settings(string $slug, array $settings): void { update_setting_json(omurga_package_setting_key($slug), $settings); }
+function omurga_package_settings_schema(string $slug): array {
+    $slug=omurga_package_slug($slug); $all=omurga_all_packages();
+    $manifest=isset($all[$slug]) && is_array($all[$slug]['settings'] ?? null) ? $all[$slug]['settings'] : [];
+    $api=function_exists('omurga_registered_package_settings') ? omurga_registered_package_settings($slug) : [];
+    return array_replace($manifest,$api);
+}
+function omurga_sanitize_settings_by_schema(array $input, array $schema): array {
+    $out=[];
+    foreach($schema as $key=>$field){
+        if(!is_array($field)) continue;
+        $type=(string)($field['type'] ?? 'text');
+        if($type==='checkbox'){ $out[$key]=!empty($input[$key]) ? '1' : '0'; continue; }
+        $value=$input[$key] ?? ($field['default'] ?? '');
+        if(is_array($value)) $value=implode(',', array_map('strval',$value));
+        $value=trim((string)$value);
+        if($type==='number') $value=(string)(int)$value;
+        if($type==='url') $value=filter_var($value, FILTER_SANITIZE_URL);
+        if($type==='color' && !preg_match('/^#[0-9a-fA-F]{3,8}$/',$value)) $value=(string)($field['default'] ?? '');
+        $out[$key]=$value;
+    }
+    return $out;
+}
+function omurga_render_package_settings_form(string $slug): string {
+    $slug=omurga_package_slug($slug); $defs=omurga_package_settings_schema($slug);
+    if(!$defs) return '<p class="muted">Bu paket için ayar tanımlanmamış.</p>';
+    $values=omurga_package_settings($slug); ob_start();
+    foreach($defs as $key=>$field){
+        if(!is_array($field)) continue;
+        $type=(string)($field['type'] ?? 'text'); $label=(string)($field['label'] ?? $key); $help=(string)($field['help'] ?? ''); $value=$values[$key] ?? ($field['default'] ?? '');
+        echo '<label class="form-label">'.e($label).'</label>';
+        if($type==='textarea') echo '<textarea name="settings['.e($key).']" rows="4">'.e($value).'</textarea>';
+        elseif($type==='checkbox') echo '<label class="check"><input type="checkbox" name="settings['.e($key).']" value="1" '.(((string)$value==='1'||$value===true)?'checked':'').'> Aktif</label>';
+        elseif($type==='select'){ echo '<select name="settings['.e($key).']">'; foreach((array)($field['options'] ?? []) as $ov=>$ol){ echo '<option value="'.e($ov).'" '.((string)$value===(string)$ov?'selected':'').'>'.e($ol).'</option>'; } echo '</select>'; }
+        else echo '<input type="'.e(in_array($type,['text','url','number','color','email'],true)?$type:'text').'" name="settings['.e($key).']" value="'.e($value).'">';
+        if($help!=='') echo '<p class="muted small">'.e($help).'</p>';
+    }
+    return (string)ob_get_clean();
+}
+function omurga_render_package_settings_page(string $slug): string {
+    $slug=omurga_package_slug($slug); $notice=''; $error='';
+    try{
+        if($_SERVER['REQUEST_METHOD']==='POST' && (string)($_POST['action'] ?? '')==='save_package_settings' && (string)($_POST['package'] ?? '')===$slug){
+            if(function_exists('verify_csrf')) verify_csrf();
+            $schema=omurga_package_settings_schema($slug);
+            $data=omurga_sanitize_settings_by_schema(is_array($_POST['settings'] ?? null)?$_POST['settings']:[], $schema);
+            omurga_update_package_settings($slug,$data);
+            omurga_action('omurga_package_settings_saved',$slug,$data);
+            $notice='Paket ayarları kaydedildi.';
+        }
+    }catch(Throwable $e){ $error=$e->getMessage(); omurga_write_error($e); }
+    ob_start();
+    if($notice) echo '<div class="alert success">'.e($notice).'</div>'; if($error) echo '<div class="alert error">'.e($error).'</div>';
+    echo '<form method="post" class="card">'; if(function_exists('csrf_field')) echo csrf_field(); echo '<input type="hidden" name="action" value="save_package_settings"><input type="hidden" name="package" value="'.e($slug).'">';
+    echo omurga_render_package_settings_form($slug); echo '<p><button class="btn primary">Ayarları Kaydet</button></p></form>';
+    return (string)ob_get_clean();
+}
+function omurga_run_package_migrations(?string $packageSlug=null): void {
+    $targets=$packageSlug ? [omurga_package_slug($packageSlug)] : array_keys(function_exists('omurga_registered_package_migrations') ? omurga_registered_package_migrations() : []);
+    foreach($targets as $slug){
+        $migs=function_exists('omurga_registered_package_migrations') ? omurga_registered_package_migrations($slug) : [];
+        if(!$migs) continue; ksort($migs); $done=setting_json('package_migrations_'.$slug, []);
+        foreach($migs as $version=>$cb){
+            if(in_array($version,$done,true)) continue;
+            try{ $cb(); $done[]=$version; update_setting_json('package_migrations_'.$slug,$done); log_activity('package.migration',$slug.' paket migration çalıştı: '.$version); }
+            catch(Throwable $e){ omurga_write_error($e); }
+        }
+    }
+}
+function omurga_package_include_lifecycle(string $slug, string $file): bool {
+    $slug=omurga_package_slug($slug); $path=omurga_package_path($slug).'/'.$file;
+    if(!is_file($path)) return false;
+    $real=realpath($path); $root=realpath(omurga_package_path($slug));
+    if(!$real || !$root || !str_starts_with($real, $root.DIRECTORY_SEPARATOR)) return false;
+    try{ include $real; return true; }catch(Throwable $e){ omurga_write_error($e); return false; }
 }
 
 /* Omurga v2.5 eski eklenti API uyumluluğu: kullanıcı arayüzünde kapalı, resmi sistem packages/. */
@@ -4173,7 +4622,7 @@ function omurga_security_can_delete_plugins(): bool { return omurga_security_ena
 
 
 
-/* Omurga Backup + Rollback API v1.0.2 */
+/* Omurga Backup + Rollback API v1.0.2.1 */
 function omurga_rollback_dir(): string {
     $dir=OMURGA_ROOT.'/storage/backups/extensions';
     if(!is_dir($dir)) @mkdir($dir,0775,true);
@@ -4322,4 +4771,5 @@ function omurga_register_sidebar(string $key, string $label): void {
 omurga_load_active_packages();
 omurga_load_active_plugins();
 omurga_run_plugin_migrations();
+omurga_load_active_theme_functions();
 omurga_do_action('omurga_theme_loaded', function_exists('omurga_active_theme') ? omurga_active_theme() : '');

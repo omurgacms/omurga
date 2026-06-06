@@ -18,7 +18,8 @@ function nav_active($files){
 
 function omg_nav_item($href, $label, $icon, $activeFiles = null){
   $active = nav_active($activeFiles ?: basename(parse_url($href, PHP_URL_PATH)));
-  echo '<a class="omg-acc-link '.$active.'" href="'.e($href).'"><span class="nav-ico">'.$icon.'</span><span>'.e($label).'</span><i>›</i></a>';
+  $aria = $active ? ' aria-current="page"' : '';
+  echo '<a class="omg-acc-link '.$active.'" href="'.e($href).'" title="'.e($label).'" data-nav-label="'.e(mb_strtolower($label, 'UTF-8')).'"'.$aria.'><span class="nav-ico">'.$icon.'</span><span>'.e($label).'</span><i>›</i></a>';
 }
 
 function omg_group_is_active(array $files){
@@ -26,14 +27,31 @@ function omg_group_is_active(array $files){
   return in_array($current, $files, true);
 }
 
-function omg_nav_group($id, $label, $icon, array $files, callable $callback){
-  $open = omg_group_is_active($files) ? ' open' : '';
-  echo '<section class="omg-nav-group'.$open.'" data-group="'.e($id).'">';
-  echo '<button type="button" class="omg-nav-head" onclick="omurgaToggleNavGroup(this)"><span><b>'.$icon.'</b>'.e($label).'</span><em>⌄</em></button>';
+function omg_nav_group($id, $label, $icon, array $files, callable $callback, $desc = ''){
+  $isActive = omg_group_is_active($files);
+  $open = $isActive ? ' open' : '';
+  echo '<section class="omg-nav-group'.$open.'" data-group="'.e($id).'" data-nav-label="'.e(mb_strtolower($label, 'UTF-8')).'">';
+  echo '<button type="button" class="omg-nav-head" onclick="omurgaToggleNavGroup(this)" title="'.e($label).'"><span><b>'.$icon.'</b><strong>'.e($label).'</strong></span><em>⌄</em></button>';
   echo '<div class="omg-nav-body">';
   $callback();
   echo '</div></section>';
 }
+
+function omg_admin_location(){
+  global $current;
+  $map = [
+    'index.php'=>['Başlangıç','Genel bakış'],
+    'post-edit.php'=>['İçerikler','Yeni yazı / düzenle'], 'addnews.php'=>['İçerikler','Yeni yazı'], 'posts.php'=>['İçerikler','Yazılar'], 'pages.php'=>['İçerikler','Sayfalar'], 'page-edit.php'=>['İçerikler','Sayfa düzenle'], 'categories.php'=>['İçerikler','Kategoriler'], 'tags.php'=>['İçerikler','Etiketler'], 'comments.php'=>['İçerikler','Yorumlar'],
+    'themes.php'=>['Tasarım','Temalar'], 'theme-editor.php'=>['Tasarım','Tema düzenleyici'], 'layout.php'=>['Tasarım','Düzen'], 'layout-header-footer.php'=>['Tasarım','Header / Footer'], 'templates.php'=>['Tasarım','Şablonlar'], 'blocks.php'=>['Tasarım','Bloklar'], 'menus.php'=>['Tasarım','Menü yönetimi'], 'ads.php'=>['Tasarım','Reklam alanları'], 'design.php'=>['Tasarım','Tema ayarları'],
+    'media.php'=>['Medya','Kütüphane'], 'media-webp.php'=>['Medya','WebP dönüşüm'], 'media-unused.php'=>['Medya','Kullanılmayan dosyalar'],
+    'forms.php'=>['Formlar','Başvurular'], 'packages.php'=>['Paketler','Paket yönetimi'], 'plugin-page.php'=>['Paketler','Paket sayfası'],
+    'users.php'=>['Kullanıcılar','Kullanıcı yönetimi'], 'roles.php'=>['Kullanıcılar','Roller'], 'permissions.php'=>['Kullanıcılar','Yetkiler'],
+    'api.php'=>['Sistem','REST API'], 'notifications.php'=>['Sistem','Bildirimler'], 'revisions.php'=>['Sistem','Revizyonlar'], 'backups.php'=>['Sistem','Yedekleme'], 'rollback.php'=>['Sistem','Geri dön'], 'cache.php'=>['Sistem','Cache'], 'performance.php'=>['Sistem','Performans'], 'logs.php'=>['Sistem','Aktivite kayıtları'], 'security.php'=>['Sistem','Güvenlik'], 'diagnostics.php'=>['Sistem','Kurulum sonrası test'], 'updates.php'=>['Sistem','Güncellemeler'], 'system.php'=>['Sistem','Sistem sağlığı'],
+    'settings.php'=>['Ayarlar','Genel ayarlar'], 'seo.php'=>['Ayarlar','SEO'], 'permalinks.php'=>['Ayarlar','Kalıcı bağlantılar'], 'language-check.php'=>['Ayarlar','Dil kontrolü'],
+  ];
+  return $map[$current] ?? ['Panel','Geçerli sayfa'];
+}
+$omgLoc = omg_admin_location();
 ?>
 <!doctype html>
 <html lang="<?=e(omurga_admin_language())?>">
@@ -41,7 +59,7 @@ function omg_nav_group($id, $label, $icon, array $files, callable $callback){
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?=e(om_t('admin.dashboard','Başlangıç'))?> - Omurga</title>
-  <link rel="stylesheet" href="../assets/css/omurga.css?v=1.0.2-beta">
+  <link rel="stylesheet" href="../assets/css/omurga.css?v=1.0.5-beta">
 </head>
 <body class="omurga-admin-page dle-skin v33-compact-admin v334-accordion-admin">
 <script>
@@ -88,6 +106,24 @@ function omurgaToggleUserMenu(){
   btn.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 document.addEventListener('DOMContentLoaded', function(){
+  var navSearch = document.getElementById('omgNavSearch');
+  if(navSearch){
+    navSearch.addEventListener('input', function(){
+      var q = (this.value || '').toLocaleLowerCase('tr-TR').trim();
+      document.querySelectorAll('.omg-nav-group').forEach(function(group){
+        var groupText = (group.getAttribute('data-nav-label') || '').toLocaleLowerCase('tr-TR');
+        var any = !q || groupText.indexOf(q) > -1;
+        group.querySelectorAll('.omg-acc-link').forEach(function(link){
+          var txt = (link.getAttribute('data-nav-label') || link.textContent || '').toLocaleLowerCase('tr-TR');
+          var match = !q || txt.indexOf(q) > -1 || groupText.indexOf(q) > -1;
+          link.style.display = match ? '' : 'none';
+          if(match) any = true;
+        });
+        group.style.display = any ? '' : 'none';
+        if(q && any) group.classList.add('open');
+      });
+    });
+  }
   var userBtn = document.getElementById('omurgaUserMenuBtn');
   if(userBtn){
     userBtn.addEventListener('click', function(e){ e.stopPropagation(); omurgaToggleUserMenu(); });
@@ -111,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 <div class="dle-topbar">
-  <div class="dle-brand"><img src="../assets/images/omurga-logo.png" alt="Omurga"></div>
+  <a class="dle-brand" href="index.php" title="Panel ana sayfası"><img src="../assets/images/omurga-logo.png" alt="Omurga"></a>
   <button class="menu-toggle" type="button" aria-label="Menüyü daralt/aç" onclick="omurgaToggleSidebar()">☰</button>
   <div class="dle-search"><span>⌕</span><input type="search" placeholder="<?=e(om_t('admin.search_placeholder','Ara (içerik, kullanıcı, dosya... )'))?>" aria-label="<?=e(om_t('theme.search','Arama'))?>"></div>
   <div class="dle-icons">
@@ -127,7 +163,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <span class="user-caret">⌄</span>
     </button>
     <div class="dle-user-menu" id="omurgaUserMenu" role="menu" aria-labelledby="omurgaUserMenuBtn">
-      <a role="menuitem" href="users.php">Profilim</a>
+      <a role="menuitem" href="users.php?profile=1">Profilim</a>
       <a role="menuitem" href="settings.php">Hesap Ayarları</a>
       <a role="menuitem" href="notifications.php">Bildirimler</a>
       <a role="menuitem" class="danger" href="logout.php">Oturumu Kapat</a>
@@ -138,6 +174,7 @@ document.addEventListener('DOMContentLoaded', function(){
 <aside class="sidebar dle-sidebar">
 <nav class="nav dle-nav omg-accordion-nav">
   <div class="nav-title">OMURGA</div>
+  <label class="omg-nav-search"><span>⌕</span><input id="omgNavSearch" type="search" placeholder="Menüde ara..." autocomplete="off"></label>
   <?php omg_nav_item('index.php',om_t('admin.dashboard','Başlangıç'),'⌂','index.php'); ?>
 
   <?php omg_nav_group('content',om_t('admin.content','İçerikler'),'▤',['addnews.php','post-edit.php','page-edit.php','posts.php','pages.php','categories.php','tags.php','comments.php'], function(){ ?>
@@ -148,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php omg_nav_item('comments.php',om_t('comments.title','Yorumlar'),'☷','comments.php'); ?>
     <?php omg_nav_item('categories.php',content_category_label(),'▣','categories.php'); ?>
     <?php omg_nav_item('tags.php',content_tag_label(),'⌗','tags.php'); ?>
-  <?php }); ?>
+  <?php }, 'Yazı, sayfa, yorum ve sınıflandırma'); ?>
 
   <?php omg_nav_group('design',om_t('admin.design','Tasarım'),'▨',['themes.php','theme-editor.php','layout.php','layout-header-footer.php','templates.php','blocks.php','design.php','menus.php','ads.php'], function(){ ?>
     <?php omg_nav_item('themes.php',om_t('admin.themes','Temalar'),'▨','themes.php'); ?>
@@ -160,17 +197,17 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php omg_nav_item('menus.php',om_t('admin.menu_manager','Menü Yönetimi'),'☰','menus.php'); ?>
     <?php omg_nav_item('ads.php',om_t('admin.ads','Reklam Alanları'),'▰','ads.php'); ?>
     <?php omg_nav_item('design.php',om_t('admin.theme_settings','Tema Ayarları'),'✎','design.php'); ?>
-  <?php }); ?>
+  <?php }, 'Tema, blok, menü ve yerleşim'); ?>
 
   <?php omg_nav_group('media',om_t('admin.media','Medya'),'▧',['media.php','media-webp.php','media-unused.php'], function(){ ?>
     <?php omg_nav_item('media.php',om_t('admin.media_library','Medya Kütüphanesi'),'▧','media.php'); ?>
     <?php omg_nav_item('media-webp.php',om_t('admin.webp_convert','WebP Dönüştür'),'◇','media-webp.php'); ?>
     <?php omg_nav_item('media-unused.php',om_t('admin.unused_files','Kullanılmayan Dosyalar'),'⌫','media-unused.php'); ?>
-  <?php }); ?>
+  <?php }, 'Görsel ve dosya yönetimi'); ?>
 
   <?php omg_nav_group('forms',om_t('admin.forms','Formlar'),'☷',['forms.php'], function(){ ?>
     <?php omg_nav_item('forms.php',om_t('admin.forms_submissions','Formlar ve Başvurular'),'☷','forms.php'); ?>
-  <?php }); ?>
+  <?php }, 'Form kayıtları ve başvurular'); ?>
 
   <?php if(can('plugins.manage') || current_user_role()==='admin'): ?>
   <?php $omgPluginPages = function_exists('omurga_plugin_admin_pages') ? omurga_plugin_admin_pages() : []; ?>
@@ -192,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function(){
         <?php omg_nav_item('plugin-page.php?plugin='.urlencode($pp['plugin'] ?? 'registered').'&page='.urlencode($pp['id'] ?? ''), $pp['menu_title'] ?? $pp['title'] ?? 'Paket Sayfası', $pp['icon'] ?? '▣', 'plugin-page.php'); ?>
       <?php endif; ?>
     <?php endforeach; ?>
-  <?php }); ?>
+  <?php }, 'Eklenti ve paket yönetimi'); ?>
   <?php endif; ?>
 
   <?php if(can('users.manage') || current_user_role()==='admin'): ?>
@@ -200,11 +237,12 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php omg_nav_item('users.php',om_t('admin.users','Kullanıcılar'),'♙','users.php'); ?>
     <?php omg_nav_item('roles.php','Roller','♙','roles.php'); ?>
     <?php omg_nav_item('permissions.php','Yetkiler','☑','permissions.php'); ?>
-  <?php }); ?>
+  <?php }, 'Kullanıcı, rol ve yetki'); ?>
   <?php endif; ?>
 
   <?php if(can('users.manage') || current_user_role()==='admin'): ?>
-  <?php omg_nav_group('system',om_t('admin.system','Sistem'),'⚙',['notifications.php','revisions.php','backups.php','rollback.php','cache.php','performance.php','logs.php','security.php','diagnostics.php','updates.php','system.php'], function(){ ?>
+  <?php omg_nav_group('system',om_t('admin.system','Sistem'),'⚙',['api.php','notifications.php','revisions.php','backups.php','rollback.php','cache.php','performance.php','logs.php','security.php','diagnostics.php','updates.php','system.php'], function(){ ?>
+    <?php if(can('api.manage') || can('settings.manage') || can('system.manage')): ?><?php omg_nav_item('api.php','REST API','{ }','api.php'); ?><?php endif; ?>
     <?php omg_nav_item('notifications.php',om_t('admin.notifications','Bildirimler'),'🔔','notifications.php'); ?>
     <?php omg_nav_item('revisions.php',om_t('admin.revisions','Revizyonlar'),'↶','revisions.php'); ?>
     <?php omg_nav_item('backups.php',om_t('admin.backups','Yedekleme'),'◴','backups.php'); ?>
@@ -214,9 +252,9 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php omg_nav_item('logs.php',om_t('admin.logs','Aktivite Kayıtları'),'▧','logs.php'); ?>
     <?php omg_nav_item('security.php',om_t('admin.security','Güvenlik'),'🛡','security.php'); ?>
     <?php omg_nav_item('diagnostics.php',om_t('admin.diagnostics','Kurulum Sonrası Test'),'✓','diagnostics.php'); ?>
-    <?php if(can('system.update')): ?><?php omg_nav_item('updates.php','Güncellemeler','↥','updates.php'); ?><?php endif; ?>
+    <?php if(can('system.update') || can('settings.manage') || can('system.manage')): ?><?php omg_nav_item('updates.php','Güncellemeler','↥','updates.php'); ?><?php endif; ?>
     <?php omg_nav_item('system.php',om_t('admin.system_health','Sistem Sağlığı'),'⚙','system.php'); ?>
-  <?php }); ?>
+  <?php }, 'Bakım, güvenlik ve güncelleme'); ?>
   <?php endif; ?>
 
   <?php omg_nav_group('settings',om_t('admin.settings','Ayarlar'),'⚙',['settings.php','seo.php','permalinks.php','language-check.php'], function(){ ?>
@@ -224,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php omg_nav_item('seo.php',om_t('admin.seo_settings','SEO Ayarları'),'⌁','seo.php'); ?>
     <?php omg_nav_item('permalinks.php','Kalıcı Bağlantılar','🔗','permalinks.php'); ?>
     <?php omg_nav_item('language-check.php',om_t('admin.language_check','Dil Kontrolü'),'◇','language-check.php'); ?>
-  <?php }); ?>
+  <?php }, 'Site, SEO, bağlantı ve dil'); ?>
 
   <div class="nav-title"><?=e(om_t('admin.shortcuts','KISA YOLLAR'))?></div>
   <a class="omg-acc-link" href="../" target="_blank"><span class="nav-ico">↗</span><span><?=e(om_t('admin.view_site','Siteyi Gör'))?></span><i>›</i></a>
