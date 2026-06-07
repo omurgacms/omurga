@@ -1,0 +1,24 @@
+{
+  "slug": "omhaber-category-cards",
+  "name": "OmHaber Kategori Kartları",
+  "category": "OmHaber Blokları",
+  "usage": [
+    "header",
+    "home_top",
+    "home_main",
+    "sidebar",
+    "post_inside",
+    "footer",
+    "mobile_bottom",
+    "page",
+    "post"
+  ],
+  "settings": {
+    "title": {
+      "type": "text",
+      "label": "Başlık",
+      "default": "KATEGORİLER"
+    }
+  },
+  "view": "view.php"
+}

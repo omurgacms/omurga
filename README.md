@@ -269,7 +269,3 @@ Omurga CMS 1.0.8 Beta ile çekirdeğe sade `om_mail()` köprüsü eklenmiştir. 
 ## Ön Yüz Kullanıcı Merkezi
 
 Omurga CMS 1.0.8 Beta ile tek çekirdek kullanıcı merkezi route'u eklendi: `/hesabim`. Temalar kullanıcı merkezini `{{ block('user-center') }}`, `{{ block('user-profile') }}`, `{{ block('user-posts') }}`, `{{ block('submit-post') }}` ve `{{ block('user-notifications') }}` bloklarıyla yerleştirebilir. Fiziksel sayfa veya otomatik veritabanı sayfası oluşturulmaz.
-### Kurulum Profili ve Tema Demo Davranışı
-
-Omurga CMS 1.0.8 Beta’da kurulum profili seçildiğinde ilgili tema ilk kurulumda aktif edilir ve varsa demo içeriği kurulum sırasında yüklenir. Güncellemelerde aktif tema, menüler, içerikler ve tema ayarları korunur; demo içerik otomatik tekrar yüklenmez. Aktif tema demosu daha sonra yönetici isterse Tema Yönetimi ekranındaki “Demo İçeriği Yükle” butonuyla manuel çalıştırılabilir.
-

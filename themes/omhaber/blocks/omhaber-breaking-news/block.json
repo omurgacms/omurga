@@ -1,0 +1,34 @@
+{
+  "slug": "omhaber-breaking-news",
+  "name": "OmHaber Son Dakika Şeridi",
+  "category": "OmHaber Blokları",
+  "usage": [
+    "header",
+    "home_top",
+    "home_main",
+    "sidebar",
+    "post_inside",
+    "footer",
+    "mobile_bottom",
+    "page",
+    "post"
+  ],
+  "settings": {
+    "title": {
+      "type": "text",
+      "label": "Başlık",
+      "default": "SON DAKİKA"
+    },
+    "limit": {
+      "type": "number",
+      "label": "Haber Sayısı",
+      "default": "5"
+    },
+    "category_id": {
+      "type": "category",
+      "label": "Kaynak Kategori",
+      "default": ""
+    }
+  },
+  "view": "view.php"
+}

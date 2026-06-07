@@ -3,8 +3,15 @@ $theme = omurga_active_theme();
 $regions = omurga_theme_regions($theme);
 $allRegions = omurga_theme_regions($theme);
 $regions = [];
-foreach(['header','footer','mobile_bottom'] as $hf){ if(isset($allRegions[$hf])) $regions[$hf]=$allRegions[$hf]; }
+foreach($allRegions as $regionKey=>$regionLabel){
+    if(in_array(omurga_region_kind((string)$regionKey), ['header','footer'], true)) $regions[$regionKey]=$regionLabel;
+}
 if(!$regions) $regions=['header'=>'Üst Alan','footer'=>'Alt Alan'];
+$regionUsage = function_exists('omurga_theme_region_usage') ? omurga_theme_region_usage($theme) : [];
+$inactiveRegions = [];
+foreach($regions as $regionKey=>$regionLabel){
+    if(empty($regionUsage[$regionKey])) $inactiveRegions[] = $regionLabel;
+}
 $layout = omurga_layout($theme);
 $notice='';
 function layout_find_remove(array &$layout, string $id, string $region): bool {
@@ -121,6 +128,9 @@ function layout_hf_block_options_for_region(string $region): string {
 ?>
 <div class="toolbar"><div><h1>Header / Footer Düzeni</h1><p class="muted"><a href="layout.php" class="btn light" style="margin-right:8px">Ana Sayfa Düzeni</a> Aktif tema: <b><?=e(omurga_theme_meta($theme)['name'] ?? $theme)?></b>. Alanlar ve tema blokları aktif temadan gelir.</p></div><form method="post"><input type="hidden" name="_csrf" value="<?=csrf_token()?>"><button name="action" value="reset" class="btn light" onclick="return confirm('Bu temanın düzeni varsayılana dönsün mü?')">Varsayılana Dön</button></form></div>
 <?php if($notice): ?><div class="alert success"><?=e($notice)?></div><?php endif; ?>
+<?php if($inactiveRegions): ?>
+  <div class="alert warning"><strong>Tema entegrasyonu:</strong> Aktif tema bu alanları ön yüzde çağırmıyor olabilir: <?=e(implode(', ', $inactiveRegions))?>. Header/Footer düzeni kaydedilir; görünmesi için tema dosyalarında ilgili region çağrısı bulunmalıdır.</div>
+<?php endif; ?>
 <div class="layout-help card"><strong>Header / Footer düzeni:</strong> Blogger’daki Gadget mantığının Omurga karşılığıdır. Üst alan, alt alan ve mobil alt alan bloklarını buradan yönet. Ana sayfa bloklarından ayrı tutulur.</div>
 <form method="post"><input type="hidden" name="_csrf" value="<?=csrf_token()?>"><input type="hidden" name="action" value="save">
 <div class="layout-regions">

@@ -1,0 +1,2 @@
+<?php require_once dirname(__DIR__, 2).'/functions.php'; $settings=$settings ?? ($block['settings'] ?? []); ?>
+<?php $posts=omh_block_posts($settings,5); ?><section class="omh-widget omh-popular"><h3><?=omh_e($settings['title'] ?? 'ÇOK OKUNANLAR')?></h3><?php foreach($posts as $i=>$p): ?><a href="<?=omh_e(omh_post_url($p))?>"><b><?=$i+1?></b><span><?=omh_e($p['title'])?></span></a><?php endforeach; ?></section>

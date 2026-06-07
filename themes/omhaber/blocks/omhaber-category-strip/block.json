@@ -1,0 +1,18 @@
+{
+  "slug": "omhaber-category-strip",
+  "name": "OmHaber Kategori Şeridi",
+  "category": "OmHaber Blokları",
+  "usage": [
+    "header",
+    "home_top",
+    "home_main",
+    "sidebar",
+    "post_inside",
+    "footer",
+    "mobile_bottom",
+    "page",
+    "post"
+  ],
+  "settings": {},
+  "view": "view.php"
+}

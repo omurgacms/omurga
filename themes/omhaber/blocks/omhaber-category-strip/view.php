@@ -1,0 +1,2 @@
+<?php require_once dirname(__DIR__, 2).'/functions.php'; $settings=$settings ?? ($block['settings'] ?? []); ?>
+<?php $cats=omh_categories(7); ?><div class="omh-category-strip"><?php if($cats): foreach($cats as $c): ?><a href="<?=omh_e(omh_category_url($c))?>"><span><?=omh_e(mb_substr($c['name'],0,1))?></span><?=omh_e($c['name'])?></a><?php endforeach; else: foreach(['Gündem','Siyaset','Ekonomi','Spor','Teknoloji','Yaşam','Tümü'] as $c): ?><a href="#"><span><?=omh_e(mb_substr($c,0,1))?></span><?=omh_e($c)?></a><?php endforeach; endif; ?></div>

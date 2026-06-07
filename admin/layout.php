@@ -1,7 +1,14 @@
 <?php require '_layout.php'; verify_csrf(); require_cap('layout.manage');
 $theme = omurga_active_theme();
 $regions = omurga_theme_regions($theme);
-foreach(['header','footer','mobile_bottom'] as $hf){ unset($regions[$hf]); }
+foreach($regions as $regionKey=>$regionLabel){
+    if(in_array(omurga_region_kind((string)$regionKey), ['header','footer'], true)) unset($regions[$regionKey]);
+}
+$regionUsage = function_exists('omurga_theme_region_usage') ? omurga_theme_region_usage($theme) : [];
+$inactiveRegions = [];
+foreach($regions as $regionKey=>$regionLabel){
+    if(empty($regionUsage[$regionKey])) $inactiveRegions[] = $regionLabel;
+}
 $layout = omurga_layout($theme);
 $notice='';
 function layout_find_remove(array &$layout, string $id, string $region): bool {
@@ -21,12 +28,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         $layout=omurga_default_layout($theme);
         omurga_update_layout($layout, $theme);
         $notice='Düzen varsayılan haline döndürüldü.';
-    } elseif($action==='home-sidebar-toggle'){
-        update_setting(omurga_sidebar_setting_key($theme, 'home'), !empty($_POST['home_sidebar_enabled']) ? '1' : '0');
-        $notice=!empty($_POST['home_sidebar_enabled']) ? 'Anasayfa sidebar açıldı.' : 'Anasayfa sidebar kapatıldı.';
-    } elseif($action==='global-sidebar-toggle'){
-        update_setting(omurga_sidebar_setting_key($theme, 'global'), !empty($_POST['global_sidebar_enabled']) ? '1' : '0');
-        $notice=!empty($_POST['global_sidebar_enabled']) ? 'Genel sidebar açıldı.' : 'Genel sidebar kapatıldı.';
     } elseif($action==='add'){
         $region=preg_replace('/[^a-z0-9_\-]/','',$_POST['region'] ?? '');
         $slug=omurga_normalize_block_slug((string)($_POST['block_slug'] ?? ''));
@@ -136,6 +137,9 @@ function layout_block_options_for_region(string $region, string $theme): string 
 ?>
 <div class="toolbar compact-page-head"><div><h1>Düzen Alanı</h1><p class="muted">Aktif tema: <b><?=e(omurga_theme_meta($theme)['name'] ?? $theme)?></b>. Blokları ekle, genişliğini seç, ayarlarını aç/kapat.</p></div><div class="layout-top-actions"><button type="button" class="btn light layout-mobile-inspector-btn" id="layoutMobileInspectorBtn">Blok Ayarları</button><a href="layout-header-footer.php" class="btn light">Header / Footer</a><form method="post"><input type="hidden" name="_csrf" value="<?=csrf_token()?>"><button name="action" value="reset" class="btn light" onclick="return confirm('Bu temanın düzeni varsayılana dönsün mü?')">Varsayılana Dön</button></form></div></div>
 <?php if($notice): ?><div class="alert success"><?=e($notice)?></div><?php endif; ?>
+<?php if($inactiveRegions): ?>
+  <div class="alert warning"><strong>Tema entegrasyonu:</strong> Aktif tema bu alanları ön yüzde çağırmıyor olabilir: <?=e(implode(', ', $inactiveRegions))?>. Bu alanlara blok eklesen bile tema dosyaları ilgili region çağrısını yapmadıkça değişiklik görünmeyebilir.</div>
+<?php endif; ?>
 <?php $firstRegion = array_key_first($regions); ?>
 <div class="layout-region-tabs card" role="tablist" aria-label="Düzen alanları">
   <?php foreach($regions as $region=>$label): $count=count($layout[$region] ?? []); ?>
@@ -209,7 +213,7 @@ function layout_block_options_for_region(string $region, string $theme): string 
       </div>
     </div>
     <form method="post" class="card layout-add-panel"><input type="hidden" name="_csrf" value="<?=csrf_token()?>"><input type="hidden" name="action" value="add"><h2>Blok Ekle</h2><p class="muted">Önce alanı seç, sonra bloğu ekle.</p><div class="form-grid"><label><span>Alan</span><select name="region" id="layout-add-region"><?php foreach($regions as $region=>$label): ?><option value="<?=e($region)?>"><?=e($label)?></option><?php endforeach; ?></select></label><?php foreach($regions as $region=>$label): ?><label class="layout-block-select" data-region="<?=e($region)?>" style="display:<?=array_key_first($regions)===$region?'grid':'none'?>"><span>Blok</span><select name="block_slug" <?=array_key_first($regions)===$region?'':'disabled'?>><?=layout_block_options_for_region($region,$theme)?></select></label><?php endforeach; ?><label><span>Genişlik</span><select name="width"><option value="auto">Otomatik / Kalan Alan</option><?php foreach(omurga_block_widths() as $wv=>$wl): ?><option value="<?=e($wv)?>"><?=e($wl)?></option><?php endforeach; ?></select></label><button class="btn primary">Blok Ekle</button></div></form>
-    <div class="card layout-info-panel"><h2>Sidebar</h2><form method="post" class="sidebar-toggle-form"><input type="hidden" name="_csrf" value="<?=csrf_token()?>"><input type="hidden" name="action" value="home-sidebar-toggle"><label class="switch-line"><input type="checkbox" name="home_sidebar_enabled" value="1" <?=omurga_sidebar_enabled($theme,'home')?'checked':''?>> <span>Anasayfa sidebar</span></label><button class="btn light">Uygula</button></form><form method="post" class="sidebar-toggle-form"><input type="hidden" name="_csrf" value="<?=csrf_token()?>"><input type="hidden" name="action" value="global-sidebar-toggle"><label class="switch-line"><input type="checkbox" name="global_sidebar_enabled" value="1" <?=omurga_sidebar_enabled($theme,'global')?'checked':''?>> <span>Genel sidebar</span></label><button class="btn light">Uygula</button></form></div>
+    <div class="card layout-info-panel"><h2>Sidebar</h2><p class="muted">Sidebar ayrı bir builder değildir. Aktif tema destekliyorsa <b>Yan Alan</b> sekmesine eklenen bloklar sidebar olarak görünür.</p><p class="muted">Bu temada sidebar kullanımı tema dosyalarına bağlıdır; görünürlük için tema ilgili region çağrısını yapmalıdır.</p></div>
     <div class="card layout-info-panel"><h2>Kullanım</h2><ul class="layout-mini-help"><li><b>%50 + %50</b> aynı satıra gelir.</li><li><b>%70 + %30</b> aynı satıra gelir.</li><li><b>%50 + %70</b> yeni satıra geçer.</li><li>Blok ayarları sadece ihtiyaç olunca açılır.</li></ul></div>
   </aside>
 </div>

@@ -820,3 +820,4 @@ button,.btn,.button{--btn-accent:#f97316;}
   .dle-square-editor .om-editor-toolbar{overflow-x:auto!important;flex-wrap:nowrap!important}
   .dle-square-editor .om-editor-toolbar button{white-space:nowrap!important}
 }
+.alert.warning{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}

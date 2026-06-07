@@ -143,5 +143,5 @@ function kv1_admin_panel_content(): string {
     return (string)ob_get_clean();
 }
 if(function_exists('omurga_register_admin_page')){
-    omurga_register_admin_page('kurumsal-v1-panel', 'Kurumsal V1 Paneli', 'kv1_admin_panel_content', 'themes.manage', '🏢', 46, ['menu_group'=>'active_theme','menu_group_title'=>'Aktif Tema','menu_group_icon'=>'▨']);
+    omurga_register_admin_page('kurumsal-v1-panel', 'Kurumsal V1 Paneli', 'kv1_admin_panel_content', 'plugins.manage', '🏢', 46);
 }

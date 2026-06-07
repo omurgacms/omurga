@@ -1,0 +1,39 @@
+{
+  "slug": "omhaber-hero-slider",
+  "name": "OmHaber Büyük Manşet Slider",
+  "category": "OmHaber Blokları",
+  "usage": [
+    "header",
+    "home_top",
+    "home_main",
+    "sidebar",
+    "post_inside",
+    "footer",
+    "mobile_bottom",
+    "page",
+    "post"
+  ],
+  "settings": {
+    "title": {
+      "type": "text",
+      "label": "Etiket",
+      "default": "GÜNDEM"
+    },
+    "limit": {
+      "type": "number",
+      "label": "Haber Sayısı",
+      "default": "5"
+    },
+    "category_id": {
+      "type": "category",
+      "label": "Kaynak Kategori",
+      "default": ""
+    },
+    "autoplay": {
+      "type": "checkbox",
+      "label": "Otomatik Geçiş",
+      "default": "1"
+    }
+  },
+  "view": "view.php"
+}

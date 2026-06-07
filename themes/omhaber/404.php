@@ -1,0 +1,1 @@
+<?php require_once __DIR__.'/functions.php'; include __DIR__.'/header.php'; ?><main class="omh-main"><div class="omh-container"><div class="omh-empty"><h1>Sayfa bulunamadı</h1><p>Aradığınız sayfa taşınmış veya silinmiş olabilir.</p></div></div></main><?php include __DIR__.'/footer.php'; ?>

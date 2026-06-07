@@ -42,7 +42,7 @@ function omg_admin_location(){
   $map = [
     'index.php'=>['Başlangıç','Genel bakış'],
     'post-edit.php'=>['İçerikler','Yeni yazı / düzenle'], 'addnews.php'=>['İçerikler','Yeni yazı'], 'posts.php'=>['İçerikler','Yazılar'], 'pages.php'=>['İçerikler','Sayfalar'], 'page-edit.php'=>['İçerikler','Sayfa düzenle'], 'categories.php'=>['İçerikler','Kategoriler'], 'tags.php'=>['İçerikler','Etiketler'], 'comments.php'=>['İçerikler','Yorumlar'], 'custom-fields.php'=>['İçerikler','Özel Alanlar'],
-    'themes.php'=>['Tasarım','Temalar'], 'theme-editor.php'=>['Tasarım','Tema düzenleyici'], 'layout.php'=>['Tasarım','Düzen'], 'layout-header-footer.php'=>['Tasarım','Header / Footer'], 'templates.php'=>['Tasarım','Şablonlar'], 'blocks.php'=>['Tasarım','Bloklar'], 'menus.php'=>['Tasarım','Menü yönetimi'], 'ads.php'=>['Tasarım','Reklam alanları'], 'design.php'=>['Tasarım','Tema ayarları'],
+    'themes.php'=>['Tasarım','Temalar'], 'theme-editor.php'=>['Tasarım','Tema düzenleyici'], 'layout.php'=>['Tasarım','Sayfa düzeni'], 'layout-header-footer.php'=>['Tasarım','Üst / Alt alanlar'], 'templates.php'=>['Tasarım','Şablonlar'], 'blocks.php'=>['Tasarım','Blok merkezi'], 'menus.php'=>['Tasarım','Menü yönetimi'], 'ads.php'=>['Tasarım','Reklam alanları'], 'design.php'=>['Tasarım','Tema ayarları'],
     'media.php'=>['Medya','Kütüphane'], 'media-webp.php'=>['Medya','WebP dönüşüm'], 'media-unused.php'=>['Medya','Kullanılmayan dosyalar'],
     'forms.php'=>['Formlar','Başvurular'], 'packages.php'=>['Paketler','Paket yönetimi'], 'plugin-page.php'=>['Paketler','Paket sayfası'],
     'users.php'=>['Kullanıcılar','Kullanıcı yönetimi'], 'roles.php'=>['Kullanıcılar','Roller'], 'permissions.php'=>['Kullanıcılar','Yetkiler'],
@@ -190,15 +190,15 @@ document.addEventListener('DOMContentLoaded', function(){
 
   <?php omg_nav_group('design',om_t('admin.design','Tasarım'),'▨',['themes.php','theme-editor.php','layout.php','layout-header-footer.php','templates.php','blocks.php','design.php','menus.php','ads.php'], function(){ ?>
     <?php omg_nav_item('themes.php',om_t('admin.themes','Temalar'),'▨','themes.php'); ?>
-    <?php omg_nav_item('theme-editor.php',om_t('admin.theme_editor','Tema Düzenleyici'),'⌨','theme-editor.php'); ?>
-    <?php omg_nav_item('layout.php',om_t('admin.layout','Düzen'),'▦',['layout.php','layout-header-footer.php']); ?>
-    <?php omg_nav_item('layout-header-footer.php',om_t('admin.header_footer','Header / Footer'),'▥','layout-header-footer.php'); ?>
-    <?php omg_nav_item('templates.php',om_t('admin.templates','Şablonlar'),'▤','templates.php'); ?>
-    <?php omg_nav_item('blocks.php',om_t('admin.blocks','Bloklar'),'▩','blocks.php'); ?>
-    <?php omg_nav_item('menus.php',om_t('admin.menu_manager','Menü Yönetimi'),'☰','menus.php'); ?>
-    <?php omg_nav_item('ads.php',om_t('admin.ads','Reklam Alanları'),'▰','ads.php'); ?>
     <?php omg_nav_item('design.php',om_t('admin.theme_settings','Tema Ayarları'),'✎','design.php'); ?>
-  <?php }, 'Tema, blok, menü ve yerleşim'); ?>
+    <?php omg_nav_item('layout.php','Sayfa Düzeni','▦',['layout.php','layout-header-footer.php']); ?>
+    <?php omg_nav_item('layout-header-footer.php','Üst / Alt Alanlar','▥','layout-header-footer.php'); ?>
+    <?php omg_nav_item('blocks.php','Blok Merkezi','▩','blocks.php'); ?>
+    <?php omg_nav_item('menus.php',om_t('admin.menu_manager','Menü Yönetimi'),'☰','menus.php'); ?>
+    <?php omg_nav_item('templates.php',om_t('admin.templates','Şablonlar'),'▤','templates.php'); ?>
+    <?php omg_nav_item('theme-editor.php',om_t('admin.theme_editor','Tema Düzenleyici'),'⌨','theme-editor.php'); ?>
+    <?php omg_nav_item('ads.php',om_t('admin.ads','Reklam Alanları'),'▰','ads.php'); ?>
+  <?php }, 'Tema ayarı, blok ve yerleşim'); ?>
 
   <?php omg_nav_group('media',om_t('admin.media','Medya'),'▧',['media.php','media-webp.php','media-unused.php'], function(){ ?>
     <?php omg_nav_item('media.php',om_t('admin.media_library','Medya Kütüphanesi'),'▧','media.php'); ?>
@@ -210,7 +210,7 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php omg_nav_item('forms.php',om_t('admin.forms_submissions','Formlar ve Başvurular'),'☷','forms.php'); ?>
   <?php }, 'Form kayıtları ve başvurular'); ?>
 
-  <?php if(can('plugins.manage') || can('themes.manage') || current_user_role()==='admin'): ?>
+  <?php if(can('plugins.manage') || current_user_role()==='admin'): ?>
   <?php
     $omgPluginPages = function_exists('omurga_plugin_admin_pages') ? omurga_plugin_admin_pages() : [];
     $omgMenuGroups = [];
@@ -243,7 +243,6 @@ document.addEventListener('DOMContentLoaded', function(){
       <?php endforeach; ?>
     <?php }, 'Paket tarafından eklenen yönetim sayfaları'); ?>
   <?php endforeach; ?>
-  <?php if(can('plugins.manage') || current_user_role()==='admin'): ?>
   <?php omg_nav_group('plugins',om_t('admin.plugins','Paketler'),'▣',['packages.php','plugin-page.php'], function() use ($omgPackagePages){ ?>
     <?php omg_nav_item('packages.php','Paketler','▧','packages.php'); ?>
     <?php foreach($omgPackagePages as $pp): ?>
@@ -252,7 +251,6 @@ document.addEventListener('DOMContentLoaded', function(){
       <?php endif; ?>
     <?php endforeach; ?>
   <?php }, 'Paket yükleme, güncelleme ve yönetim'); ?>
-  <?php endif; ?>
   <?php endif; ?>
 
   <?php if(can('users.manage') || current_user_role()==='admin'): ?>

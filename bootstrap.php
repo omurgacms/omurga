@@ -1233,6 +1233,59 @@ function omurga_theme_regions(?string $slug=null): array {
     }
     return $regions;
 }
+function omurga_theme_region_usage(?string $slug=null): array {
+    static $cache=[];
+    $slug=$slug ?: omurga_active_theme();
+    if(isset($cache[$slug])) return $cache[$slug];
+    $dir=omurga_theme_dir($slug);
+    $regions=array_keys(omurga_theme_regions($slug));
+    $usage=array_fill_keys($regions, false);
+    if(!is_dir($dir)) return $cache[$slug]=$usage;
+    $text='';
+    try{
+        $it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
+        foreach($it as $file){
+            if(!$file->isFile()) continue;
+            $name=$file->getFilename();
+            if(!preg_match('/\.(php|omg|tpl)$/i', $name)) continue;
+            $path=str_replace('\\','/',$file->getPathname());
+            if(str_contains($path, '/assets/') || str_contains($path, '/vendor/')) continue;
+            $text.="\n".(string)file_get_contents($file->getPathname());
+        }
+    }catch(Throwable $e){ if(function_exists('omurga_write_error')) omurga_write_error($e); }
+    foreach($regions as $region){
+        $q=preg_quote($region, '/');
+        $patterns=[
+            '/(?:omurga_render_region|om_region|omh_render_region_safe)\(\s*[\'"]'.$q.'[\'"]/i',
+            '/(?:region|builder)\(\s*[\'"]'.$q.'[\'"]\s*\)/i',
+            '/\{region\s+name=[\'"]'.$q.'[\'"]\}/i',
+        ];
+        foreach($patterns as $pattern){
+            if(preg_match($pattern, $text)){ $usage[$region]=true; break; }
+        }
+    }
+    if(str_contains($text, '<omg:content')) {
+        foreach(['home_main','content','main'] as $region){ if(array_key_exists($region,$usage)) $usage[$region]=true; }
+    }
+    return $cache[$slug]=$usage;
+}
+function omurga_region_kind(string $region): string {
+    $region=strtolower(preg_replace('/[^a-z0-9_\-]/','', $region));
+    if($region==='header' || str_starts_with($region, 'header_') || str_starts_with($region, 'header-')) return 'header';
+    if($region==='footer' || str_starts_with($region, 'footer_') || str_starts_with($region, 'footer-')) return 'footer';
+    if($region==='mobile_bottom' || $region==='mobile-bottom') return 'footer';
+    if($region==='sidebar' || str_starts_with($region, 'sidebar_') || str_starts_with($region, 'sidebar-') || str_ends_with($region, '_sidebar') || str_ends_with($region, '-sidebar')) return 'sidebar';
+    return 'page';
+}
+function omurga_regions_by_kind(?string $slug=null, ?string $kind=null): array {
+    $regions=omurga_theme_regions($slug);
+    if($kind===null || $kind==='') return $regions;
+    $out=[];
+    foreach($regions as $region=>$label){
+        if(omurga_region_kind((string)$region)===$kind) $out[$region]=$label;
+    }
+    return $out;
+}
 function omurga_read_block_json(string $json, string $source, ?string $theme=null): ?array {
     $data=json_decode((string)file_get_contents($json), true);
     if(!is_array($data)) return null;

@@ -99,5 +99,5 @@ function tv1_demo_import(bool $resetVisual=false): array {
     return ['created'=>$created,'message'=>'Topluluk V1 demo içeriği yüklendi. İçerikler kullanıcı içeriği kabul edilir; tema görünümü sıfırlansa bile silinmez.'];
 }
 
-if (function_exists('omurga_register_admin_page')) { omurga_register_admin_page('topluluk-v1-panel', 'Topluluk V1 Paneli', 'tv1_render_admin_panel_page', 'themes.manage', '◉', 34, ['menu_group'=>'active_theme','menu_group_title'=>'Aktif Tema','menu_group_icon'=>'▨']); }
+if (function_exists('omurga_register_admin_page')) { omurga_register_admin_page('topluluk-v1-panel', 'Topluluk V1 Paneli', 'tv1_render_admin_panel_page', 'themes.manage', '◉', 34); }
 function tv1_render_admin_panel_page(): string { if(function_exists('require_cap')) require_cap('themes.manage'); ob_start(); include __DIR__.'/admin/panel-content.php'; return (string)ob_get_clean(); }
