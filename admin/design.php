@@ -1,4 +1,4 @@
-<?php require '_layout.php'; verify_csrf(); require_cap('users.manage');
+<?php require '_layout.php'; verify_csrf(); require_cap('design.manage');
 $theme = omurga_active_theme();
 $meta = omurga_theme_meta($theme);
 $defs = omurga_theme_settings_definitions($theme);

@@ -1,7 +1,9 @@
 <?php
 require_once __DIR__.'/../bootstrap.php';
 require_admin();
-if(!can('api.manage') && !can('settings.manage') && !can('system.manage')){ http_response_code(403); exit('Erişim engellendi.'); }
+if(!can('api.manage') && !can('settings.manage') && !can('system.manage')){
+    render_error_page(403, 'Yetkisiz Erişim', 'REST API ayarlarını yönetmek için yetkiniz yok.');
+}
 $notice=''; $error=''; $newToken='';
 if($_SERVER['REQUEST_METHOD']==='POST'){
     csrf_check();

@@ -1,4 +1,4 @@
-<?php require '_layout.php'; verify_csrf(); require_cap('users.manage');
+<?php require '_layout.php'; verify_csrf(); require_cap('settings.manage');
 if($_SERVER['REQUEST_METHOD']==='POST'){
     $oldSiteType = site_type();
     update_setting('site_name', trim($_POST['site_name']??''));

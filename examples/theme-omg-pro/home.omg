@@ -1,0 +1,16 @@
+@include('header')
+<main class="demo-home">
+  <section class="hero">
+    {{ ad('header') }}
+    <h1>{{ site.name }}</h1>
+    <p>{{ site.description }}</p>
+  </section>
+  <section class="latest">
+    <h2>Son İçerikler</h2>
+    {{ latest_posts(6) }}
+  </section>
+  <section class="builder-area">
+    {{ builder('home_main') }}
+  </section>
+</main>
+@include('footer')

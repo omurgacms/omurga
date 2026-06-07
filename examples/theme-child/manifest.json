@@ -1,0 +1,7 @@
+{
+  "name": "Örnek Child Tema",
+  "slug": "ornek-child",
+  "version": "1.0.0",
+  "type": "theme",
+  "parent": "omurga-haber"
+}

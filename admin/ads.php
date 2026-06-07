@@ -1,4 +1,4 @@
-<?php require '_layout.php'; verify_csrf(); require_cap('users.manage');
+<?php require '_layout.php'; verify_csrf(); require_cap('ads.manage');
 $areas=omurga_ad_locations(); $ads=omurga_ad_slots(); $msg='';
 if($_SERVER['REQUEST_METHOD']==='POST'){
     $new=omurga_default_ad_slots();

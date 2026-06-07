@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'check_updates') {
             $check = OmurgaUpdater::check(true);
             $msg = $check['message'] ?? 'Güncelleme kontrolü tamamlandı.';
+            if(!empty($check['has_update'])){ omurga_notify('Yeni güncelleme mevcut', 'Omurga '.OmurgaUpdater::displayVersion($check['latest_version'] ?? '').' yayında.', 'update', 'admin/updates.php'); }
             if (($check['status'] ?? 'ok') === 'error') {
                 $err = $check['error'] ?? $msg;
                 $msg = '';
@@ -34,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $file = (string)($_POST['package_file'] ?? '');
             $result = OmurgaUpdater::applyStagedPackage($file);
             $msg = 'Bekleyen güncelleme paketi uygulandı. Hedef sürüm: ' . OmurgaUpdater::displayVersion($result['version']) . '. Kopyalanan dosya: ' . $result['copied'] . ', atlanan dosya: ' . $result['skipped'] . '.';
+            omurga_notify('Güncelleme tamamlandı', 'Bekleyen paket uygulandı. Hedef sürüm: '.OmurgaUpdater::displayVersion($result['version']), 'update', 'admin/updates.php');
             if (!empty($result['version_warning'])) { $msg .= ' Uyarı: ' . $result['version_warning']; }
             try {
                 db()->prepare('INSERT INTO '.table_name('update_logs').' (from_version,to_version,status,message,package_name,created_by) VALUES (?,?,?,?,?,?)')->execute([OMURGA_VERSION, $result['version'], 'completed', 'Bekleyen güncelleme paketi uygulandı.', basename($file), $_SESSION['omurga_user_id'] ?? null]);
@@ -48,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // GitHub güncellemesi: indirir ve doğrudan uygular.
             $result = OmurgaUpdater::applyDownloadedLatest();
             $msg = 'Güncelleme başarıyla uygulandı. Hedef sürüm: ' . OmurgaUpdater::displayVersion($result['version']) . '. Kopyalanan dosya: ' . $result['copied'] . ', atlanan dosya: ' . $result['skipped'] . '.';
+            omurga_notify('Güncelleme tamamlandı', 'GitHub güncellemesi uygulandı. Hedef sürüm: '.OmurgaUpdater::displayVersion($result['version']), 'update', 'admin/updates.php');
             if (!empty($result['version_warning'])) { $msg .= ' Uyarı: ' . $result['version_warning']; }
         } elseif ($action === 'manual_upload') {
             // Geriye uyumluluk: Eski action artık doğrudan uygulamaz; sadece beklemeye alır.

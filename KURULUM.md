@@ -1,4 +1,4 @@
-# Omurga CMS 1.0.5 Beta Kurulum
+# Omurga CMS 1.0.7.5 Beta Kurulum
 
 1. Zip dosyasını açın.
 2. Paket içindeki dosyaları hosting `public_html` veya ilgili site kök dizinine yükleyin.

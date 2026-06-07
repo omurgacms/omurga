@@ -1,0 +1,8 @@
+{
+  "name": "Örnek SEO Paketi",
+  "slug": "ornek-seo",
+  "version": "1.0.0",
+  "type": "package",
+  "permissions": ["settings"],
+  "requires": []
+}

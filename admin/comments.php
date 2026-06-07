@@ -23,6 +23,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       $msg=om_t('comments.reply','Cevapla').' kaydedildi.';
     } elseif(in_array($action, ['pending','approved','spam','trash'], true)){
       db()->prepare("UPDATE $commentsT SET status=? WHERE id=?")->execute([$action,$id]);
+      omurga_notify('Yorum durumu güncellendi', '#'.$id.' yorum durumu '.($statuses[$action] ?? $action).' yapıldı.', 'comment', 'admin/comments.php');
       $msg='Yorum durumu güncellendi.';
     } elseif($action==='delete'){
       db()->prepare("DELETE FROM $commentsT WHERE id=? OR parent_id=?")->execute([$id,$id]);

@@ -2,15 +2,17 @@
 session_start();
 
 define('OMURGA_ROOT', __DIR__);
-define('OMURGA_VERSION', '1.0.5-beta');
+define('OMURGA_VERSION', '1.0.8-beta');
 define('OMURGA_SCHEMA_VERSION', '4.0.0');
 define('OMURGA_INIT', true);
 require_once OMURGA_ROOT.'/core/hooks.php';
+require_once OMURGA_ROOT.'/core/MailBridge.php';
 require_once OMURGA_ROOT.'/core/BlockRegistry.php';
 require_once OMURGA_ROOT.'/core/BuilderApi.php';
 require_once OMURGA_ROOT.'/core/DeveloperApi.php';
 require_once OMURGA_ROOT.'/core/PlatformApi.php';
 require_once OMURGA_ROOT.'/core/Updater.php';
+require_once OMURGA_ROOT.'/core/UserCenter.php';
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
@@ -183,6 +185,7 @@ function omurga_core_capability_catalog(): array {
         'layout.manage'=>'Düzen / builder yönetebilir',
         'blocks.manage'=>'Blok merkezi yönetebilir',
         'design.manage'=>'Tema ayarlarını yönetebilir',
+        'custom_fields.manage'=>'Özel alanları yönetebilir',
         'plugins.manage'=>'Paketleri yönetebilir',
         'plugin_api.manage'=>'Paket API sayfalarını yönetebilir',
         'users.manage'=>'Kullanıcıları yönetebilir',
@@ -196,9 +199,11 @@ function omurga_core_capability_catalog(): array {
         'security.manage'=>'Güvenlik merkezini yönetebilir',
         'system.manage'=>'Sistem sağlığını ve günlükleri yönetebilir',
         'system.update'=>'Sistem güncellemelerini yönetebilir',
+        'notifications.manage'=>'Bildirimleri yönetebilir',
         'api.manage'=>'REST API ayarlarını yönetebilir',
         'api.read'=>'REST API üzerinden veri okuyabilir',
         'api.write'=>'REST API üzerinden veri yazabilir',
+        'auth.register'=>'Üyelik kayıtlarını kullanabilir',
     ];
 }
 function omurga_capability_catalog(): array {
@@ -217,7 +222,7 @@ function omurga_capability_catalog(): array {
 function omurga_default_role_capabilities(): array {
     return [
         'super_admin'=>['*'],
-        'admin'=>['content.view','posts.view','posts.create','posts.edit','posts.publish','posts.delete','posts.review','pages.manage','comments.manage','categories.manage','tags.manage','media.manage','media.select','media.upload','media.edit','media.delete','menus.manage','themes.manage','layout.manage','blocks.manage','design.manage','plugins.manage','plugin_api.manage','users.manage','roles.manage','settings.manage','api.manage','api.read','api.write','seo.manage','seo.view','forms.manage','ads.manage','backups.manage','security.manage','system.manage','system.update'],
+        'admin'=>['content.view','posts.view','posts.create','posts.edit','posts.publish','posts.delete','posts.review','pages.manage','comments.manage','categories.manage','tags.manage','media.manage','media.select','media.upload','media.edit','media.delete','menus.manage','themes.manage','layout.manage','blocks.manage','design.manage','custom_fields.manage','plugins.manage','plugin_api.manage','users.manage','roles.manage','settings.manage','api.manage','api.read','api.write','seo.manage','seo.view','forms.manage','ads.manage','backups.manage','security.manage','system.manage','system.update','notifications.manage'],
         'editor'=>['content.view','posts.view','posts.create','posts.edit','posts.publish','posts.delete','posts.review','pages.manage','comments.manage','categories.manage','tags.manage','media.manage','media.select','media.upload','media.edit','media.delete','seo.view','forms.manage'],
         'author'=>['content.view','posts.view','posts.create','posts.edit_own','posts.submit_review','media.manage','media.select','media.upload','seo.view'],
         'reporter'=>['content.view','posts.view','posts.create','posts.edit_own','posts.submit_review','media.manage','media.select','media.upload','seo.view'],
@@ -388,7 +393,9 @@ function om_handle_comment_submission(): void {
         $status='pending';
         omurga_do_action('omurga_before_comment_save', ['post_id'=>$postId,'author_name'=>$name,'author_email'=>$email,'content'=>$content,'status'=>$status]);
         db()->prepare("INSERT INTO $t (post_id,parent_id,author_name,author_email,author_ip,content,status,user_id) VALUES (?,?,?,?,?,?,?,?)")->execute([$postId,null,$name,$email,$ip,$content,$status,$_SESSION['omurga_user_id'] ?? null]);
-        omurga_do_action('omurga_after_comment_save', (int)db()->lastInsertId(), $postId, $status);
+        $commentId=(int)db()->lastInsertId();
+        omurga_do_action('omurga_after_comment_save', $commentId, $postId, $status);
+        omurga_notify_admins('Yeni yorum onay bekliyor', $name.' tarafından yeni yorum gönderildi.', 'comment', 'admin/comments.php?status=pending');
         $_SESSION['omurga_last_comment_at']=time();
         $setNotice(om_t('comments.comment_saved','Yorumunuz onay bekliyor.'));
     }catch(Throwable $e){
@@ -1137,6 +1144,65 @@ function om_theme_setting(string $key, $default=null, ?string $slug=null) { retu
 function om_theme_setting_bool(string $key, bool $default=false, ?string $slug=null): bool { return theme_setting_bool($key, $default, $slug); }
 function om_theme_asset(string $path='', ?string $slug=null): string { return omurga_theme_url(ltrim($path,'/'), $slug ?: omurga_active_theme()); }
 function om_theme_meta(?string $slug=null): array { return omurga_theme_meta($slug); }
+function om_theme_framework(?string $slug=null): string {
+    $meta = omurga_theme_meta($slug);
+    $framework = $meta['framework'] ?? ($meta['css_framework'] ?? 'none');
+    if (is_array($framework)) {
+        $framework = $framework['name'] ?? ($framework['type'] ?? 'none');
+    }
+    $framework = strtolower(trim((string)$framework));
+    $allowed = ['none','custom','tailwind','bootstrap','bulma','foundation'];
+    return in_array($framework, $allowed, true) ? $framework : 'custom';
+}
+function om_theme_uses_tailwind(?string $slug=null): bool { return om_theme_framework($slug) === 'tailwind'; }
+function om_theme_uses_bootstrap(?string $slug=null): bool { return om_theme_framework($slug) === 'bootstrap'; }
+function om_theme_framework_class(?string $slug=null): string {
+    $fw = om_theme_framework($slug);
+    return $fw !== 'none' ? 'om-theme-fw-' . $fw : 'om-theme-fw-none';
+}
+function om_theme_assets(?string $slug=null): array {
+    $meta = omurga_theme_meta($slug);
+    $assets = $meta['assets'] ?? [];
+    return is_array($assets) ? $assets : [];
+}
+function om_theme_head(?string $slug=null): string {
+    $slug = $slug ?: omurga_active_theme();
+    $assets = om_theme_assets($slug);
+    $out = [];
+    foreach (($assets['css'] ?? []) as $css) {
+        $css = trim((string)$css);
+        if ($css === '') continue;
+        $href = preg_match('#^https?://#i', $css) ? $css : om_theme_asset($css, $slug);
+        $out[] = '<link rel="stylesheet" href="' . e($href) . '">';
+    }
+    foreach (($assets['head_js'] ?? []) as $js) {
+        $js = trim((string)$js);
+        if ($js === '') continue;
+        $src = preg_match('#^https?://#i', $js) ? $js : om_theme_asset($js, $slug);
+        $out[] = '<script defer src="' . e($src) . '"></script>';
+    }
+    ob_start();
+    omurga_do_action('omurga_theme_head', $slug);
+    $hook = trim((string)ob_get_clean());
+    if ($hook !== '') $out[] = $hook;
+    return implode("\n", $out);
+}
+function om_theme_footer(?string $slug=null): string {
+    $slug = $slug ?: omurga_active_theme();
+    $assets = om_theme_assets($slug);
+    $out = [];
+    foreach (($assets['js'] ?? []) as $js) {
+        $js = trim((string)$js);
+        if ($js === '') continue;
+        $src = preg_match('#^https?://#i', $js) ? $js : om_theme_asset($js, $slug);
+        $out[] = '<script src="' . e($src) . '"></script>';
+    }
+    ob_start();
+    omurga_do_action('omurga_theme_footer', $slug);
+    $hook = trim((string)ob_get_clean());
+    if ($hook !== '') $out[] = $hook;
+    return implode("\n", $out);
+}
 function om_theme_supports(string $feature, ?string $slug=null): bool {
     $meta=omurga_theme_meta($slug); $supports=$meta['supports'] ?? [];
     return is_array($supports) && in_array($feature, $supports, true);
@@ -1779,6 +1845,7 @@ function omurga_tpl_post(array $post): array {
         'gallery'=>$galleryHtml,
         'comments_count'=>om_comments_count((int)($post['id'] ?? 0)),
         'comments_enabled'=>om_post_comments_enabled($post) ? '1' : '0',
+        'fields'=>isset($post['id']) ? omurga_get_custom_field_values((int)$post['id'], (string)($post['type'] ?? 'post'), $post) : [],
     ]);
 }
 function omurga_tpl_context(array $vars=[]): array {
@@ -1838,32 +1905,249 @@ function omurga_omg_file(string $name, ?string $slug=null): string {
     $file=str_replace('\\','/',$file);
     return str_starts_with($file, rtrim($base,'/').'/') ? $file : '';
 }
+function omurga_omg_literal_value(string $expr, array $data) {
+    $expr=trim($expr);
+    if($expr==='') return '';
+    if((str_starts_with($expr,"'") && str_ends_with($expr,"'")) || (str_starts_with($expr,'"') && str_ends_with($expr,'"'))) return substr($expr,1,-1);
+    $lower=strtolower($expr);
+    if($lower==='true') return true;
+    if($lower==='false') return false;
+    if($lower==='null') return null;
+    if(is_numeric($expr)) return str_contains($expr,'.') ? (float)$expr : (int)$expr;
+    if(preg_match('/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)$/s', $expr, $m)){
+        $called=omurga_omg_call($m[1], $m[2], $data);
+        if($called!==null) return $called;
+    }
+    if(preg_match('/^[a-zA-Z0-9_\.]+$/', $expr)) return omurga_tpl_dot($data,$expr,'');
+    return $expr;
+}
+function omurga_omg_truthy_value($value): bool {
+    if(is_bool($value)) return $value;
+    if(is_null($value)) return false;
+    if(is_numeric($value)) return (float)$value != 0.0;
+    if(is_array($value)) return !empty($value);
+    $v=trim((string)$value);
+    return !($v==='' || $v==='0' || strtolower($v)==='false' || strtolower($v)==='null');
+}
 function omurga_omg_truthy(string $expr, array $data): bool {
     $expr=trim($expr);
     if($expr==='') return false;
-    $neg=false;
-    if(str_starts_with($expr,'!')){ $neg=true; $expr=trim(substr($expr,1)); }
-    $result=false;
-    if(preg_match('/^([a-zA-Z0-9_\.]+)\s*(==|!=)\s*[\'"]?([^\'"]*)[\'"]?$/',$expr,$m)){
-        $value=(string)omurga_tpl_dot($data,$m[1],'');
-        $result=$m[2]==='==' ? $value===$m[3] : $value!==$m[3];
-    } else {
-        $value=omurga_tpl_dot($data,$expr,'');
-        $result=!empty($value);
+    if(preg_match('/^!(.+)$/s',$expr,$m)) return !omurga_omg_truthy($m[1],$data);
+    if(preg_match('/^(.+?)\s+(and|&&)\s+(.+)$/i',$expr,$m)) return omurga_omg_truthy($m[1],$data) && omurga_omg_truthy($m[3],$data);
+    if(preg_match('/^(.+?)\s+(or|\|\|)\s+(.+)$/i',$expr,$m)) return omurga_omg_truthy($m[1],$data) || omurga_omg_truthy($m[3],$data);
+    if(preg_match('/^(.+?)\s*(===|!==|==|!=|>=|<=|>|<)\s*(.+)$/s',$expr,$m)){
+        $left=omurga_omg_literal_value($m[1],$data); $right=omurga_omg_literal_value($m[3],$data);
+        switch($m[2]){
+            case '===': return $left === $right;
+            case '!==': return $left !== $right;
+            case '==': return $left == $right;
+            case '!=': return $left != $right;
+            case '>=': return $left >= $right;
+            case '<=': return $left <= $right;
+            case '>': return $left > $right;
+            case '<': return $left < $right;
+        }
     }
-    return $neg ? !$result : $result;
+    return omurga_omg_truthy_value(omurga_omg_literal_value($expr,$data));
 }
+
+/* OMG Final Theme Engine helpers v1.0.7.3
+   Tema geliştiricileri için PHP yazmadan menü, builder, hook, reklam, görsel ve içerik sorguları. */
+function omurga_omg_parse_args(string $args): array {
+    $args=trim($args);
+    if($args==='') return [];
+    $out=[]; $pos=0; $len=strlen($args); $parts=[]; $buf=''; $quote=''; $depth=0;
+    while($pos<$len){
+        $ch=$args[$pos];
+        if($quote){ $buf.=$ch; if($ch===$quote && ($pos===0 || $args[$pos-1] !== '\\')) $quote=''; }
+        else {
+            if($ch==='\'' || $ch==='"'){ $quote=$ch; $buf.=$ch; }
+            elseif($ch==='(' || $ch==='[' || $ch==='{'){ $depth++; $buf.=$ch; }
+            elseif($ch===')' || $ch===']' || $ch==='}'){ $depth=max(0,$depth-1); $buf.=$ch; }
+            elseif($ch===',' && $depth===0){ $parts[]=trim($buf); $buf=''; }
+            else $buf.=$ch;
+        }
+        $pos++;
+    }
+    if(trim($buf)!=='') $parts[]=trim($buf);
+    foreach($parts as $idx=>$part){
+        if($part==='') continue;
+        if(preg_match('/^([a-zA-Z_][a-zA-Z0-9_\-]*)\s*=\s*(.+)$/s',$part,$m)){
+            $key=$m[1]; $val=trim($m[2]);
+        } else { $key=$idx; $val=$part; }
+        if((str_starts_with($val,"'") && str_ends_with($val,"'")) || (str_starts_with($val,'"') && str_ends_with($val,'"'))){
+            $val=substr($val,1,-1);
+        } elseif(is_numeric($val)) { $val=str_contains($val,'.') ? (float)$val : (int)$val; }
+        elseif(in_array(strtolower($val),['true','false'],true)) { $val=strtolower($val)==='true'; }
+        $out[$key]=$val;
+    }
+    return $out;
+}
+function omurga_omg_arg(array $args, $key, $default=null) { return array_key_exists($key,$args) ? $args[$key] : $default; }
+function omurga_omg_int_arg(array $args, $key, int $default=6, int $min=1, int $max=50): int { return max($min,min($max,(int)omurga_omg_arg($args,$key,$default))); }
+function omurga_omg_posts_query(array $args=[]): array {
+    $limit=omurga_omg_int_arg($args,'limit', (int)($args[0] ?? 6), 1, 50);
+    $type=preg_replace('/[^a-z0-9_\-]/','', strtolower((string)($args['type'] ?? 'post'))) ?: 'post';
+    $source=preg_replace('/[^a-z0-9_\-]/','', strtolower((string)($args['source'] ?? 'latest'))) ?: 'latest';
+    try{
+        $postsT=table_name('posts'); $catsT=table_name('categories');
+        $where=["p.status='published'"]; $params=[];
+        if($type==='page') $where[]="p.type='page'"; else $where[]="p.type<>'page'";
+        $join="LEFT JOIN $catsT c ON c.id=p.category_id";
+        $category=trim((string)($args['category'] ?? $args['cat'] ?? ''));
+        if($category!==''){
+            if(ctype_digit($category)){ $where[]='p.category_id=?'; $params[]=(int)$category; }
+            else { $where[]='(c.slug=? OR c.name=?)'; $params[]=$category; $params[]=$category; }
+        }
+        $tag=trim((string)($args['tag'] ?? ''));
+        if($tag!==''){
+            $tagsT=table_name('tags'); $ptT=table_name('post_tags');
+            $join .= " INNER JOIN $ptT pt ON pt.post_id=p.id INNER JOIN $tagsT t ON t.id=pt.tag_id";
+            $where[]='(t.slug=? OR t.name=?)'; $params[]=$tag; $params[]=$tag;
+        }
+        if(!empty($args['author'])){ $where[]='p.author_id=?'; $params[]=(int)$args['author']; }
+        if(!empty($args['meta_key'])){
+            $metaT=table_name('post_meta'); $join .= " INNER JOIN $metaT pm ON pm.post_id=p.id"; $where[]='pm.meta_key=?'; $params[]=(string)$args['meta_key'];
+            if(array_key_exists('meta_value',$args)){ $where[]='pm.meta_value=?'; $params[]=(string)$args['meta_value']; }
+        }
+        $order="p.published_at DESC,p.id DESC";
+        if($source==='featured'){ $metaT=table_name('post_meta'); $join .= " INNER JOIN $metaT pmf ON pmf.post_id=p.id AND pmf.meta_key='featured' AND pmf.meta_value='1'"; $order="p.sort_order ASC,p.published_at DESC,p.id DESC"; }
+        elseif($source==='popular'){ $order="COALESCE(p.views,0) DESC,p.published_at DESC,p.id DESC"; }
+        $sql="SELECT p.*, c.name category_name, c.slug category_slug FROM $postsT p $join WHERE ".implode(' AND ',$where)." ORDER BY $order LIMIT $limit";
+        $st=db()->prepare($sql); $st->execute($params);
+        return array_map(fn($p)=>omurga_tpl_post($p), $st->fetchAll());
+    }catch(Throwable $e){ omurga_write_error($e); return []; }
+}
+function omurga_omg_render_posts(array $posts, array $args=[]): string {
+    if(!$posts) return '';
+    $class=preg_replace('/[^a-zA-Z0-9_\- ]/','',(string)($args['class'] ?? 'omg-post-list omg-post-grid'));
+    $showImage=!isset($args['image']) || !in_array((string)$args['image'],['0','false','no'],true);
+    $out='<div class="'.e($class).'">';
+    foreach($posts as $post){
+        $out.='<article class="omg-post-card">';
+        if($showImage && !empty($post['image'])) $out.='<a class="omg-post-thumb" href="'.e($post['url']).'"><img src="'.e($post['image']).'" alt="'.e($post['title']).'" loading="lazy"></a>';
+        $out.='<div class="omg-post-body">';
+        if(!empty($post['category'])) $out.='<small class="omg-post-category">'.e($post['category']).'</small>';
+        $out.='<h3><a href="'.e($post['url']).'">'.e($post['title']).'</a></h3>';
+        if(!empty($post['excerpt'])) $out.='<p>'.e($post['excerpt']).'</p>';
+        $out.='</div></article>';
+    }
+    return $out.'</div>';
+}
+function omurga_omg_image_html($value, string $size='full', string $alt='', array $attrs=[]): string {
+    $src='';
+    if(is_array($value)){ $src=(string)($value['image'] ?? $value['featured_image'] ?? $value['url'] ?? $value['path'] ?? ''); $alt=$alt ?: (string)($value['title'] ?? $value['alt'] ?? ''); }
+    else $src=(string)$value;
+    $src=image_url($src); if($src==='') return '';
+    $size=preg_replace('/[^a-z0-9_\-]/','', strtolower($size ?: 'full'));
+    $cls='omg-image omg-image-'.$size.(!empty($attrs['class'])?' '.preg_replace('/[^a-zA-Z0-9_\- ]/','',(string)$attrs['class']):'');
+    return '<img class="'.e($cls).'" src="'.e($src).'" alt="'.e($alt).'" loading="lazy">';
+}
+
+function omurga_omg_attr_string(array $attrs=[]): string {
+    $out='';
+    foreach($attrs as $k=>$v){
+        if(is_int($k) || $v===null || $v===false) continue;
+        $k=preg_replace('/[^a-zA-Z0-9_:\-]/','',(string)$k);
+        if($k==='') continue;
+        if($v===true) $out.=' '.e($k);
+        else $out.=' '.e($k).'="'.e((string)$v).'"';
+    }
+    return $out;
+}
+function omurga_omg_current_post(array $data): array { $post=omurga_tpl_dot($data,'post',[]); return is_array($post) ? $post : []; }
+function omurga_omg_breadcrumb(array $data, array $args=[]): string {
+    $items=[['title'=>setting('site_name','Omurga'),'url'=>omurga_url()]];
+    $cat=omurga_tpl_dot($data,'category',[]); $post=omurga_omg_current_post($data);
+    if(is_array($cat) && !empty($cat['name'])) $items[]=['title'=>$cat['name'],'url'=>!empty($cat['slug'])?omurga_url('kategori/'.$cat['slug']):''];
+    elseif(!empty($post['category'])) $items[]=['title'=>$post['category'],'url'=>$post['category_link'] ?? ''];
+    $title=(string)($args['title'] ?? omurga_tpl_dot($data,'title',($post['title'] ?? ''))); if($title!=='') $items[]=['title'=>$title,'url'=>''];
+    $sep=(string)($args['separator'] ?? '›'); $html='<nav class="omg-breadcrumb" aria-label="Breadcrumb"><ol>';
+    foreach($items as $i=>$it){ $last=$i===array_key_last($items); $html.='<li>'; if(!$last && !empty($it['url'])) $html.='<a href="'.e($it['url']).'">'.e($it['title']).'</a>'; else $html.='<span>'.e($it['title']).'</span>'; if(!$last) $html.='<em>'.e($sep).'</em>'; $html.='</li>'; }
+    return $html.'</ol></nav>';
+}
+function omurga_omg_pagination(array $data, array $args=[]): string {
+    $current=max(1,(int)($args['current'] ?? ($_GET['page'] ?? $_GET['paged'] ?? omurga_tpl_dot($data,'pagination.current',1))));
+    $total=max(1,(int)($args['total'] ?? omurga_tpl_dot($data,'pagination.total',1))); if($total<=1) return '';
+    $base=(string)($args['base'] ?? strtok($_SERVER['REQUEST_URI'] ?? '/', '?')); $param=preg_replace('/[^a-zA-Z0-9_\-]/','',(string)($args['param'] ?? 'page')) ?: 'page';
+    $html='<nav class="omg-pagination" aria-label="Sayfalama">';
+    for($i=1;$i<=$total;$i++){ $url=omurga_url(ltrim($base,'/')).($i>1?'?'.$param.'='.$i:''); $html.=$i===$current?'<span class="active">'.$i.'</span>':'<a href="'.e($url).'">'.$i.'</a>'; }
+    return $html.'</nav>';
+}
+function omurga_omg_related_posts(array $data, array $args=[]): array {
+    $post=omurga_omg_current_post($data); $limit=omurga_omg_int_arg($args,'limit',4,1,20); $q=['limit'=>$limit,'source'=>'latest'];
+    if(!empty($post['category_slug'])) $q['category']=$post['category_slug']; elseif(!empty($post['category_id'])) $q['category']=(string)$post['category_id'];
+    $items=omurga_omg_posts_query($q); if(!empty($post['id'])) $items=array_values(array_filter($items, fn($p)=>(int)($p['id'] ?? 0)!==(int)$post['id']));
+    return array_slice($items,0,$limit);
+}
+function omurga_omg_author_box(array $data, array $args=[]): string {
+    $post=omurga_omg_current_post($data); $name=(string)($args['name'] ?? ($post['author'] ?? omurga_tpl_dot($data,'author.name',''))); if($name==='') return '';
+    $bio=(string)($args['bio'] ?? omurga_tpl_dot($data,'author.bio','')); $avatar=image_url((string)($args['avatar'] ?? omurga_tpl_dot($data,'author.avatar','')));
+    $html='<section class="omg-author-box">'; if($avatar) $html.='<img src="'.e($avatar).'" alt="'.e($name).'" loading="lazy">'; $html.='<div><strong>'.e($name).'</strong>'; if($bio!=='') $html.='<p>'.e($bio).'</p>'; return $html.'</div></section>';
+}
+function omurga_omg_reading_time(array $data, array $args=[]): string {
+    $text=strip_tags((string)omurga_tpl_dot($data,'post.content',omurga_tpl_dot($data,'content',''))); $words=preg_split('/\s+/u', trim($text)); $count=$text===''?0:count($words); $min=max(1,(int)ceil($count / max(100,(int)($args['wpm'] ?? 200)))); return $min.' dk okuma';
+}
+function omurga_omg_share_buttons(array $data, array $args=[]): string {
+    $post=omurga_omg_current_post($data); $url=(string)($args['url'] ?? ($post['url'] ?? omurga_url())); $title=(string)($args['title'] ?? ($post['title'] ?? setting('site_name','Omurga')));
+    $items=['facebook'=>'https://www.facebook.com/sharer/sharer.php?u='.rawurlencode($url),'x'=>'https://twitter.com/intent/tweet?url='.rawurlencode($url).'&text='.rawurlencode($title),'whatsapp'=>'https://api.whatsapp.com/send?text='.rawurlencode($title.' '.$url),'telegram'=>'https://t.me/share/url?url='.rawurlencode($url).'&text='.rawurlencode($title)];
+    $html='<div class="omg-share-buttons">'; foreach($items as $k=>$u){ $html.='<a target="_blank" rel="noopener" href="'.e($u).'">'.e(ucfirst($k)).'</a>'; } return $html.'</div>';
+}
+function omurga_omg_posts_array_call(string $name, string $argsRaw, array $data): array {
+    $args=omurga_omg_parse_args($argsRaw);
+    if($name==='latest_posts') $args['source']='latest'; elseif($name==='popular_posts') $args['source']='popular'; elseif($name==='featured_posts') $args['source']='featured'; elseif($name==='category_posts'){ $args['category']=$args[0] ?? ($args['category'] ?? ''); $args['source']='latest'; } elseif($name==='tag_posts'){ $args['tag']=$args[0] ?? ($args['tag'] ?? ''); } elseif($name==='related_posts') return omurga_omg_related_posts($data,$args);
+    return omurga_omg_posts_query($args);
+}
+function omurga_omg_component_path(string $name): string { return omurga_omg_file('components/'.trim($name,'/')); }
+
+function omurga_omg_call(string $name, string $argsRaw, array $data) {
+    $name=strtolower(trim($name)); $args=omurga_omg_parse_args($argsRaw);
+    switch($name){
+        case 'menu': return om_menu((string)($args[0] ?? $args['location'] ?? 'main'));
+        case 'builder': case 'region': return om_region((string)($args[0] ?? $args['region'] ?? 'home_main'), $data);
+        case 'setting': $key=(string)($args[0] ?? ''); return $key!=='' ? (theme_setting($key, setting($key, (string)($args[1] ?? $args['default'] ?? ''))) ?? '') : '';
+        case 'theme_setting': $key=(string)($args[0] ?? ''); return $key!=='' ? (theme_setting($key, (string)($args[1] ?? $args['default'] ?? '')) ?? '') : '';
+        case 'hook': $hook=(string)($args[0] ?? ''); if($hook==='') return ''; ob_start(); omurga_do_action($hook, $data); return (string)ob_get_clean();
+        case 'ad': case 'ads': return omurga_ad_area((string)($args[0] ?? $args['area'] ?? 'header'));
+        case 'block': $slug=preg_replace('/[^a-zA-Z0-9_\-]/','',(string)($args[0] ?? $args['slug'] ?? '')); if($slug==='') return ''; return omurga_render_core_block(['slug'=>$slug,'settings'=>$args], $data);
+        case 'latest_posts': $args['source']='latest'; return omurga_omg_render_posts(omurga_omg_posts_query($args), $args);
+        case 'popular_posts': $args['source']='popular'; return omurga_omg_render_posts(omurga_omg_posts_query($args), $args);
+        case 'featured_posts': $args['source']='featured'; return omurga_omg_render_posts(omurga_omg_posts_query($args), $args);
+        case 'category_posts': $args['category']=$args[0] ?? ($args['category'] ?? ''); $args['source']='latest'; return omurga_omg_render_posts(omurga_omg_posts_query($args), $args);
+        case 'tag_posts': $args['tag']=$args[0] ?? ($args['tag'] ?? ''); return omurga_omg_render_posts(omurga_omg_posts_query($args), $args);
+        case 'posts': return omurga_omg_render_posts(omurga_omg_posts_query($args), $args);
+        case 'image': $target=(string)($args[0] ?? 'post.image'); $value=preg_match('/^[a-zA-Z0-9_\.]+$/',$target)?omurga_tpl_dot($data,$target,$target):$target; return omurga_omg_image_html($value, (string)($args[1] ?? $args['size'] ?? 'full'), (string)($args['alt'] ?? omurga_tpl_dot($data,'post.title','')));
+        case 'url': return omurga_url((string)($args[0] ?? ''));
+        case 'asset': case 'theme_asset': return om_theme_asset((string)($args[0] ?? ''));
+        case 'theme_head': return om_theme_head();
+        case 'theme_footer': return om_theme_footer();
+        case 'theme_framework': return om_theme_framework();
+        case 'theme_framework_class': return om_theme_framework_class();
+        case 't': case 'trans': return function_exists('om_t') ? om_t((string)($args[0] ?? ''), (string)($args[1] ?? $args[0] ?? '')) : (string)($args[1] ?? $args[0] ?? '');
+        case 'field': $key=(string)($args[0] ?? ''); $pid=(int)($args['post_id'] ?? omurga_tpl_dot($data,'post.id',0)); return $key!=='' ? (string)omurga_custom_field_value($pid,$key,(string)($args[1] ?? $args['default'] ?? '')) : '';
+        case 'fields': $pid=(int)($args['post_id'] ?? omurga_tpl_dot($data,'post.id',0)); $ptype=(string)omurga_tpl_dot($data,'post.type','post'); return $pid>0 ? omurga_get_custom_field_values($pid,$ptype,omurga_omg_current_post($data)) : [];
+        case 'breadcrumb': return omurga_omg_breadcrumb($data,$args);
+        case 'pagination': return omurga_omg_pagination($data,$args);
+        case 'related_posts': return omurga_omg_render_posts(omurga_omg_related_posts($data,$args),$args);
+        case 'author_box': return omurga_omg_author_box($data,$args);
+        case 'reading_time': return omurga_omg_reading_time($data,$args);
+        case 'share_buttons': return omurga_omg_share_buttons($data,$args);
+        case 'comments_count': return (string)om_comments_count((int)($args[0] ?? omurga_tpl_dot($data,'post.id',0)));
+        case 'canonical': return '<link rel="canonical" href="'.e((string)($args[0] ?? omurga_tpl_dot($data,'post.url',omurga_url()))).'">';
+        case 'csrf': return csrf_token();
+        case 'body_class': return 'omurga-page omurga-theme-'.e(omurga_active_theme()).' '.e((string)($args[0] ?? ''));
+        case 'comments': $postId=(int)($args[0] ?? omurga_tpl_dot($data,'post.id',0)); return $postId>0 ? om_comments_list($postId) : '';
+        case 'comment_form': $postId=(int)($args[0] ?? omurga_tpl_dot($data,'post.id',0)); return $postId>0 ? om_comment_form($postId) : '';
+    }
+    return null;
+}
+
 function omurga_omg_eval(string $expr, array $data) {
     $expr=trim($expr);
     if($expr==='') return '';
-    if(preg_match('/^asset\s*\(\s*[\'"]([^\'"]*)[\'"]\s*\)$/i', $expr, $m)){
-        $path=str_replace('\\','/',trim($m[1]));
-        if($path==='' || str_contains($path,'..') || str_starts_with($path,'/')) return '';
-        if(!str_starts_with($path,'assets/')) $path='assets/'.ltrim($path,'/');
-        return omurga_theme_url($path);
-    }
-    if(preg_match('/^url\s*\(\s*[\'"]([^\'"]*)[\'"]\s*\)$/i', $expr, $m)){
-        return omurga_url($m[1]);
+    if(preg_match('/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)$/s', $expr, $m)){
+        $result=omurga_omg_call($m[1], $m[2], $data);
+        if($result!==null) return $result;
     }
     if(!preg_match('/^[a-zA-Z0-9_\.]+$/', $expr)) return '';
     return omurga_tpl_dot($data,$expr,'');
@@ -1883,45 +2167,68 @@ function omurga_render_omg(string $file, array $vars=[]): string {
     return (string)omurga_apply_filters('omurga_after_omg_render', $html, $file, $vars);
 }
 function omurga_render_omg_string(string $tpl, array $data, int $depth=0): string {
-    if($depth>10) return '';
+    if($depth>20) return '';
     $tpl=omurga_omg_strip_php($tpl);
-    $tpl=preg_replace_callback('/@include\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)/i', function($m) use($data,$depth){
-        $file=omurga_omg_file($m[1]);
-        if(!$file){ omurga_omg_log('OMG include bulunamadı veya tema dışı: '.$m[1]); return ''; }
-        return omurga_render_omg_string(omurga_omg_read_file($file), $data, $depth+1);
+    $tpl=preg_replace('/\{\{--[\s\S]*?--\}\}/','',$tpl);
+    $tpl=preg_replace('/@php[\s\S]*?@endphp/i','',$tpl);
+
+    $tpl=preg_replace_callback('/@component\s*\(\s*[\'\"]([^\'\"]+)[\'\"]\s*(?:,\s*(.*?))?\)([\s\S]*?)@endcomponent/i', function($m) use($data,$depth){
+        $file=omurga_omg_component_path($m[1]); if(!$file){ omurga_omg_log('OMG component bulunamadı: '.$m[1]); return ''; }
+        $body=$m[3]; $slots=[];
+        $body=preg_replace_callback('/@slot\s*\(\s*[\'\"]([^\'\"]+)[\'\"]\s*\)([\s\S]*?)@endslot/i', function($sm) use(&$slots,$data,$depth){ $slots[$sm[1]]=omurga_render_omg_string($sm[2],$data,$depth+1); return ''; }, $body);
+        $componentData=$data; $componentData['slot']=omurga_render_omg_string($body,$data,$depth+1); $componentData['slots']=$slots; foreach($slots as $k=>$v){ $componentData[$k]=$v; }
+        return omurga_render_omg_string(omurga_omg_read_file($file), $componentData, $depth+1);
     }, $tpl);
-    $tpl=preg_replace_callback('/@foreach\s*\(\s*([a-zA-Z0-9_\.]+)\s+as\s+([a-zA-Z0-9_]+)\s*\)([\s\S]*?)@endforeach/i', function($m) use($data,$depth){
-        $items=omurga_tpl_dot($data,$m[1],[]);
-        if(!is_array($items)) return '';
-        $out=''; $i=0;
-        foreach($items as $item){
-            $row=$data;
-            $row[$m[2]]=is_array($item)?$item:['value'=>$item];
-            $row['loop']=['index'=>$i,'number'=>$i+1,'first'=>$i===0?'1':'0'];
-            $out.=omurga_render_omg_string($m[3], $row, $depth+1);
-            $i++;
-        }
+
+    $tpl=preg_replace_callback('/@include\s*\(\s*[\'\"]([^\'\"]+)[\'\"]\s*(?:,\s*(.*?))?\)/i', function($m) use($data,$depth){
+        $file=omurga_omg_file($m[1]); if(!$file){ omurga_omg_log('OMG include bulunamadı veya tema dışı: '.$m[1]); return ''; }
+        $includeData=$data; if(!empty($m[2])){ foreach(omurga_omg_parse_args($m[2]) as $k=>$v){ if(!is_int($k)) $includeData[$k]=$v; } }
+        return omurga_render_omg_string(omurga_omg_read_file($file), $includeData, $depth+1);
+    }, $tpl);
+
+    $tpl=preg_replace_callback('/@each\s*\(\s*[\'\"]([^\'\"]+)[\'\"]\s*,\s*([a-zA-Z0-9_\.]+)\s*,\s*[\'\"]?([a-zA-Z0-9_]+)[\'\"]?\s*\)/i', function($m) use($data,$depth){
+        $file=omurga_omg_file($m[1]); if(!$file) return ''; $items=omurga_tpl_dot($data,$m[2],[]); if(!is_array($items)) return '';
+        $out=''; $i=0; $count=count($items); $tplInner=omurga_omg_read_file($file);
+        foreach($items as $item){ $row=$data; $row[$m[3]]=is_array($item)?$item:['value'=>$item]; $row['loop']=['index'=>$i,'number'=>$i+1,'first'=>$i===0,'last'=>$i===$count-1,'count'=>$count]; $out.=omurga_render_omg_string($tplInner,$row,$depth+1); $i++; }
         return $out;
     }, $tpl);
+
+    $tpl=preg_replace_callback('/@(posts|latest_posts|popular_posts|featured_posts|category_posts|tag_posts|related_posts)\s*\((.*?)\)([\s\S]*?)@end\1/i', function($m) use($data,$depth){
+        $items=omurga_omg_posts_array_call($m[1],$m[2],$data); $out=''; $count=count($items); $i=0;
+        foreach($items as $item){ $row=$data; $row['post']=$item; $row['loop']=['index'=>$i,'number'=>$i+1,'first'=>$i===0,'last'=>$i===$count-1,'count'=>$count]; $out.=omurga_render_omg_string($m[3],$row,$depth+1); $i++; }
+        return $out;
+    }, $tpl);
+
+    $tpl=preg_replace_callback('/@forelse\s*\(\s*([a-zA-Z0-9_\.]+)\s+as\s+([a-zA-Z0-9_]+)\s*\)([\s\S]*?)(?:@empty([\s\S]*?))?@endforelse/i', function($m) use($data,$depth){
+        $items=omurga_tpl_dot($data,$m[1],[]); if(!is_array($items) || !$items) return isset($m[4])?omurga_render_omg_string($m[4],$data,$depth+1):'';
+        $out=''; $i=0; $count=count($items); foreach($items as $item){ $row=$data; $row[$m[2]]=is_array($item)?$item:['value'=>$item]; $row['loop']=['index'=>$i,'number'=>$i+1,'first'=>$i===0,'last'=>$i===$count-1,'count'=>$count]; $out.=omurga_render_omg_string($m[3],$row,$depth+1); $i++; } return $out;
+    }, $tpl);
+
+    $tpl=preg_replace_callback('/@foreach\s*\(\s*([a-zA-Z0-9_\.]+)\s+as\s+([a-zA-Z0-9_]+)\s*\)([\s\S]*?)@endforeach/i', function($m) use($data,$depth){
+        $items=omurga_tpl_dot($data,$m[1],[]); if(!is_array($items)) return ''; $out=''; $i=0; $count=count($items);
+        foreach($items as $item){ $row=$data; $row[$m[2]]=is_array($item)?$item:['value'=>$item]; $row['loop']=['index'=>$i,'number'=>$i+1,'first'=>$i===0,'last'=>$i===$count-1,'count'=>$count]; $out.=omurga_render_omg_string($m[3],$row,$depth+1); $i++; } return $out;
+    }, $tpl);
+
     $tpl=preg_replace_callback('/@if\s*\((.*?)\)([\s\S]*?)@endif/i', function($m) use($data,$depth){
-        return omurga_omg_truthy($m[1], $data) ? omurga_render_omg_string($m[2], $data, $depth+1) : '';
+        $expr=$m[1]; $body=$m[2]; $parts=[]; $offset=0; $currentExpr=$expr;
+        if(preg_match_all('/@(elseif)\s*\((.*?)\)|@else/i',$body,$matches,PREG_OFFSET_CAPTURE)){
+            foreach($matches[0] as $idx=>$match){ $pos=$match[1]; $parts[]=[$currentExpr, substr($body,$offset,$pos-$offset)]; $isElseif=strtolower($matches[1][$idx][0] ?? '')==='elseif'; $currentExpr=$isElseif?$matches[2][$idx][0]:null; $offset=$pos+strlen($match[0]); }
+            $parts[]=[$currentExpr, substr($body,$offset)];
+        } else $parts=[[$expr,$body]];
+        foreach($parts as [$cond,$html]){ if($cond===null || omurga_omg_truthy((string)$cond,$data)) return omurga_render_omg_string($html,$data,$depth+1); } return '';
     }, $tpl);
+
     $tpl=preg_replace_callback('/<omg:content\s*\/>/i', fn()=>omurga_omg_content($data), $tpl);
-    $tpl=preg_replace_callback('/<omg:comments\s*\/>/i', function() use($data){
-        $postId=(int)omurga_tpl_dot($data,'post.id',0);
-        return $postId>0 ? om_comments_list($postId) : '';
-    }, $tpl);
-    $tpl=preg_replace_callback('/<omg:comment-form\s*\/>/i', function() use($data){
-        $postId=(int)omurga_tpl_dot($data,'post.id',0);
-        return $postId>0 ? om_comment_form($postId) : '';
-    }, $tpl);
-    $tpl=preg_replace_callback('/\{!!\s*([a-zA-Z0-9_\.]+)\s*!!\}/', function($m) use($data){
-        $value=omurga_omg_eval($m[1],$data);
-        return is_array($value) ? '' : omurga_tpl_safe_html((string)$value);
-    }, $tpl);
-    $tpl=preg_replace_callback('/\{\{\s*([a-zA-Z0-9_\.]+|(?:asset|url)\s*\(\s*[\'"][^\'"]*[\'"]\s*\))\s*\}\}/i', function($m) use($data){
-        $value=omurga_omg_eval($m[1],$data);
-        return is_array($value) ? '' : e((string)$value);
+    $tpl=preg_replace_callback('/<omg:comments\s*\/>/i', function() use($data){ $postId=(int)omurga_tpl_dot($data,'post.id',0); return $postId>0 ? om_comments_list($postId) : ''; }, $tpl);
+    $tpl=preg_replace_callback('/<omg:comment-form\s*\/>/i', function() use($data){ $postId=(int)omurga_tpl_dot($data,'post.id',0); return $postId>0 ? om_comment_form($postId) : ''; }, $tpl);
+    $tpl=preg_replace_callback('/\{!!\s*(.*?)\s*!!\}/s', function($m) use($data){ $value=omurga_omg_eval($m[1],$data); return is_array($value) ? '' : omurga_tpl_safe_html((string)$value); }, $tpl);
+    $tpl=preg_replace_callback('/\{\{\s*(.*?)\s*\}\}/s', function($m) use($data){
+        $expr=trim($m[1]);
+        if(preg_match('/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)$/s', $expr, $fn)){
+            $htmlFunctions=['menu','builder','region','hook','ad','ads','block','latest_posts','popular_posts','featured_posts','category_posts','tag_posts','posts','related_posts','image','comments','comment_form','breadcrumb','pagination','author_box','share_buttons','canonical'];
+            if(in_array(strtolower($fn[1]), $htmlFunctions, true)){ $value=omurga_omg_call($fn[1], $fn[2], $data); return is_array($value) ? '' : omurga_tpl_safe_html((string)$value); }
+        }
+        $value=omurga_omg_eval($expr,$data); return is_array($value) ? '' : e((string)$value);
     }, $tpl);
     return $tpl;
 }
@@ -1964,6 +2271,132 @@ function omurga_render_theme_tpl(string $tplFile, array $vars=[], ?string $fallb
     return false;
 }
 
+
+
+/* Omurga CMS 1.0.7.3 Beta - Özel Alanlar Sistemi
+   Özel alan tanımları settings içinde, değerler mevcut post_meta tablosunda saklanır.
+   Böylece eski kurulumlarda ek migration zorunluluğu olmadan çalışır. */
+function omurga_custom_field_types(): array {
+    return [
+        'text'=>'Metin','textarea'=>'Uzun Metin','number'=>'Sayı','url'=>'URL','email'=>'E-posta','tel'=>'Telefon',
+        'date'=>'Tarih','time'=>'Saat','color'=>'Renk','file'=>'Dosya','image'=>'Görsel','gallery'=>'Galeri',
+        'video'=>'Video URL','map'=>'Harita / Konum','checkbox'=>'Aç/Kapat','select'=>'Seçim Kutusu','multiselect'=>'Çoklu Seçim'
+    ];
+}
+function omurga_custom_field_groups(): array { return setting_json('custom_field_groups', []); }
+function omurga_update_custom_field_groups(array $groups): void { update_setting_json('custom_field_groups', array_values($groups)); }
+function omurga_custom_field_slug(string $value): string {
+    $value=slugify($value);
+    $value=str_replace('-', '_', $value);
+    return preg_replace('/[^a-z0-9_]/','', strtolower($value)) ?: 'alan';
+}
+function omurga_default_custom_field_groups(): array { return []; }
+function omurga_all_custom_field_groups(): array {
+    $groups=omurga_custom_field_groups();
+    return is_array($groups) ? $groups : [];
+}
+function omurga_custom_field_applies(array $group, string $type, array $post=[]): bool {
+    $targets=$group['targets'] ?? ['post','page'];
+    if(!is_array($targets)) $targets=[$targets];
+    if(!in_array($type,$targets,true)) return false;
+    if($type!=='page' && !empty($group['category_ids']) && is_array($group['category_ids'])){
+        $cat=(int)($post['category_id'] ?? 0);
+        $allowed=array_map('intval',$group['category_ids']);
+        if($cat>0 && !in_array($cat,$allowed,true)) return false;
+    }
+    return !isset($group['active']) || (int)$group['active']===1;
+}
+function omurga_custom_field_definitions_for(string $type='post', array $post=[]): array {
+    $out=[];
+    foreach(omurga_all_custom_field_groups() as $group){
+        if(!is_array($group) || !omurga_custom_field_applies($group,$type,$post)) continue;
+        foreach(($group['fields'] ?? []) as $field){
+            if(!is_array($field)) continue;
+            $key=omurga_custom_field_slug((string)($field['key'] ?? $field['label'] ?? ''));
+            if($key==='') continue;
+            $field['key']=$key;
+            $field['group_id']=$group['id'] ?? '';
+            $field['group_name']=$group['name'] ?? 'Özel Alanlar';
+            $field['type']=$field['type'] ?? 'text';
+            $out[$key]=$field;
+        }
+    }
+    return $out;
+}
+function omurga_sanitize_custom_field_value(array $field, $value): string {
+    $type=$field['type'] ?? 'text';
+    if($type==='checkbox') return !empty($value) ? '1' : '0';
+    if($type==='number') return (string)(float)$value;
+    if($type==='email') return filter_var((string)$value, FILTER_VALIDATE_EMAIL) ? trim((string)$value) : '';
+    if(in_array($type,['url','video'],true)) return trim(filter_var((string)$value, FILTER_SANITIZE_URL));
+    if($type==='color') return preg_match('/^#[0-9a-fA-F]{3,8}$/',(string)$value) ? (string)$value : '';
+    if(in_array($type,['select','multiselect'],true)){
+        $options=omurga_custom_field_options($field);
+        if($type==='multiselect'){
+            $vals=is_array($value)?$value:explode(',',(string)$value);
+            $vals=array_values(array_intersect(array_map('strval',$vals), array_keys($options)));
+            return implode(',', $vals);
+        }
+        return array_key_exists((string)$value,$options) ? (string)$value : '';
+    }
+    if($type==='textarea') return trim((string)$value);
+    return trim((string)$value);
+}
+function omurga_custom_field_options(array $field): array {
+    $raw=$field['options'] ?? [];
+    if(is_string($raw)){
+        $lines=preg_split('/\r\n|\r|\n/', $raw); $out=[];
+        foreach($lines as $line){ $line=trim($line); if($line==='') continue; if(str_contains($line,'=')){ [$k,$v]=array_map('trim',explode('=',$line,2)); } else { $k=omurga_custom_field_slug($line); $v=$line; } $out[$k]=$v; }
+        return $out;
+    }
+    return is_array($raw)?$raw:[];
+}
+function omurga_save_custom_field_values(int $postId, string $type, array $post, array $posted): void {
+    if($postId<=0) return;
+    foreach(omurga_custom_field_definitions_for($type,$post) as $key=>$field){
+        omurga_set_post_meta($postId, '_field_'.$key, omurga_sanitize_custom_field_value($field, $posted[$key] ?? null));
+    }
+}
+function omurga_get_custom_field_values(int $postId, string $type='post', array $post=[]): array {
+    $values=[]; if($postId<=0) return $values;
+    $meta=omurga_get_post_meta_values($postId);
+    foreach(omurga_custom_field_definitions_for($type,$post) as $key=>$field){
+        $values[$key]=$meta['_field_'.$key] ?? ($field['default'] ?? '');
+    }
+    return $values;
+}
+function omurga_custom_field_value(int $postId, string $key, $default='') {
+    $key=omurga_custom_field_slug($key);
+    if($postId<=0 || $key==='') return $default;
+    $val=omurga_get_post_meta($postId, '_field_'.$key, null);
+    return $val===null ? $default : $val;
+}
+function omurga_render_custom_fields_admin(string $type, array $post): string {
+    $defs=omurga_custom_field_definitions_for($type,$post);
+    if(!$defs) return '';
+    $values=omurga_get_custom_field_values((int)($post['id'] ?? 0),$type,$post);
+    $out='<div class="side-box custom-fields-box"><h3>Özel Alanlar</h3><small>Tema ve içerik şablonlarında <code>{{ field(\'alan_adi\') }}</code> ile kullanılır.</small>';
+    $currentGroup='';
+    foreach($defs as $key=>$field){
+        if(($field['group_name'] ?? '')!==$currentGroup){ $currentGroup=(string)($field['group_name'] ?? 'Özel Alanlar'); $out.='<div class="custom-field-group-title">'.e($currentGroup).'</div>'; }
+        $label=e($field['label'] ?? $key); $val=$values[$key] ?? ''; $name='custom_fields['.e($key).']'; $typeField=$field['type'] ?? 'text';
+        $out.='<label>'.$label;
+        if($typeField==='textarea' || $typeField==='gallery' || $typeField==='map') $out.='<textarea name="'.$name.'" rows="3">'.e($val).'</textarea>';
+        elseif($typeField==='checkbox') $out.='<span class="check-line"><input type="checkbox" name="'.$name.'" value="1" '.(!empty($val)&&$val!=='0'?'checked':'').'> Aktif</span>';
+        elseif($typeField==='select' || $typeField==='multiselect'){
+            $out.='<select name="'.$name.($typeField==='multiselect'?'[]':'').'" '.($typeField==='multiselect'?'multiple size="4"':'').'>';
+            $selected=$typeField==='multiselect'?explode(',',(string)$val):[(string)$val];
+            foreach(omurga_custom_field_options($field) as $ok=>$ol){ $out.='<option value="'.e($ok).'" '.(in_array((string)$ok,$selected,true)?'selected':'').'>'.e($ol).'</option>'; }
+            $out.='</select>';
+        } else {
+            $htmlType=in_array($typeField,['number','url','email','tel','date','time','color'],true)?$typeField:'text';
+            $out.='<input type="'.e($htmlType).'" name="'.$name.'" value="'.e($val).'">';
+        }
+        if(!empty($field['help'])) $out.='<small>'.e($field['help']).'</small>';
+        $out.='</label>';
+    }
+    return $out.'</div>';
+}
 
 function omurga_block_post_meta_definitions(): array {
     $out=[];
@@ -2886,6 +3319,7 @@ function omurga_api_post_payload(array $row): array {
         'published_at'=>$row['published_at'] ?? null,
         'created_at'=>$row['created_at'] ?? null,
         'updated_at'=>$row['updated_at'] ?? null,
+        'fields'=>$id>0 ? omurga_get_custom_field_values($id,$type,$row) : [],
     ];
 }
 function omurga_api_route_path(): string {
@@ -3059,6 +3493,7 @@ function omurga_migrate(): void {
     omurga_migrate_media_v2();
     omurga_migrate_trash_system();
     omurga_migrate_autosave_system();
+    omurga_migrate_membership_system();
 }
 
 
@@ -3086,6 +3521,22 @@ function omurga_migrate_autosave_system(): void {
         update_setting('db_version', OMURGA_VERSION);
     }catch(Throwable $e){ omurga_write_error($e); }
 }
+function omurga_migrate_membership_system(): void {
+    static $done=false; if($done) return; $done=true;
+    if(!omurga_is_installed()) return;
+    try{
+        $users=table_name('users');
+        $cols=db()->query("SHOW COLUMNS FROM $users")->fetchAll(PDO::FETCH_COLUMN);
+        if(!in_array('password_reset_token',$cols,true)) db()->exec("ALTER TABLE $users ADD password_reset_token VARCHAR(128) NULL");
+        if(!in_array('password_reset_expires',$cols,true)) db()->exec("ALTER TABLE $users ADD password_reset_expires DATETIME NULL");
+        if(setting('membership_registration_enabled', null)===null) update_setting('membership_registration_enabled','0');
+        if(setting('membership_default_role', null)===null) update_setting('membership_default_role','member');
+        if(setting('membership_default_status', null)===null) update_setting('membership_default_status','pending');
+        update_setting('omurga_version', OMURGA_VERSION);
+        update_setting('db_version', OMURGA_VERSION);
+    }catch(Throwable $e){ omurga_write_error($e); }
+}
+
 
 function omurga_autosave_key(int $postId=0, string $draftKey=''): string {
     if($postId>0) return 'post:'.$postId;
@@ -3531,7 +3982,7 @@ function omurga_restore_revision(int $revisionId): int {
     if(isset($snap['tags'])) sync_post_tags($postId, implode(',', (array)$snap['tags']));
     if(isset($snap['block_meta']) && is_array($snap['block_meta'])) omurga_save_post_meta_values($postId, $snap['block_meta']);
     log_activity('post.revision_restore','İçerik eski revizyona döndürüldü: #'.$postId);
-    omurga_notify(null,'success','Revizyon geri yüklendi','Bir içerik eski revizyona döndürüldü.','admin/post-edit.php?id='.$postId);
+    omurga_notify('Revizyon geri yüklendi','Bir içerik eski revizyona döndürüldü.','success','admin/post-edit.php?id='.$postId);
     return $postId;
 }
 
@@ -4068,11 +4519,41 @@ function log_activity(string $action, string $message='', ?int $userId=null, str
     }catch(Throwable $e){ }
 }
 
-function omurga_notify(string $title, string $message='', string $type='info', string $link='', ?int $userId=null): void {
+function omurga_notify($title, string $message='', string $type='info', string $link='', ?int $userId=null): void {
+    try{
+        // Geriye uyumluluk: eski bazı çağrılar yanlış sırayla yapılmış olabilir.
+        if($title === null && in_array($message, ['info','success','warning','danger','error','security','package','theme','update','comment','user','system'], true)){
+            $legacyType=$message;
+            $legacyTitle=$type;
+            $legacyMessage=$link;
+            $legacyLink=(string)($userId ?? '');
+            $title=$legacyTitle;
+            $message=$legacyMessage;
+            $type=$legacyType;
+            $link=$legacyLink;
+            $userId=null;
+        }
+        $title=trim((string)$title);
+        $message=trim((string)$message);
+        $type=omurga_normalize_capability($type ?: 'info');
+        if($type==='') $type='info';
+        $link=trim((string)$link);
+        if($title==='') return;
+        omurga_migrate();
+        omurga_do_action('omurga_notification_before_create', $title, $message, $type, $link, $userId);
+        db()->prepare('INSERT INTO '.table_name('notifications').' (user_id,type,title,message,link) VALUES (?,?,?,?,?)')->execute([$userId,$type,$title,$message,$link]);
+        omurga_do_action('omurga_notification_created', (int)db()->lastInsertId(), $title, $message, $type, $link, $userId);
+    }catch(Throwable $e){ omurga_write_error($e); }
+}
+function om_notify($title, string $message='', string $type='info', string $link='', ?int $userId=null): void { omurga_notify($title,$message,$type,$link,$userId); }
+function omurga_notify_admins(string $title, string $message='', string $type='info', string $link=''): void {
     try{
         omurga_migrate();
-        db()->prepare('INSERT INTO '.table_name('notifications').' (user_id,type,title,message,link) VALUES (?,?,?,?,?)')->execute([$userId,$type,$title,$message,$link]);
-    }catch(Throwable $e){ }
+        $t=table_name('users');
+        $rows=db()->query("SELECT id FROM $t WHERE role IN ('super_admin','admin') AND (status IS NULL OR status='' OR status='active')")->fetchAll(PDO::FETCH_COLUMN);
+        if(!$rows){ omurga_notify($title,$message,$type,$link,null); return; }
+        foreach($rows as $uid){ omurga_notify($title,$message,$type,$link,(int)$uid); }
+    }catch(Throwable $e){ omurga_notify($title,$message,$type,$link,null); }
 }
 function omurga_unread_notification_count(?int $userId=null): int {
     try{
@@ -4107,7 +4588,7 @@ function create_uploads_backup(): ?string {
 }
 
 
-/* Omurga CMS 1.0.5 Beta - Package API */
+/* Omurga CMS 1.0.7 Beta - Package API */
 function omurga_packages_dir(): string { $dir=OMURGA_ROOT.'/packages'; if(!is_dir($dir)) @mkdir($dir,0775,true); return $dir; }
 function omurga_package_slug(string $slug): string { return preg_replace('/[^a-z0-9_-]/','', strtolower($slug)); }
 function omurga_active_packages(): array { return setting_json('active_packages', []); }
@@ -4246,6 +4727,7 @@ function omurga_delete_package(string $slug, bool $backup=true): array {
     $backupPath=null;
     if($backup) $backupPath=omurga_backup_extension_dir('package',$slug,$target,(string)($info['version'] ?? ''));
     omurga_rrmdir($target);
+    omurga_notify('Paket silindi', $slug.' paketi silindi.', 'package', 'admin/packages.php');
     return ['slug'=>$slug,'backup'=>$backupPath];
 }
 
@@ -4259,12 +4741,14 @@ function omurga_activate_package(string $slug): bool {
     if(is_file($file)){ try{ require_once $file; }catch(Throwable $e){ omurga_write_error($e); } }
     omurga_run_package_migrations($slug);
     omurga_action('omurga_package_activated', $slug, $all[$slug]);
+    omurga_notify('Paket etkinleştirildi', ($all[$slug]['name'] ?? $slug).' paketi aktif edildi.', 'package', 'admin/packages.php');
     return true;
 }
 function omurga_deactivate_package(string $slug): bool {
     $slug=omurga_package_slug($slug); $all=omurga_all_packages();
     omurga_action('omurga_package_deactivated', $slug, $all[$slug] ?? []);
     omurga_update_active_packages(array_values(array_filter(omurga_active_packages(), fn($p)=>$p!==$slug)));
+    omurga_notify('Paket devre dışı bırakıldı', ($all[$slug]['name'] ?? $slug).' paketi pasifleştirildi.', 'package', 'admin/packages.php');
     return true;
 }
 function omurga_load_active_packages(): void {
@@ -4300,6 +4784,9 @@ function omurga_package_admin_pages(): array {
                 'cap'=>$page['capability'] ?? 'plugins.manage',
                 'icon'=>$page['icon'] ?? '▣',
                 'position'=>(int)($page['position'] ?? 50),
+                'menu_group'=>omurga_package_slug((string)($page['menu_group'] ?? $page['group'] ?? $page['admin_group'] ?? $meta['menu_group'] ?? '')),
+                'menu_group_title'=>$page['menu_group_title'] ?? $page['group_title'] ?? $page['admin_group_title'] ?? $meta['menu_group_title'] ?? '',
+                'menu_group_icon'=>$page['menu_group_icon'] ?? $page['group_icon'] ?? $page['admin_group_icon'] ?? $meta['menu_group_icon'] ?? '',
                 'registered'=>false,
                 'source'=>'package',
             ];
@@ -4525,9 +5012,35 @@ $GLOBALS['omurga_admin_boxes']=$GLOBALS['omurga_admin_boxes'] ?? [];
 $GLOBALS['omurga_form_field_types']=$GLOBALS['omurga_form_field_types'] ?? [];
 $GLOBALS['omurga_registered_blocks']=$GLOBALS['omurga_registered_blocks'] ?? [];
 /* Omurga v3.1 paket API uyumluluk köprüsü */
-function omurga_register_admin_page(string $slug, string $title, $fileOrCallback, string $capability='plugins.manage', string $icon='▣', int $position=50): void {
-    $slug=omurga_plugin_slug($slug); if($slug==='') return;
-    $GLOBALS['omurga_plugin_admin_pages'][$slug]=['id'=>$slug,'title'=>$title,'menu_title'=>$title,'file'=>$fileOrCallback,'cap'=>$capability,'icon'=>$icon,'position'=>$position,'registered'=>true];
+function omurga_register_admin_page($slugOrPage, string $title='', $fileOrCallback=null, string $capability='plugins.manage', string $icon='▣', int $position=50, array $args=[]): void {
+    if (is_array($slugOrPage)) {
+        $page = $slugOrPage;
+        $slug = omurga_plugin_slug((string)($page['id'] ?? $page['slug'] ?? ''));
+        if ($slug==='') return;
+        $page['id'] = $slug;
+        $page['title'] = (string)($page['title'] ?? $page['menu_title'] ?? $slug);
+        $page['menu_title'] = (string)($page['menu_title'] ?? $page['title']);
+        $page['cap'] = (string)($page['cap'] ?? $page['capability'] ?? 'plugins.manage');
+        $page['icon'] = (string)($page['icon'] ?? '▣');
+        $page['position'] = (int)($page['position'] ?? 50);
+        $page['registered'] = true;
+        $GLOBALS['omurga_plugin_admin_pages'][$slug] = $page;
+        return;
+    }
+    $slug=omurga_plugin_slug((string)$slugOrPage); if($slug==='') return;
+    $GLOBALS['omurga_plugin_admin_pages'][$slug]=[
+        'id'=>$slug,
+        'title'=>$title,
+        'menu_title'=>$args['menu_title'] ?? $title,
+        'file'=>$fileOrCallback,
+        'cap'=>$capability,
+        'icon'=>$icon,
+        'position'=>$position,
+        'menu_group'=>omurga_plugin_slug((string)($args['menu_group'] ?? $args['group'] ?? $args['admin_group'] ?? '')),
+        'menu_group_title'=>$args['menu_group_title'] ?? $args['group_title'] ?? $args['admin_group_title'] ?? '',
+        'menu_group_icon'=>$args['menu_group_icon'] ?? $args['group_icon'] ?? $args['admin_group_icon'] ?? '',
+        'registered'=>true
+    ];
 }
 function omurga_register_permission(string $capability, string $label='', array $defaultRoles=[]): void {
     $capability=preg_replace('/[^a-zA-Z0-9_.:-]/','',$capability); if($capability==='') return;

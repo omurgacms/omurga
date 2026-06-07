@@ -41,12 +41,12 @@ function omg_admin_location(){
   global $current;
   $map = [
     'index.php'=>['Başlangıç','Genel bakış'],
-    'post-edit.php'=>['İçerikler','Yeni yazı / düzenle'], 'addnews.php'=>['İçerikler','Yeni yazı'], 'posts.php'=>['İçerikler','Yazılar'], 'pages.php'=>['İçerikler','Sayfalar'], 'page-edit.php'=>['İçerikler','Sayfa düzenle'], 'categories.php'=>['İçerikler','Kategoriler'], 'tags.php'=>['İçerikler','Etiketler'], 'comments.php'=>['İçerikler','Yorumlar'],
+    'post-edit.php'=>['İçerikler','Yeni yazı / düzenle'], 'addnews.php'=>['İçerikler','Yeni yazı'], 'posts.php'=>['İçerikler','Yazılar'], 'pages.php'=>['İçerikler','Sayfalar'], 'page-edit.php'=>['İçerikler','Sayfa düzenle'], 'categories.php'=>['İçerikler','Kategoriler'], 'tags.php'=>['İçerikler','Etiketler'], 'comments.php'=>['İçerikler','Yorumlar'], 'custom-fields.php'=>['İçerikler','Özel Alanlar'],
     'themes.php'=>['Tasarım','Temalar'], 'theme-editor.php'=>['Tasarım','Tema düzenleyici'], 'layout.php'=>['Tasarım','Düzen'], 'layout-header-footer.php'=>['Tasarım','Header / Footer'], 'templates.php'=>['Tasarım','Şablonlar'], 'blocks.php'=>['Tasarım','Bloklar'], 'menus.php'=>['Tasarım','Menü yönetimi'], 'ads.php'=>['Tasarım','Reklam alanları'], 'design.php'=>['Tasarım','Tema ayarları'],
     'media.php'=>['Medya','Kütüphane'], 'media-webp.php'=>['Medya','WebP dönüşüm'], 'media-unused.php'=>['Medya','Kullanılmayan dosyalar'],
     'forms.php'=>['Formlar','Başvurular'], 'packages.php'=>['Paketler','Paket yönetimi'], 'plugin-page.php'=>['Paketler','Paket sayfası'],
     'users.php'=>['Kullanıcılar','Kullanıcı yönetimi'], 'roles.php'=>['Kullanıcılar','Roller'], 'permissions.php'=>['Kullanıcılar','Yetkiler'],
-    'api.php'=>['Sistem','REST API'], 'notifications.php'=>['Sistem','Bildirimler'], 'revisions.php'=>['Sistem','Revizyonlar'], 'backups.php'=>['Sistem','Yedekleme'], 'rollback.php'=>['Sistem','Geri dön'], 'cache.php'=>['Sistem','Cache'], 'performance.php'=>['Sistem','Performans'], 'logs.php'=>['Sistem','Aktivite kayıtları'], 'security.php'=>['Sistem','Güvenlik'], 'diagnostics.php'=>['Sistem','Kurulum sonrası test'], 'updates.php'=>['Sistem','Güncellemeler'], 'system.php'=>['Sistem','Sistem sağlığı'],
+    'api.php'=>['Sistem','REST API'], 'rest-api.php'=>['Sistem','REST API'], 'api-settings.php'=>['Sistem','REST API'], 'rest-api-settings.php'=>['Sistem','REST API'], 'settings-api.php'=>['Sistem','REST API'], 'notifications.php'=>['Sistem','Bildirimler'], 'revisions.php'=>['Sistem','Revizyonlar'], 'backups.php'=>['Sistem','Yedekleme'], 'rollback.php'=>['Sistem','Geri dön'], 'cache.php'=>['Sistem','Cache'], 'performance.php'=>['Sistem','Performans'], 'logs.php'=>['Sistem','Aktivite kayıtları'], 'security.php'=>['Sistem','Güvenlik'], 'diagnostics.php'=>['Sistem','Kurulum sonrası test'], 'updates.php'=>['Sistem','Güncellemeler'], 'system.php'=>['Sistem','Sistem sağlığı'],
     'settings.php'=>['Ayarlar','Genel ayarlar'], 'seo.php'=>['Ayarlar','SEO'], 'permalinks.php'=>['Ayarlar','Kalıcı bağlantılar'], 'language-check.php'=>['Ayarlar','Dil kontrolü'],
   ];
   return $map[$current] ?? ['Panel','Geçerli sayfa'];
@@ -59,9 +59,9 @@ $omgLoc = omg_admin_location();
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?=e(om_t('admin.dashboard','Başlangıç'))?> - Omurga</title>
-  <link rel="stylesheet" href="../assets/css/omurga.css?v=1.0.5-beta">
+  <link rel="stylesheet" href="../assets/css/omurga.css?v=1.0.8-beta">
 </head>
-<body class="omurga-admin-page dle-skin v33-compact-admin v334-accordion-admin">
+<body class="omurga-admin-page dle-skin">
 <script>
 (function(){
   try {
@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function(){
   <label class="omg-nav-search"><span>⌕</span><input id="omgNavSearch" type="search" placeholder="Menüde ara..." autocomplete="off"></label>
   <?php omg_nav_item('index.php',om_t('admin.dashboard','Başlangıç'),'⌂','index.php'); ?>
 
-  <?php omg_nav_group('content',om_t('admin.content','İçerikler'),'▤',['addnews.php','post-edit.php','page-edit.php','posts.php','pages.php','categories.php','tags.php','comments.php'], function(){ ?>
+  <?php omg_nav_group('content',om_t('admin.content','İçerikler'),'▤',['addnews.php','post-edit.php','page-edit.php','posts.php','pages.php','categories.php','tags.php','comments.php','custom-fields.php'], function(){ ?>
     <?php $ptype = primary_content_type(); ?>
     <?php omg_nav_item('post-edit.php?type='.rawurlencode($ptype), 'Yeni Yazı', '✚', ['addnews.php','post-edit.php']); ?>
     <?php omg_nav_item('posts.php?type='.rawurlencode($ptype), 'Yazılar', '▤', 'posts.php'); ?>
@@ -185,6 +185,7 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php omg_nav_item('comments.php',om_t('comments.title','Yorumlar'),'☷','comments.php'); ?>
     <?php omg_nav_item('categories.php',content_category_label(),'▣','categories.php'); ?>
     <?php omg_nav_item('tags.php',content_tag_label(),'⌗','tags.php'); ?>
+    <?php omg_nav_item('custom-fields.php','Özel Alanlar','▧','custom-fields.php'); ?>
   <?php }, 'Yazı, sayfa, yorum ve sınıflandırma'); ?>
 
   <?php omg_nav_group('design',om_t('admin.design','Tasarım'),'▨',['themes.php','theme-editor.php','layout.php','layout-header-footer.php','templates.php','blocks.php','design.php','menus.php','ads.php'], function(){ ?>
@@ -210,26 +211,46 @@ document.addEventListener('DOMContentLoaded', function(){
   <?php }, 'Form kayıtları ve başvurular'); ?>
 
   <?php if(can('plugins.manage') || current_user_role()==='admin'): ?>
-  <?php $omgPluginPages = function_exists('omurga_plugin_admin_pages') ? omurga_plugin_admin_pages() : []; ?>
-  <?php $omgPortalPages = array_filter($omgPluginPages, fn($pp) => (($pp['plugin'] ?? $pp['package'] ?? '') === 'omurga-portal')); ?>
-  <?php if($omgPortalPages): ?>
-    <?php omg_nav_group('portal','Portal','◎',['plugin-page.php'], function() use ($omgPortalPages){ ?>
-      <?php foreach($omgPortalPages as $pp): ?>
+  <?php
+    $omgPluginPages = function_exists('omurga_plugin_admin_pages') ? omurga_plugin_admin_pages() : [];
+    $omgMenuGroups = [];
+    $omgPackagePages = [];
+    foreach ($omgPluginPages as $pp) {
+      $groupId = (string)($pp['menu_group'] ?? $pp['group'] ?? $pp['admin_group'] ?? '');
+      $groupId = preg_replace('/[^a-zA-Z0-9_-]/', '-', $groupId);
+      $isTopLevel = $groupId !== '' && $groupId !== 'packages' && $groupId !== 'paketler';
+      if ($isTopLevel) {
+        if (!isset($omgMenuGroups[$groupId])) {
+          $omgMenuGroups[$groupId] = [
+            'id' => $groupId,
+            'title' => $pp['menu_group_title'] ?? $pp['group_title'] ?? $pp['admin_group_title'] ?? $pp['title'] ?? 'Paket',
+            'icon' => $pp['menu_group_icon'] ?? $pp['group_icon'] ?? $pp['admin_group_icon'] ?? $pp['icon'] ?? '▣',
+            'pages' => [],
+          ];
+        }
+        $omgMenuGroups[$groupId]['pages'][] = $pp;
+      } else {
+        $omgPackagePages[] = $pp;
+      }
+    }
+  ?>
+  <?php foreach($omgMenuGroups as $omgGroup): ?>
+    <?php omg_nav_group($omgGroup['id'], (string)$omgGroup['title'], (string)$omgGroup['icon'], ['plugin-page.php'], function() use ($omgGroup){ ?>
+      <?php foreach($omgGroup['pages'] as $pp): ?>
         <?php if(can($pp['cap'] ?? 'plugins.manage') || current_user_role()==='admin'): ?>
-          <?php omg_nav_item('plugin-page.php?plugin='.urlencode($pp['plugin'] ?? 'omurga-portal').'&page='.urlencode($pp['id'] ?? ''), $pp['menu_title'] ?? $pp['title'] ?? 'Portal', $pp['icon'] ?? '◎', 'plugin-page.php'); ?>
+          <?php omg_nav_item('plugin-page.php?plugin='.urlencode($pp['plugin'] ?? $pp['package'] ?? 'registered').'&page='.urlencode($pp['id'] ?? ''), $pp['menu_title'] ?? $pp['title'] ?? 'Paket Sayfası', $pp['icon'] ?? '▣', 'plugin-page.php'); ?>
         <?php endif; ?>
       <?php endforeach; ?>
-    <?php }); ?>
-  <?php endif; ?>
-  <?php omg_nav_group('plugins',om_t('admin.plugins','Paketler'),'▣',['packages.php','plugin-page.php'], function() use ($omgPluginPages){ ?>
+    <?php }, 'Paket tarafından eklenen yönetim sayfaları'); ?>
+  <?php endforeach; ?>
+  <?php omg_nav_group('plugins',om_t('admin.plugins','Paketler'),'▣',['packages.php','plugin-page.php'], function() use ($omgPackagePages){ ?>
     <?php omg_nav_item('packages.php','Paketler','▧','packages.php'); ?>
-    <?php foreach($omgPluginPages as $pp): ?>
-      <?php if((($pp['plugin'] ?? $pp['package'] ?? '') === 'omurga-portal')) continue; ?>
+    <?php foreach($omgPackagePages as $pp): ?>
       <?php if(can($pp['cap'] ?? 'plugins.manage') || current_user_role()==='admin'): ?>
-        <?php omg_nav_item('plugin-page.php?plugin='.urlencode($pp['plugin'] ?? 'registered').'&page='.urlencode($pp['id'] ?? ''), $pp['menu_title'] ?? $pp['title'] ?? 'Paket Sayfası', $pp['icon'] ?? '▣', 'plugin-page.php'); ?>
+        <?php omg_nav_item('plugin-page.php?plugin='.urlencode($pp['plugin'] ?? $pp['package'] ?? 'registered').'&page='.urlencode($pp['id'] ?? ''), $pp['menu_title'] ?? $pp['title'] ?? 'Paket Sayfası', $pp['icon'] ?? '▣', 'plugin-page.php'); ?>
       <?php endif; ?>
     <?php endforeach; ?>
-  <?php }, 'Eklenti ve paket yönetimi'); ?>
+  <?php }, 'Paket yükleme, güncelleme ve yönetim'); ?>
   <?php endif; ?>
 
   <?php if(can('users.manage') || current_user_role()==='admin'): ?>
@@ -241,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function(){
   <?php endif; ?>
 
   <?php if(can('users.manage') || current_user_role()==='admin'): ?>
-  <?php omg_nav_group('system',om_t('admin.system','Sistem'),'⚙',['api.php','notifications.php','revisions.php','backups.php','rollback.php','cache.php','performance.php','logs.php','security.php','diagnostics.php','updates.php','system.php'], function(){ ?>
+  <?php omg_nav_group('system',om_t('admin.system','Sistem'),'⚙',['api.php','rest-api.php','api-settings.php','rest-api-settings.php','settings-api.php','notifications.php','revisions.php','backups.php','rollback.php','cache.php','performance.php','logs.php','security.php','diagnostics.php','updates.php','system.php'], function(){ ?>
     <?php if(can('api.manage') || can('settings.manage') || can('system.manage')): ?><?php omg_nav_item('api.php','REST API','{ }','api.php'); ?><?php endif; ?>
     <?php omg_nav_item('notifications.php',om_t('admin.notifications','Bildirimler'),'🔔','notifications.php'); ?>
     <?php omg_nav_item('revisions.php',om_t('admin.revisions','Revizyonlar'),'↶','revisions.php'); ?>

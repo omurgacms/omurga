@@ -1,0 +1,12 @@
+{
+  "slug": "submit-post",
+  "name_key": "blocks.submit_post",
+  "name": "Yeni Yazı",
+  "description": "Yetkili kullanıcının ön yüzden yazı göndermesini sağlar.",
+  "category": "user",
+  "icon": "square-pen",
+  "allowed_contexts": ["page", "sidebar", "any"],
+  "usage": ["page", "sidebar", "home_main", "any"],
+  "settings": {},
+  "view": "view.php"
+}

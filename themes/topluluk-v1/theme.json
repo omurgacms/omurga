@@ -2,12 +2,17 @@
   "slug": "topluluk-v1",
   "id": "topluluk-v1",
   "name": "Topluluk V1",
-  "version": "1.0.1",
+  "version": "1.0.7.1-beta",
   "description": "Omurga CMS için dernek, vakıf, platform, gençlik oluşumu ve topluluk sitelerine özel varsayılan tema.",
   "author": "Omurga CMS",
   "template_engine": "php",
   "system_theme": false,
-  "supports": ["menus", "responsive", "demo-content", "community-layout"],
+  "supports": [
+    "menus",
+    "responsive",
+    "demo-content",
+    "community-layout"
+  ],
   "menu_locations": {
     "main": "Ana Menü",
     "mobile": "Mobil Menü",
@@ -20,62 +25,288 @@
     "footer": "Alt Alan"
   },
   "settings": {
-    "site_label": {"type":"text","label":"Logo yazısı","default":"Ankara Kültür Derneği"},
-    "site_subtitle": {"type":"text","label":"Logo alt yazısı","default":"Est. 1987"},
-    "primary_color": {"type":"color","label":"Ana renk","default":"#0d2240"},
-    "accent_color": {"type":"color","label":"Vurgu rengi","default":"#c9a84c"},
-    "nav_cta_text": {"type":"text","label":"Üye ol butonu","default":"Üye Ol"},
-    "nav_cta_url": {"type":"url","label":"Üye ol linki","default":"#uyelik"},
-    "hero_badge": {"type":"text","label":"Hero rozet","default":"37 Yıllık Köklü Deneyim"},
-    "hero_title": {"type":"text","label":"Hero başlığı","default":"Birlikte Güçlü, Birlikte Değerliyiz"},
-    "hero_desc": {"type":"text","label":"Hero açıklaması","default":"Kültürel miras, dayanışma ve toplumsal gelişim için bir arada oluyoruz. Siz de aramıza katılın."},
-    "hero_primary_text": {"type":"text","label":"Birinci buton","default":"Üyelik Başvurusu"},
-    "hero_primary_url": {"type":"url","label":"Birinci buton linki","default":"#uyelik"},
-    "hero_secondary_text": {"type":"text","label":"İkinci buton","default":"Etkinlikleri Keşfet"},
-    "hero_secondary_url": {"type":"url","label":"İkinci buton linki","default":"#etkinlikler"},
-    "stat_1_num": {"type":"text","label":"İstatistik 1 sayı","default":"2.400+"},
-    "stat_1_label": {"type":"text","label":"İstatistik 1 metin","default":"Aktif Üye"},
-    "stat_2_num": {"type":"text","label":"İstatistik 2 sayı","default":"180"},
-    "stat_2_label": {"type":"text","label":"İstatistik 2 metin","default":"Yıllık Etkinlik"},
-    "stat_3_num": {"type":"text","label":"İstatistik 3 sayı","default":"37"},
-    "stat_3_label": {"type":"text","label":"İstatistik 3 metin","default":"Kuruluş Yılı"},
-    "ticker_enabled": {"type":"checkbox","label":"Duyuru şeridi","default":"1"},
-    "ticker_label": {"type":"text","label":"Duyuru etiketi","default":"Duyuru"},
-    "ticker_text": {"type":"text","label":"Duyuru metni","default":"Genel Kurul Toplantısı 15 Temmuz 2026 tarihinde saat 14:00'te gerçekleşecektir. Tüm üyelerimizin katılımı beklenmektedir."},
-    "event_1_title": {"type":"text","label":"Etkinlik 1 başlık","default":"Geleneksel El Sanatları Sergisi"},
-    "event_1_tag": {"type":"text","label":"Etkinlik 1 kategori","default":"Kültür & Sanat"},
-    "event_1_date": {"type":"text","label":"Etkinlik 1 tarih","default":"15 TEM"},
-    "event_1_place": {"type":"text","label":"Etkinlik 1 konum","default":"Kültür Merkezi"},
-    "event_1_icon": {"type":"text","label":"Etkinlik 1 ikon","default":"🎭"},
-    "event_2_title": {"type":"text","label":"Etkinlik 2 başlık","default":"Hukuki Haklar Sempozyumu"},
-    "event_2_tag": {"type":"text","label":"Etkinlik 2 kategori","default":"Eğitim"},
-    "event_2_date": {"type":"text","label":"Etkinlik 2 tarih","default":"22 TEM"},
-    "event_2_place": {"type":"text","label":"Etkinlik 2 konum","default":"Konferans Salonu"},
-    "event_2_icon": {"type":"text","label":"Etkinlik 2 ikon","default":"📚"},
-    "event_3_title": {"type":"text","label":"Etkinlik 3 başlık","default":"Yaz Dayanışma Yemeği"},
-    "event_3_tag": {"type":"text","label":"Etkinlik 3 kategori","default":"Sosyal"},
-    "event_3_date": {"type":"text","label":"Etkinlik 3 tarih","default":"30 TEM"},
-    "event_3_place": {"type":"text","label":"Etkinlik 3 konum","default":"Bahçe Tesisi"},
-    "event_3_icon": {"type":"text","label":"Etkinlik 3 ikon","default":"🍽️"},
-    "event_4_title": {"type":"text","label":"Etkinlik 4 başlık","default":"Üye Tanışma ve Dayanışma Buluşması"},
-    "event_4_tag": {"type":"text","label":"Etkinlik 4 kategori","default":"Dayanışma"},
-    "event_4_date": {"type":"text","label":"Etkinlik 4 tarih","default":"05 AĞU"},
-    "event_4_place": {"type":"text","label":"Etkinlik 4 konum","default":"Dernek Merkezi"},
-    "event_4_icon": {"type":"text","label":"Etkinlik 4 ikon","default":"🤝"},
-    "board_title": {"type":"text","label":"Yönetim başlığı","default":"Yönetim Kurulu"},
-    "membership_enabled": {"type":"checkbox","label":"Üyelik alanı","default":"1"},
-    "contact_address": {"type":"text","label":"Adres","default":"Kızılay, Ankara"},
-    "contact_phone": {"type":"text","label":"Telefon","default":"0312 xxx xx xx"},
-    "contact_email": {"type":"text","label":"E-posta","default":"info@dernek.org.tr"},
-    "contact_hours": {"type":"text","label":"Çalışma saatleri","default":"Hft. içi 09:00–18:00"},
-    "facebook_url": {"type":"url","label":"Facebook","default":"#"},
-    "instagram_url": {"type":"url","label":"Instagram","default":"#"},
-    "x_url": {"type":"url","label":"X / Twitter","default":"#"},
-    "youtube_url": {"type":"url","label":"YouTube","default":"#"},
-    "footer_desc": {"type":"text","label":"Footer açıklaması","default":"1987'den bu yana kültürel miras, dayanışma ve toplumsal kalkınma için çalışıyoruz. Geleceği birlikte inşa ediyoruz."},
-    "footer_text": {"type":"text","label":"Footer alt yazısı","default":"© 2026 Ankara Kültür Derneği — Tüm hakları saklıdır."}
+    "site_label": {
+      "type": "text",
+      "label": "Logo yazısı",
+      "default": "Ankara Kültür Derneği"
+    },
+    "site_subtitle": {
+      "type": "text",
+      "label": "Logo alt yazısı",
+      "default": "Est. 1987"
+    },
+    "primary_color": {
+      "type": "color",
+      "label": "Ana renk",
+      "default": "#0d2240"
+    },
+    "accent_color": {
+      "type": "color",
+      "label": "Vurgu rengi",
+      "default": "#c9a84c"
+    },
+    "nav_cta_text": {
+      "type": "text",
+      "label": "Üye ol butonu",
+      "default": "Üye Ol"
+    },
+    "nav_cta_url": {
+      "type": "url",
+      "label": "Üye ol linki",
+      "default": "#uyelik"
+    },
+    "hero_badge": {
+      "type": "text",
+      "label": "Hero rozet",
+      "default": "37 Yıllık Köklü Deneyim"
+    },
+    "hero_title": {
+      "type": "text",
+      "label": "Hero başlığı",
+      "default": "Birlikte Güçlü, Birlikte Değerliyiz"
+    },
+    "hero_desc": {
+      "type": "text",
+      "label": "Hero açıklaması",
+      "default": "Kültürel miras, dayanışma ve toplumsal gelişim için bir arada oluyoruz. Siz de aramıza katılın."
+    },
+    "hero_primary_text": {
+      "type": "text",
+      "label": "Birinci buton",
+      "default": "Üyelik Başvurusu"
+    },
+    "hero_primary_url": {
+      "type": "url",
+      "label": "Birinci buton linki",
+      "default": "#uyelik"
+    },
+    "hero_secondary_text": {
+      "type": "text",
+      "label": "İkinci buton",
+      "default": "Etkinlikleri Keşfet"
+    },
+    "hero_secondary_url": {
+      "type": "url",
+      "label": "İkinci buton linki",
+      "default": "#etkinlikler"
+    },
+    "stat_1_num": {
+      "type": "text",
+      "label": "İstatistik 1 sayı",
+      "default": "2.400+"
+    },
+    "stat_1_label": {
+      "type": "text",
+      "label": "İstatistik 1 metin",
+      "default": "Aktif Üye"
+    },
+    "stat_2_num": {
+      "type": "text",
+      "label": "İstatistik 2 sayı",
+      "default": "180"
+    },
+    "stat_2_label": {
+      "type": "text",
+      "label": "İstatistik 2 metin",
+      "default": "Yıllık Etkinlik"
+    },
+    "stat_3_num": {
+      "type": "text",
+      "label": "İstatistik 3 sayı",
+      "default": "37"
+    },
+    "stat_3_label": {
+      "type": "text",
+      "label": "İstatistik 3 metin",
+      "default": "Kuruluş Yılı"
+    },
+    "ticker_enabled": {
+      "type": "checkbox",
+      "label": "Duyuru şeridi",
+      "default": "1"
+    },
+    "ticker_label": {
+      "type": "text",
+      "label": "Duyuru etiketi",
+      "default": "Duyuru"
+    },
+    "ticker_text": {
+      "type": "text",
+      "label": "Duyuru metni",
+      "default": "Genel Kurul Toplantısı 15 Temmuz 2026 tarihinde saat 14:00'te gerçekleşecektir. Tüm üyelerimizin katılımı beklenmektedir."
+    },
+    "event_1_title": {
+      "type": "text",
+      "label": "Etkinlik 1 başlık",
+      "default": "Geleneksel El Sanatları Sergisi"
+    },
+    "event_1_tag": {
+      "type": "text",
+      "label": "Etkinlik 1 kategori",
+      "default": "Kültür & Sanat"
+    },
+    "event_1_date": {
+      "type": "text",
+      "label": "Etkinlik 1 tarih",
+      "default": "15 TEM"
+    },
+    "event_1_place": {
+      "type": "text",
+      "label": "Etkinlik 1 konum",
+      "default": "Kültür Merkezi"
+    },
+    "event_1_icon": {
+      "type": "text",
+      "label": "Etkinlik 1 ikon",
+      "default": "🎭"
+    },
+    "event_2_title": {
+      "type": "text",
+      "label": "Etkinlik 2 başlık",
+      "default": "Hukuki Haklar Sempozyumu"
+    },
+    "event_2_tag": {
+      "type": "text",
+      "label": "Etkinlik 2 kategori",
+      "default": "Eğitim"
+    },
+    "event_2_date": {
+      "type": "text",
+      "label": "Etkinlik 2 tarih",
+      "default": "22 TEM"
+    },
+    "event_2_place": {
+      "type": "text",
+      "label": "Etkinlik 2 konum",
+      "default": "Konferans Salonu"
+    },
+    "event_2_icon": {
+      "type": "text",
+      "label": "Etkinlik 2 ikon",
+      "default": "📚"
+    },
+    "event_3_title": {
+      "type": "text",
+      "label": "Etkinlik 3 başlık",
+      "default": "Yaz Dayanışma Yemeği"
+    },
+    "event_3_tag": {
+      "type": "text",
+      "label": "Etkinlik 3 kategori",
+      "default": "Sosyal"
+    },
+    "event_3_date": {
+      "type": "text",
+      "label": "Etkinlik 3 tarih",
+      "default": "30 TEM"
+    },
+    "event_3_place": {
+      "type": "text",
+      "label": "Etkinlik 3 konum",
+      "default": "Bahçe Tesisi"
+    },
+    "event_3_icon": {
+      "type": "text",
+      "label": "Etkinlik 3 ikon",
+      "default": "🍽️"
+    },
+    "event_4_title": {
+      "type": "text",
+      "label": "Etkinlik 4 başlık",
+      "default": "Üye Tanışma ve Dayanışma Buluşması"
+    },
+    "event_4_tag": {
+      "type": "text",
+      "label": "Etkinlik 4 kategori",
+      "default": "Dayanışma"
+    },
+    "event_4_date": {
+      "type": "text",
+      "label": "Etkinlik 4 tarih",
+      "default": "05 AĞU"
+    },
+    "event_4_place": {
+      "type": "text",
+      "label": "Etkinlik 4 konum",
+      "default": "Dernek Merkezi"
+    },
+    "event_4_icon": {
+      "type": "text",
+      "label": "Etkinlik 4 ikon",
+      "default": "🤝"
+    },
+    "board_title": {
+      "type": "text",
+      "label": "Yönetim başlığı",
+      "default": "Yönetim Kurulu"
+    },
+    "membership_enabled": {
+      "type": "checkbox",
+      "label": "Üyelik alanı",
+      "default": "1"
+    },
+    "contact_address": {
+      "type": "text",
+      "label": "Adres",
+      "default": "Kızılay, Ankara"
+    },
+    "contact_phone": {
+      "type": "text",
+      "label": "Telefon",
+      "default": "0312 xxx xx xx"
+    },
+    "contact_email": {
+      "type": "text",
+      "label": "E-posta",
+      "default": "info@dernek.org.tr"
+    },
+    "contact_hours": {
+      "type": "text",
+      "label": "Çalışma saatleri",
+      "default": "Hft. içi 09:00–18:00"
+    },
+    "facebook_url": {
+      "type": "url",
+      "label": "Facebook",
+      "default": "#"
+    },
+    "instagram_url": {
+      "type": "url",
+      "label": "Instagram",
+      "default": "#"
+    },
+    "x_url": {
+      "type": "url",
+      "label": "X / Twitter",
+      "default": "#"
+    },
+    "youtube_url": {
+      "type": "url",
+      "label": "YouTube",
+      "default": "#"
+    },
+    "footer_desc": {
+      "type": "text",
+      "label": "Footer açıklaması",
+      "default": "1987'den bu yana kültürel miras, dayanışma ve toplumsal kalkınma için çalışıyoruz. Geleceği birlikte inşa ediyoruz."
+    },
+    "footer_text": {
+      "type": "text",
+      "label": "Footer alt yazısı",
+      "default": "© 2026 Ankara Kültür Derneği — Tüm hakları saklıdır."
+    }
   },
   "demos": {
-    "default": {"name":"Topluluk V1 Demo","description":"Dernek/topluluk için sayfalar, kategoriler, haberler, menüler ve tema ayarları."}
+    "default": {
+      "name": "Topluluk V1 Demo",
+      "description": "Dernek/topluluk için sayfalar, kategoriler, haberler, menüler ve tema ayarları."
+    }
+  },
+  "framework": "custom",
+  "assets": {
+    "css": [
+      "assets/css/style.css"
+    ],
+    "js": []
   }
 }

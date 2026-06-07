@@ -1,0 +1,12 @@
+@include('header')
+<main class="demo-single">
+  <article>
+    <h1>{{ post.title }}</h1>
+    {{ image('post.image', 'large') }}
+    {!! post.content !!}
+  </article>
+  {{ hook('after_content') }}
+  {{ comments() }}
+  {{ comment_form() }}
+</main>
+@include('footer')

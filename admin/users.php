@@ -108,12 +108,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         db()->prepare("UPDATE $t SET name=?, email=?, username=?, role=?, status=? WHERE id=?")->execute([$name, $email, $username, $role, $status, $id]);
                     }
                     log_activity('user.update', 'Kullanıcı güncellendi: '.$username);
+                    omurga_notify('Kullanıcı güncellendi', $username.' kullanıcısı güncellendi.', 'user', 'admin/users.php');
                     omurga_users_notice('success', 'Kullanıcı güncellendi.');
                 }
             } else {
                 if ($password === '') $password = bin2hex(random_bytes(4));
                 db()->prepare("INSERT INTO $t (name,email,username,password,role,status) VALUES (?,?,?,?,?,?)")->execute([$name, $email, $username, password_hash($password, PASSWORD_DEFAULT), $role, $status]);
                 log_activity('user.create', 'Kullanıcı eklendi: '.$username);
+                omurga_notify('Yeni kullanıcı eklendi', $username.' kullanıcısı oluşturuldu.', 'user', 'admin/users.php');
                 omurga_users_notice('success', 'Kullanıcı eklendi.');
             }
         }

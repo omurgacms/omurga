@@ -2,7 +2,7 @@
   "slug": "omurga-kolay",
   "id": "omurga-kolay",
   "name": "Omurga Kolay",
-  "version": "1.0.3.7-beta",
+  "version": "1.0.7.1-beta",
   "description": "Omurga CMS için sade, hızlı ve OMG tabanlı varsayılan tema.",
   "author": "Omurga CMS",
   "template_engine": "omg",
@@ -57,5 +57,12 @@
     "omurga_theme_loaded",
     "omurga_before_post_render",
     "omurga_before_omg_render"
-  ]
+  ],
+  "framework": "custom",
+  "assets": {
+    "css": [
+      "assets/css/style.css"
+    ],
+    "js": []
+  }
 }

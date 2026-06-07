@@ -1,10 +1,38 @@
-## 1.0.5 Beta
+## 1.0.8 Beta
+
+- Ön yüz Kullanıcı Merkezi route'u eklendi: /hesabim ve user-center.
+- Kullanıcı Merkezi, Profil Kartı, Yazılarım, Yeni Yazı ve Bildirimlerim çekirdek blokları eklendi.
+- Kullanıcılar admin panele girmeden profil, şifre, kendi yazıları, yeni yazı ve bildirim işlemlerini yapabilir.
+- Ön yüz yazı düzenleme yalnız kullanıcının kendi yazılarıyla sınırlandı.
+- Yayınlama yetkisi olmayan kullanıcıların gönderileri inceleme durumuna düşer.
+
+## 1.0.7.9 Beta
+
+- Resmi sürüm bilgisi 1.0.7.9 Beta olarak güncellendi.
+- Güncelleme paketlerinde storage/ yazma engeli yeniden sıkılaştırıldı.
+- Production modda aynı sürüm ve düşük sürüm kurulumu engellendi.
+- Özel Alanlar ekranı için custom_fields.manage yetkisi eklendi.
+- Ayarlar, tasarım ve reklam ekranlarındaki yetki kontrolleri ilgili izinlere taşındı.
+- REST API ayar ekranında yetkisiz erişim sistem hata ekranıyla uyumlu hale getirildi.
+- Üyelik/kayıt varsayılanı güvenli şekilde kapalı yapıldı.
+
+## 1.0.7.8 Beta
+
+- Bildirim sistemi iyileştirildi.
+- `notifications.manage` yetkisi eklendi.
+- `om_notify()` ve `omurga_notify_admins()` yardımcıları eklendi.
+- Yanlış parametre sıralı bildirim çağrısı düzeltildi.
+- Yeni yorum, kullanıcı, paket ve güncelleme olayları bildirim üretir hale getirildi.
+- Bildirim ekranına tür filtresi eklendi.
+- Bildirim dokümantasyonu eklendi.
+
+## 1.0.7.8 Beta
 
 - Haber V1, Kurumsal V1 ve Topluluk V1 temaları dağıtım paketine eklendi.
 - Tema demo yapısı `demos/` altında düzenlendi.
 - Kurulum profil seçimine göre varsayılan tema eşlemesi korundu.
 - Temiz dağıtım için config, lock, log, cache ve eski paket çıktıları paketten çıkarıldı.
-- Resmi sürüm bilgisi 1.0.5 Beta olarak güncellendi.
+- Resmi sürüm bilgisi 1.0.7.8 Beta olarak güncellendi.
 
 
 ## 1.0.3.15 Beta

@@ -1,4 +1,4 @@
-<?php require '_layout.php'; require_cap('users.manage'); omurga_migrate(); verify_csrf();
+<?php require '_layout.php'; if(!can('notifications.manage') && !can('system.manage') && !can('users.manage')){ render_error_page(403,'Yetkisiz Erişim','Bildirimleri yönetmek için yetkiniz yok.'); } omurga_migrate(); verify_csrf();
 $t=table_name('notifications');
 if($_SERVER['REQUEST_METHOD']==='POST'){
     $action=$_POST['action'] ?? '';
@@ -21,13 +21,17 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     }
 }
 $filter=$_GET['filter'] ?? 'all';
-$where='1=1';
-if($filter==='unread') $where='is_read=0';
-if($filter==='read') $where='is_read=1';
-$rows=db()->query("SELECT * FROM $t WHERE $where ORDER BY id DESC LIMIT 200")->fetchAll();
+$type=trim((string)($_GET['type'] ?? ''));
+$where='1=1'; $params=[];
+if($filter==='unread') $where.=' AND is_read=0';
+if($filter==='read') $where.=' AND is_read=1';
+if($type!==''){ $where.=' AND type=?'; $params[]=$type; }
+$st=db()->prepare("SELECT * FROM $t WHERE $where ORDER BY id DESC LIMIT 200"); $st->execute($params); $rows=$st->fetchAll();
+$types=db()->query("SELECT type, COUNT(*) c FROM $t GROUP BY type ORDER BY type ASC")->fetchAll();
 $unread=omurga_unread_notification_count((int)($_SESSION['omurga_user_id'] ?? 0));
 ?>
 <div class="toolbar"><h1>Bildirimler</h1><div><a class="btn" href="?filter=all">Tümü</a> <a class="btn" href="?filter=unread">Okunmamış</a> <a class="btn" href="?filter=read">Okunmuş</a></div></div>
+<div class="card" style="margin-bottom:12px"><strong>Tür filtreleri:</strong> <a class="btn light" href="notifications.php?filter=<?=e($filter)?>">Tümü</a> <?php foreach($types as $tp): ?><a class="btn light" href="notifications.php?filter=<?=e($filter)?>&type=<?=e($tp['type'])?>"><?=e($tp['type'])?> (<?=e($tp['c'])?>)</a><?php endforeach; ?></div>
 <div class="card"><p><b><?=e((string)$unread)?></b> okunmamış bildirim var. Bildirimler sistem, güncelleme, yedekleme, içerik onayı ve paket işlemleri için kullanılır.</p>
 <form method="post"><input type="hidden" name="_csrf" value="<?=e(csrf_token())?>">
 <div class="actions"><button class="btn primary" name="action" value="read_selected">Seçilileri Okundu Yap</button> <button class="btn" name="action" value="read_all">Tümünü Okundu Yap</button> <button class="btn danger" name="action" value="delete_selected" onclick="return confirm('Seçili bildirimler silinsin mi?')">Seçilileri Sil</button> <button class="btn" name="action" value="test">Test Bildirimi Oluştur</button></div>

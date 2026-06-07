@@ -2,7 +2,7 @@
   "slug": "omurga-sabit",
   "id": "omurga-sabit",
   "name": "Omurga Sabit",
-  "version": "1.0.3.7-beta",
+  "version": "1.0.7.1-beta",
   "description": "Omurga CMS için sade, klasik PHP tabanlı varsayılan tema.",
   "author": "Omurga CMS",
   "template_engine": "php",
@@ -56,5 +56,12 @@
     "omurga_theme_loaded",
     "omurga_before_post_render",
     "omurga_before_omg_render"
-  ]
+  ],
+  "framework": "custom",
+  "assets": {
+    "css": [
+      "assets/css/style.css"
+    ],
+    "js": []
+  }
 }

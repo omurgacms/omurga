@@ -28,12 +28,12 @@
     "login_url": {
       "type": "text",
       "label": "Giris linki",
-      "default": "admin/login.php"
+      "default": "admin/login.php?tab=login"
     },
     "register_url": {
       "type": "text",
       "label": "Kayit linki",
-      "default": ""
+      "default": "admin/login.php?tab=register"
     },
     "show_register": {
       "type": "checkbox",
@@ -43,5 +43,5 @@
   },
   "view": "view.php",
   "name": "Giriş / Kayıt",
-  "description": "Giriş ve kayıt bağlantılarını gösterir."
+  "description": "Giriş, kayıt ve profil bağlantılarını gösterir."
 }

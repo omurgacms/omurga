@@ -83,27 +83,42 @@ $cats = db()->query("SELECT * FROM $t ORDER BY COALESCE(parent_id,0), sort_order
 <div class="toolbar compact-page-head">
   <div>
     <h1>Kategoriler</h1>
-    <p class="muted">Yeni kategori formu üstte; liste altta geniş alanda görünür. Kategori isimleri artık sıkışmaz.</p>
+    <p class="muted">Kategorileri ekle, düzenle ve sırala.</p>
   </div>
 </div>
 
-<div class="card omg-edit-box omg-top-edit-box">
-  <h2><?= $edit ? 'Kategori Düzenle' : 'Yeni Kategori Ekle' ?></h2>
-  <form method="post" class="omg-wide-form">
-    <input type="hidden" name="_csrf" value="<?=csrf_token()?>">
-    <input type="hidden" name="action" value="save">
-    <input type="hidden" name="id" value="<?=e($edit['id'] ?? 0)?>">
-    <div class="mini-grid two"><label>Ad<input name="name" required value="<?=e($edit['name'] ?? '')?>"></label><label>Slug<input name="slug" value="<?=e($edit['slug'] ?? '')?>"></label></div>
-    <div class="mini-grid three"><label>Üst kategori<select name="parent_id"><option value="0">Ana kategori</option><?php foreach($cats as $c): if($edit && (int)$edit['id']===(int)$c['id']) continue; ?><option value="<?=$c['id']?>" <?=((int)($edit['parent_id'] ?? 0)===(int)$c['id'])?'selected':''?>><?=e($c['name'])?></option><?php endforeach; ?></select></label><label>Sıra<input type="number" name="sort_order" value="<?=e($edit['sort_order'] ?? 0)?>"></label><label>Renk<input name="color" placeholder="#f97316" value="<?=e($edit['color'] ?? '')?>"></label></div>
-    <label>Açıklama<textarea name="description" style="min-height:70px"><?=e($edit['description'] ?? '')?></textarea></label>
-    <div class="form-actions"><label class="check-line"><input type="checkbox" name="is_active" value="1" <?=((int)($edit['is_active'] ?? 1)===1)?'checked':''?>> Aktif</label><button class="btn primary">Kaydet</button><?php if($edit): ?><a class="btn light" href="categories.php">Yeni kategori ekle</a><?php endif; ?></div>
-  </form>
-</div>
+<style>
+.omg-taxonomy-layout{display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px;align-items:start}
+.omg-taxonomy-form{position:sticky;top:78px;padding:16px!important}
+.omg-taxonomy-form h2{margin:0 0 12px!important;font-size:17px}
+.omg-taxonomy-form .mini-grid,.omg-taxonomy-form .mini-grid.two,.omg-taxonomy-form .mini-grid.three{grid-template-columns:1fr;gap:10px}
+.omg-taxonomy-form label{margin-bottom:8px}
+.omg-taxonomy-form textarea{min-height:54px!important;max-height:110px}
+.omg-taxonomy-form .form-actions{justify-content:space-between!important;margin-top:8px}
+.omg-taxonomy-list{min-width:0}
+@media(max-width:900px){.omg-taxonomy-layout{grid-template-columns:1fr}.omg-taxonomy-form{position:static}.omg-taxonomy-form .form-actions .btn{width:auto}.omg-taxonomy-list{order:2}}
+@media(max-width:560px){.omg-taxonomy-form .form-actions{display:grid!important;grid-template-columns:1fr}.omg-taxonomy-form .form-actions .btn{width:100%;justify-content:center}}
+</style>
 
-<div class="card omg-list-card">
-  <div class="omg-card-head"><h2>Kategori listesi</h2><div><button class="btn light small" type="button" data-tree-action="expand">Tümünü genişlet</button> <button class="btn light small" type="button" data-tree-action="collapse">Tümünü daralt</button></div></div>
-  <div class="omg-tree-list">
-    <?= $cats ? omurga_admin_category_tree($cats) : '<div class="empty-state">Henüz kategori yok.</div>' ?>
+<div class="omg-taxonomy-layout">
+  <div class="card omg-edit-box omg-taxonomy-form">
+    <h2><?= $edit ? 'Kategori Düzenle' : 'Yeni Kategori' ?></h2>
+    <form method="post" class="omg-wide-form">
+      <input type="hidden" name="_csrf" value="<?=csrf_token()?>">
+      <input type="hidden" name="action" value="save">
+      <input type="hidden" name="id" value="<?=e($edit['id'] ?? 0)?>">
+      <div class="mini-grid two"><label>Ad<input name="name" required value="<?=e($edit['name'] ?? '')?>"></label><label>Slug<input name="slug" value="<?=e($edit['slug'] ?? '')?>"></label></div>
+      <div class="mini-grid three"><label>Üst kategori<select name="parent_id"><option value="0">Ana kategori</option><?php foreach($cats as $c): if($edit && (int)$edit['id']===(int)$c['id']) continue; ?><option value="<?=$c['id']?>" <?=((int)($edit['parent_id'] ?? 0)===(int)$c['id'])?'selected':''?>><?=e($c['name'])?></option><?php endforeach; ?></select></label><label>Sıra<input type="number" name="sort_order" value="<?=e($edit['sort_order'] ?? 0)?>"></label><label>Renk<input name="color" placeholder="#f97316" value="<?=e($edit['color'] ?? '')?>"></label></div>
+      <label>Açıklama<textarea name="description"><?=e($edit['description'] ?? '')?></textarea></label>
+      <div class="form-actions"><label class="check-line"><input type="checkbox" name="is_active" value="1" <?=((int)($edit['is_active'] ?? 1)===1)?'checked':''?>> Aktif</label><button class="btn primary">Kaydet</button><?php if($edit): ?><a class="btn light" href="categories.php">Yeni</a><?php endif; ?></div>
+    </form>
+  </div>
+
+  <div class="card omg-list-card omg-taxonomy-list">
+    <div class="omg-card-head"><h2>Kategori listesi</h2><div><button class="btn light small" type="button" data-tree-action="expand">Genişlet</button> <button class="btn light small" type="button" data-tree-action="collapse">Daralt</button></div></div>
+    <div class="omg-tree-list">
+      <?= $cats ? omurga_admin_category_tree($cats) : '<div class="empty-state">Henüz kategori yok.</div>' ?>
+    </div>
   </div>
 </div>
 <script>

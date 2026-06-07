@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && $step===6) {
             $pdo=new PDO("mysql:host={$db['host']};dbname={$db['name']};charset=utf8mb4", $db['user'], $db['pass'], [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
             $p=preg_replace('/[^a-zA-Z0-9_]/','',$db['prefix']);
             $schema=[];
-            $schema[]="CREATE TABLE IF NOT EXISTS {$p}users (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL, email VARCHAR(190) NOT NULL UNIQUE, username VARCHAR(80) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL, role VARCHAR(40) NOT NULL DEFAULT 'admin', status VARCHAR(20) NOT NULL DEFAULT 'active', last_login_at DATETIME NULL, last_login_ip VARCHAR(64) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+            $schema[]="CREATE TABLE IF NOT EXISTS {$p}users (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL, email VARCHAR(190) NOT NULL UNIQUE, username VARCHAR(80) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL, role VARCHAR(40) NOT NULL DEFAULT 'admin', status VARCHAR(20) NOT NULL DEFAULT 'active', last_login_at DATETIME NULL, last_login_ip VARCHAR(64) NULL, password_reset_token VARCHAR(128) NULL, password_reset_expires DATETIME NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
             $schema[]="CREATE TABLE IF NOT EXISTS {$p}categories (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL, slug VARCHAR(180) NOT NULL UNIQUE, description TEXT NULL, sort_order INT NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
             $schema[]="CREATE TABLE IF NOT EXISTS {$p}posts (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, title VARCHAR(220) NOT NULL, slug VARCHAR(240) NOT NULL UNIQUE, spot TEXT NULL, content MEDIUMTEXT NULL, editor_type VARCHAR(20) NOT NULL DEFAULT 'classic', content_blocks MEDIUMTEXT NULL, type VARCHAR(40) NOT NULL DEFAULT 'post', status VARCHAR(30) NOT NULL DEFAULT 'draft', category_id INT UNSIGNED NULL, featured_image VARCHAR(255) NULL, video_url VARCHAR(500) NULL, gallery_images MEDIUMTEXT NULL, social_image VARCHAR(255) NULL, sort_order INT NOT NULL DEFAULT 100, seo_title VARCHAR(220) NULL, meta_description VARCHAR(255) NULL, focus_keyword VARCHAR(160) NULL, social_title VARCHAR(220) NULL, social_description VARCHAR(255) NULL, canonical_url VARCHAR(500) NULL, seo_noindex TINYINT(1) NOT NULL DEFAULT 0, comments_enabled TINYINT(1) NOT NULL DEFAULT 0, design_template VARCHAR(80) NULL, author_id INT UNSIGNED NULL, published_at DATETIME NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP, deleted_at DATETIME NULL, INDEX(status), INDEX(type), INDEX(category_id), INDEX(deleted_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
             $schema[]="CREATE TABLE IF NOT EXISTS {$p}tags (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(120) NOT NULL, slug VARCHAR(140) NOT NULL UNIQUE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
@@ -116,13 +116,16 @@ $schema[]="CREATE TABLE IF NOT EXISTS {$p}post_meta (post_id INT UNSIGNED NOT NU
             $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['active_theme',$activeTheme]);
             $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['webp_quality','82']);
             $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['robots_index','1']);
-            $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['omurga_version','1.0.5-beta']);
-            $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['db_version','1.0.5-beta']);
+            $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['omurga_version','1.0.8-beta']);
+            $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['db_version','1.0.8-beta']);
             $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['autosave_enabled','1']);
             $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['autosave_interval_seconds','30']);
             $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['schema_version','4.0.0']);
             $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['maintenance_mode','0']);
             $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['maintenance_message','Sitemiz kısa süreli bakımda. Lütfen daha sonra tekrar deneyin.']);
+            $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['membership_registration_enabled','0']);
+            $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['membership_default_role','member']);
+            $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['membership_default_status','pending']);
             $profilePresets = [
                 'haber'=>[
                     'description'=>'Güncel içerikler, kategoriler ve yayın akışı için haber profili.',
@@ -226,14 +229,14 @@ $schema[]="CREATE TABLE IF NOT EXISTS {$p}post_meta (post_id INT UNSIGNED NOT NU
                 $firstCat=(int)$pdo->lastInsertId();
             }
             $demoTitle = 'Omurga CMS ile İlk Yazınız';
-            $demoSpot = 'Omurga CMS 1.0.5 Beta kurulumundan sonra gelen örnek başlangıç yazısı.';
+            $demoSpot = 'Omurga CMS 1.0.7.5 Beta kurulumundan sonra gelen örnek başlangıç yazısı.';
             $demoContent = '<p>Bu örnek yazı, Omurga CMS kurulumundan sonra sitenin boş görünmemesi için eklenir.</p><p>Panelden bu yazıyı düzenleyebilir, silebilir veya kendi içeriklerinizle değiştirebilirsiniz.</p>';
             $defaultCommentsEnabled = 1;
             $postStmt=$pdo->prepare("INSERT INTO {$p}posts (title,slug,spot,content,type,status,category_id,sort_order,author_id,published_at,seo_title,meta_description,comments_enabled) VALUES (?,?,?,?,?,'published',?,?,?,NOW(),?,?,?)");
             $postStmt->execute([$demoTitle, slugify_install($demoTitle), $demoSpot, $demoContent, 'post', $firstCat, 10, $userId, $demoTitle, mb_substr($demoSpot,0,250), $defaultCommentsEnabled]);
             $demoPostId=(int)$pdo->lastInsertId();
             $commentStmt=$pdo->prepare("INSERT INTO {$p}comments (post_id,author_name,author_email,author_ip,content,status,user_id) VALUES (?,?,?,?,?,'approved',NULL)");
-            $commentStmt->execute([$demoPostId,'Omurga Ekibi','merhaba@omurgacms.com',$_SERVER['REMOTE_ADDR'] ?? '127.0.0.1','Omurga CMS 1.0.5 Beta sürümüne hoş geldiniz. Bu örnek yorum panelde yorum yönetimini test etmek için eklenmiştir.']);
+            $commentStmt->execute([$demoPostId,'Omurga Ekibi','merhaba@omurgacms.com',$_SERVER['REMOTE_ADDR'] ?? '127.0.0.1','Omurga CMS 1.0.7.5 Beta sürümüne hoş geldiniz. Bu örnek yorum panelde yorum yönetimini test etmek için eklenmiştir.']);
 
             $defaultFormFields=json_encode([
                 ['key'=>'name','label'=>'Ad Soyad','type'=>'text','required'=>1,'placeholder'=>'Adınız ve soyadınız'],

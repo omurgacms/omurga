@@ -1,0 +1,12 @@
+{
+  "slug": "user-center",
+  "name_key": "blocks.user_center",
+  "name": "Kullanıcı Merkezi",
+  "description": "Profil, yazılar, yeni yazı, bildirimler ve ayarlar sekmelerini gösterir.",
+  "category": "user",
+  "icon": "user-round-cog",
+  "allowed_contexts": ["page", "sidebar", "any"],
+  "usage": ["page", "sidebar", "home_main", "any"],
+  "settings": {},
+  "view": "view.php"
+}

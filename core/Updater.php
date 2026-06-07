@@ -484,10 +484,13 @@ final class OmurgaUpdater
         $versionCompare = self::compareVersions($version, self::currentVersion());
         $versionWarning = '';
         if ($versionCompare < 0) {
-            $versionWarning = 'Paket mevcut surumden daha dusuk. Kullanici onayi ile devam edildi. Paket surumu: ' . $version;
-            self::writeLog('UYARI: ' . $versionWarning);
+            throw new RuntimeException('Surum dusurme engellendi. Paket surumu: ' . $version . ', mevcut surum: ' . self::currentVersion() . '.');
         } elseif ($versionCompare === 0) {
-            $versionWarning = 'Paket mevcut surumle ayni. Kullanici onayi ile yeniden kurulum yapildi. Paket surumu: ' . $version;
+            $devMode = function_exists('omurga_developer_mode_enabled') && omurga_developer_mode_enabled();
+            if (!$devMode) {
+                throw new RuntimeException('Ayni surum kurulumu production modda engellendi. Paket surumu: ' . $version . '.');
+            }
+            $versionWarning = 'Paket mevcut surumle ayni. Yalniz gelistirici modunda uyarili yeniden kurulum yapildi. Paket surumu: ' . $version;
             self::writeLog('UYARI: ' . $versionWarning);
         }
         self::validateExtractedPaths($root);
@@ -540,7 +543,7 @@ final class OmurgaUpdater
 
     private static function validatePackageRoot(string $root): void
     {
-        $required = ['bootstrap.php', 'install/index.php', 'admin', 'core', 'themes', 'README.md'];
+        $required = ['bootstrap.php', 'admin', 'core'];
         foreach ($required as $rel) {
             if (!file_exists($root . '/' . $rel)) {
                 throw new RuntimeException('Omurga paketi eksik: ' . $rel);
@@ -578,11 +581,6 @@ final class OmurgaUpdater
             if ($rel === 'config.php' || $rel === '.env') {
                 throw new RuntimeException('Guncelleme paketi config.php veya .env iceremez.');
             }
-            if (str_starts_with($rel, 'uploads/') && basename($rel) !== '.gitkeep') {
-                throw new RuntimeException('Guncelleme paketi uploads klasorune dosya yazamaz.');
-            }
-            // Gelistirme asamasi icin storage/ yazma engeli gecici olarak kaldirildi.
-            // config.php/.env, uploads icinde PHP ve path traversal korumalari devam eder; surum dusurme/ayni surum bloklari uyariya cevrildi.
             if (preg_match('#^uploads/.+\.php$#i', $rel)) {
                 throw new RuntimeException('Uploads icinde PHP dosyasi engellendi.');
             }
@@ -716,16 +714,22 @@ final class OmurgaUpdater
     private static function skipUpdateCopyPath(string $rel): bool
     {
         $rel = str_replace('\\', '/', ltrim($rel, '/'));
-        if ($rel === 'config.php' || $rel === '.env') {
+        return !self::isCoreUpdatePath($rel);
+    }
+
+    private static function isCoreUpdatePath(string $rel): bool
+    {
+        $rel = str_replace('\\', '/', ltrim($rel, '/'));
+        if ($rel === '' || str_contains($rel, '../') || str_starts_with($rel, '/')) {
+            return false;
+        }
+        if (in_array($rel, ['bootstrap.php', 'index.php', '.htaccess', 'config.sample.php', 'README.md', 'CHANGELOG.md', 'RELEASE_NOTES.md', 'SURUM_NOTLARI.md', 'KURULUM.md', 'LICENSE'], true)) {
             return true;
         }
-        foreach (['uploads/', 'packages/'] as $prefix) {
-            if ($rel === rtrim($prefix, '/') || str_starts_with($rel, $prefix)) {
+        foreach (['admin/', 'api/', 'assets/', 'core/', 'docs/'] as $prefix) {
+            if (str_starts_with($rel, $prefix)) {
                 return true;
             }
-        }
-        if (str_starts_with($rel, 'themes/')) {
-            return !preg_match('#^themes/(omurga-kolay|omurga-sabit)(/|$)#', $rel);
         }
         return false;
     }
@@ -739,7 +743,7 @@ final class OmurgaUpdater
         db()->exec("CREATE TABLE IF NOT EXISTS {$table} (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, migration VARCHAR(190) NOT NULL UNIQUE, batch INT UNSIGNED NOT NULL DEFAULT 1, executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         $done = db()->query("SELECT migration FROM {$table}")->fetchAll(PDO::FETCH_COLUMN);
         $done = array_flip(array_map('strval', $done));
-        $files = array_merge(glob($packageRoot . '/core/migrations/*.php') ?: [], glob($packageRoot . '/install/migrations/*.php') ?: []);
+        $files = glob($packageRoot . '/core/migrations/*.php') ?: [];
         sort($files);
         $batch = (int)(db()->query("SELECT COALESCE(MAX(batch),0)+1 FROM {$table}")->fetchColumn() ?: 1);
         $count = 0;
@@ -749,6 +753,7 @@ final class OmurgaUpdater
                 continue;
             }
             try {
+                self::assertMigrationSafe($file);
                 $result = require $file;
                 if (is_callable($result)) {
                     $result(db());
@@ -770,6 +775,24 @@ final class OmurgaUpdater
             }
         }
         return $count;
+    }
+
+    private static function assertMigrationSafe(string $file): void
+    {
+        $source = is_file($file) ? strtolower((string)file_get_contents($file)) : '';
+        $contentTables = '(posts|post_meta|post_categories|post_tags|pages|categories|tags|media|comments|users)';
+        $dangerous = [
+            '#\btruncate\s+table\s+[`"\']?[^`"\';\s]*'.$contentTables.'\b#i',
+            '#\bdrop\s+table\s+(?:if\s+exists\s+)?[`"\']?[^`"\';\s]*'.$contentTables.'\b#i',
+            '#\bdelete\s+from\s+[`"\']?[^`"\';\s]*'.$contentTables.'\b#i',
+            '#\binsert\s+into\s+[`"\']?[^`"\';\s]*(posts|pages)\b#i',
+            '#\breplace\s+into\s+[`"\']?[^`"\';\s]*(posts|pages)\b#i',
+        ];
+        foreach ($dangerous as $pattern) {
+            if (preg_match($pattern, $source)) {
+                throw new RuntimeException('Migration icerik verisine mudahale ediyor gibi gorunuyor ve engellendi: ' . basename($file));
+            }
+        }
     }
 
     public static function clearCache(): void

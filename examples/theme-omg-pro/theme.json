@@ -1,0 +1,10 @@
+{
+  "name": "OMG Pro Demo",
+  "slug": "theme-omg-pro",
+  "version": "1.0.0",
+  "template_engine": "omg",
+  "min_omurga": "1.0.7-beta",
+  "description": "OMG Pro kısa etiketlerini gösteren örnek tema.",
+  "menu_locations": {"main":"Ana Menü","footer":"Footer Menü"},
+  "regions": {"home_main":"Ana Sayfa İçerik","sidebar":"Yan Alan","footer":"Footer"}
+}

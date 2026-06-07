@@ -1,4 +1,4 @@
-# Omurga CMS 1.0.5 Beta - Dağıtım Notları
+# Omurga CMS 1.0.8 Beta - Dağıtım Notları
 
 Bu paket, Omurga çekirdeği ile birlikte üç varsayılan tema içerir:
 
@@ -13,7 +13,7 @@ Bu paket, Omurga çekirdeği ile birlikte üç varsayılan tema içerir:
 - Topluluk profili: Topluluk V1
 - Boş/hızlı kurulum: Haber V1
 
-## 1.0.5 Beta ile gelenler
+## 1.0.8 Beta ile gelenler
 
 - Haber V1, Kurumsal V1 ve Topluluk V1 aynı dağıtım paketine eklendi.
 - Demo içerik yapısı `demos/` klasörü altında düzenlendi.

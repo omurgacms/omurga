@@ -35,6 +35,16 @@ if($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['omurga_form'] ?? '')==='1'){
     $formNotice=omurga_handle_form_submission();
 }
 om_handle_comment_submission();
+if(in_array($slug, ['hesabim','user-center'], true)){
+    $title=om_t('user_center.title','Hesabım').' - '.$siteName;
+    $meta=om_t('user_center.description','Kullanıcı profili, yazılar ve bildirimler.');
+    $canonical=omurga_url('hesabim');
+    $content=omurga_render_block(['slug'=>'user-center','enabled'=>1,'width'=>'100','settings'=>[]], ['route'=>'user-center']);
+    $page=['id'=>0,'title'=>om_t('user_center.title','Hesabım'),'slug'=>'hesabim','spot'=>'','content'=>$content,'featured_image'=>'','type'=>'page','status'=>'published','created_at'=>date('Y-m-d H:i:s'),'updated_at'=>date('Y-m-d H:i:s')];
+    if(omurga_render_theme_omg('page.omg', omurga_tpl_page_vars(['post'=>$page,'page'=>$page]))) exit;
+    include omurga_theme_file('page.php','static.php');
+    exit;
+}
 if($slug==='robots.txt'){ header('Content-Type: text/plain; charset=utf-8'); echo robots_txt_content(); exit; }
 if(in_array($slug, ['sitemap.xml','sitemap-posts.xml','sitemap-pages.xml','sitemap-categories.xml','news-sitemap.xml'], true)){
     if(setting('seo_sitemap_enabled','1')!=='1' && $slug!=='news-sitemap.xml'){ http_response_code(404); exit; }
