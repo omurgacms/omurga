@@ -33,6 +33,23 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                 $msg .= ' — pasif bırakıldı.';
             }
         }
+
+        if($action==='import_active_theme_demo'){
+            $activeSlug=omurga_active_theme();
+            $demoFns=[
+                'haber-v1'=>'hv1_demo_import',
+                'kurumsal-v1'=>'kv1_demo_import',
+                'topluluk-v1'=>'tv1_demo_import',
+            ];
+            $fn=$demoFns[$activeSlug] ?? '';
+            if($fn==='' || !function_exists($fn)) throw new RuntimeException('Aktif tema için demo yükleyici bulunamadı.');
+            $result=call_user_func($fn, false);
+            update_setting('theme_demo_imported_'.$activeSlug, date('c'));
+            update_setting('theme_demo_import_result_'.$activeSlug, json_encode($result, JSON_UNESCAPED_UNICODE));
+            log_activity('theme.demo_import','Aktif tema demosu manuel yüklendi: '.$activeSlug);
+            $msg=(string)($result['message'] ?? 'Aktif tema demosu yüklendi.');
+            if(isset($result['created'])) $msg.=' Oluşturulan yeni içerik: '.(int)$result['created'].'.';
+        }
         if($action==='delete'){
             $slug=preg_replace('/[^a-z0-9_-]/','',strtolower($_POST['theme_slug'] ?? ''));
             $createBackup=!empty($_POST['backup_before_delete']);
@@ -113,6 +130,28 @@ function omg_theme_support_scan(string $slug): array {
   <table class="table content-table"><thead><tr><th>Kontrol</th><th>Durum</th><th>Not</th></tr></thead><tbody>
     <?php foreach($supportRows as $row): ?><tr><td data-label="Kontrol"><strong><?=e($row['label'])?></strong></td><td data-label="Durum"><span class="badge <?=$row['ok']?'published':'pending'?>"><?=$row['ok']?'Destekli':'Kontrol gerekli'?></span></td><td data-label="Not"><?=e($row['note'])?></td></tr><?php endforeach; ?>
   </tbody></table>
+</section>
+<?php endif; ?>
+
+<?php
+$activeDemoFns=['haber-v1'=>'hv1_demo_import','kurumsal-v1'=>'kv1_demo_import','topluluk-v1'=>'tv1_demo_import'];
+$activeHasDemo=!empty($activeDemoFns[$active] ?? '') && function_exists($activeDemoFns[$active]);
+if($activeInfo && $activeHasDemo):
+  $lastDemoImport=(string)setting('theme_demo_imported_'.$active,'');
+?>
+<section class="card">
+  <div class="toolbar">
+    <div>
+      <h2>Aktif Tema Demo İçeriği</h2>
+      <p class="muted">Demo içerik yalnızca ilk kurulumda otomatik yüklenir. Güncellemelerde mevcut içerik, menü ve tema ayarları korunur. İsterseniz aktif temanın demosunu buradan manuel olarak tekrar çalıştırabilirsiniz.</p>
+    </div>
+    <?php if($lastDemoImport): ?><span class="badge">Son demo: <?=e($lastDemoImport)?></span><?php endif; ?>
+  </div>
+  <form method="post" onsubmit="return confirm('Aktif tema demosu yüklenecek. Demo içe aktarma güvenli ve tekrar çalıştırılabilir şekilde tasarlanmıştır; yine de mevcut sitenizde yeni örnek içerikler oluşabilir. Devam edilsin mi?');">
+    <input type="hidden" name="_csrf" value="<?=e(csrf_token())?>">
+    <input type="hidden" name="action" value="import_active_theme_demo">
+    <button class="btn primary">Demo İçeriği Yükle</button>
+  </form>
 </section>
 <?php endif; ?>
 <section class="card">

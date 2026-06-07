@@ -232,3 +232,10 @@ Bu sürüm beta durumundadır. Canlı kullanım öncesi yedek alın.
 - Yazı ve sayfa editörüne kaydetmeden kullanılabilen Editör Önizleme penceresi eklendi.
 - Üst menüdeki Profilim bağlantısı gerçek profil düzenleme ekranına bağlandı.
 - /admin/users.php profil modunda kullanıcı listesi yerine sadece mevcut kullanıcının bilgilerini gösterir.
+
+## 1.0.8 Beta
+
+- Kurulum profilleri seçilen temaya net bağlandı.
+- Seçilen profilin tema demo içeriği güvenli ve tekrar çalıştırılabilir şekilde kurulumda otomatik yüklenir hale getirildi.
+- Tema admin panelleri aktif tema altında ve themes.manage yetkisiyle görünür hale getirildi.
+- Kurumsal V1 panel yetkisi plugins.manage yerine themes.manage olarak düzeltildi.

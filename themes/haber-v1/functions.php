@@ -147,7 +147,7 @@ function hv1_demo_remove(): array { return hv1_demo_reset_visual(); }
 
 /* Haber V1 admin menü entegrasyonu: çekirdeğe dosya eklemeden mevcut kayıtlı admin sayfası sistemiyle paneli menüye ekler. */
 if (function_exists('omurga_register_admin_page')) {
-    omurga_register_admin_page('haber-v1-panel', 'Haber V1 Paneli', 'hv1_render_admin_panel_page', 'themes.manage', '▨', 31);
+    omurga_register_admin_page('haber-v1-panel', 'Haber V1 Paneli', 'hv1_render_admin_panel_page', 'themes.manage', '▨', 31, ['menu_group'=>'active_theme','menu_group_title'=>'Aktif Tema','menu_group_icon'=>'▨']);
 }
 
 function hv1_render_admin_panel_page(): string {

@@ -210,7 +210,7 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php omg_nav_item('forms.php',om_t('admin.forms_submissions','Formlar ve Başvurular'),'☷','forms.php'); ?>
   <?php }, 'Form kayıtları ve başvurular'); ?>
 
-  <?php if(can('plugins.manage') || current_user_role()==='admin'): ?>
+  <?php if(can('plugins.manage') || can('themes.manage') || current_user_role()==='admin'): ?>
   <?php
     $omgPluginPages = function_exists('omurga_plugin_admin_pages') ? omurga_plugin_admin_pages() : [];
     $omgMenuGroups = [];
@@ -243,6 +243,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <?php endforeach; ?>
     <?php }, 'Paket tarafından eklenen yönetim sayfaları'); ?>
   <?php endforeach; ?>
+  <?php if(can('plugins.manage') || current_user_role()==='admin'): ?>
   <?php omg_nav_group('plugins',om_t('admin.plugins','Paketler'),'▣',['packages.php','plugin-page.php'], function() use ($omgPackagePages){ ?>
     <?php omg_nav_item('packages.php','Paketler','▧','packages.php'); ?>
     <?php foreach($omgPackagePages as $pp): ?>
@@ -251,6 +252,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <?php endif; ?>
     <?php endforeach; ?>
   <?php }, 'Paket yükleme, güncelleme ve yönetim'); ?>
+  <?php endif; ?>
   <?php endif; ?>
 
   <?php if(can('users.manage') || current_user_role()==='admin'): ?>

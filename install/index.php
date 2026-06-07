@@ -259,6 +259,100 @@ $schema[]="CREATE TABLE IF NOT EXISTS {$p}post_meta (post_id INT UNSIGNED NOT NU
                 'db'=>$db,
             ], true) . ";\n";
             file_put_contents(OMURGA_ROOT.'/config.php', $config);
+
+            // Profil seçimine göre ilgili temanın güvenli ve tekrar çalıştırılabilir demosunu yükle.
+            // Bu blok çekirdeği bootstrap etmeden, tema demo fonksiyonlarının ihtiyaç duyduğu minimal yardımcıları sağlar.
+            try {
+                $themeDemoMap = [
+                    'haber'    => ['theme' => 'haber-v1',    'fn' => 'hv1_demo_import'],
+                    'kurumsal' => ['theme' => 'kurumsal-v1', 'fn' => 'kv1_demo_import'],
+                    'topluluk' => ['theme' => 'topluluk-v1', 'fn' => 'tv1_demo_import'],
+                ];
+                $profileKey = (string)($site['site_type'] ?? 'haber');
+                $demoInfo = $themeDemoMap[$profileKey] ?? null;
+                if ($demoInfo && ($activeTheme ?? '') === $demoInfo['theme']) {
+                    $GLOBALS['OMURGA_INSTALL_PDO'] = $pdo;
+                    $GLOBALS['OMURGA_INSTALL_PREFIX'] = $p;
+                    $GLOBALS['OMURGA_INSTALL_APP_URL'] = $site['app_url'];
+                    $GLOBALS['OMURGA_INSTALL_USER_ID'] = $userId;
+
+                    if (!function_exists('db')) { function db(): PDO { return $GLOBALS['OMURGA_INSTALL_PDO']; } }
+                    if (!function_exists('table_name')) { function table_name(string $name): string { return $GLOBALS['OMURGA_INSTALL_PREFIX'] . $name; } }
+                    if (!function_exists('setting')) {
+                        function setting(string $key, $default = null) {
+                            try { $st = db()->prepare('SELECT setting_value FROM '.table_name('settings').' WHERE setting_key=? LIMIT 1'); $st->execute([$key]); $v = $st->fetchColumn(); return $v === false ? $default : $v; } catch (Throwable $e) { return $default; }
+                        }
+                    }
+                    if (!function_exists('update_setting')) {
+                        function update_setting(string $key, $value): void {
+                            db()->prepare('INSERT INTO '.table_name('settings').' (setting_key,setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)')->execute([$key, (string)$value]);
+                        }
+                    }
+                    if (!function_exists('update_setting_json')) {
+                        function update_setting_json(string $key, array $value): void { update_setting($key, json_encode($value, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT)); }
+                    }
+                    if (!function_exists('update_theme_settings')) {
+                        function update_theme_settings(array $settings, string $theme): void { update_setting_json('theme_settings_'.$theme, $settings); }
+                    }
+                    if (!function_exists('omurga_url')) {
+                        function omurga_url(string $path=''): string { $base = rtrim((string)($GLOBALS['OMURGA_INSTALL_APP_URL'] ?? ''), '/'); return $path === '' ? $base.'/' : $base.'/'.ltrim($path, '/'); }
+                    }
+                    if (!function_exists('slugify')) { function slugify($text): string { return slugify_install((string)$text); } }
+                    if (!function_exists('omurga_set_post_meta')) {
+                        function omurga_set_post_meta(int $postId, string $key, $value): void {
+                            db()->prepare('INSERT INTO '.table_name('post_meta').' (post_id,meta_key,meta_value) VALUES (?,?,?) ON DUPLICATE KEY UPDATE meta_value=VALUES(meta_value)')->execute([$postId, $key, (string)$value]);
+                        }
+                    }
+                    if (!function_exists('omurga_install_tag_id')) {
+                        function omurga_install_tag_id(string $name): int {
+                            $name = trim($name); if ($name === '') return 0; $slug = slugify_install($name); $t = table_name('tags');
+                            $st = db()->prepare("SELECT id FROM $t WHERE slug=? LIMIT 1"); $st->execute([$slug]); $id = (int)$st->fetchColumn(); if ($id > 0) return $id;
+                            db()->prepare("INSERT INTO $t (name,slug) VALUES (?,?)")->execute([$name, $slug]); return (int)db()->lastInsertId();
+                        }
+                    }
+                    if (!function_exists('omurga_api_upsert_post')) {
+                        function omurga_api_upsert_post(array $data, string $type='post', ?int $id=null): int {
+                            $posts = table_name('posts');
+                            $title = trim((string)($data['title'] ?? 'İçerik')) ?: 'İçerik';
+                            $slug = trim((string)($data['slug'] ?? '')) ?: slugify_install($title);
+                            $spot = (string)($data['spot'] ?? '');
+                            $content = (string)($data['content'] ?? '');
+                            $status = (string)($data['status'] ?? 'published');
+                            $categoryId = isset($data['category_id']) && $data['category_id'] ? (int)$data['category_id'] : null;
+                            $featured = (string)($data['featured_image'] ?? '');
+                            $authorId = (int)($GLOBALS['OMURGA_INSTALL_USER_ID'] ?? 1);
+                            $publishedAt = (string)($data['published_at'] ?? date('Y-m-d H:i:s'));
+                            if ($id === null) { $st = db()->prepare("SELECT id FROM $posts WHERE slug=? LIMIT 1"); $st->execute([$slug]); $found = (int)$st->fetchColumn(); $id = $found > 0 ? $found : null; }
+                            if ($id) {
+                                db()->prepare("UPDATE $posts SET title=?, spot=?, content=?, type=?, status=?, category_id=?, featured_image=?, author_id=?, published_at=? WHERE id=?")->execute([$title,$spot,$content,$type,$status,$categoryId,$featured,$authorId,$publishedAt,$id]);
+                                $postId = (int)$id;
+                            } else {
+                                db()->prepare("INSERT INTO $posts (title,slug,spot,content,type,status,category_id,featured_image,author_id,published_at) VALUES (?,?,?,?,?,?,?,?,?,?)")->execute([$title,$slug,$spot,$content,$type,$status,$categoryId,$featured,$authorId,$publishedAt]);
+                                $postId = (int)db()->lastInsertId();
+                            }
+                            if (!empty($data['tags'])) {
+                                db()->prepare('DELETE FROM '.table_name('post_tags').' WHERE post_id=?')->execute([$postId]);
+                                foreach (preg_split('/[,;]+/', (string)$data['tags']) as $tagName) {
+                                    $tagId = omurga_install_tag_id($tagName);
+                                    if ($tagId > 0) db()->prepare('INSERT IGNORE INTO '.table_name('post_tags').' (post_id,tag_id) VALUES (?,?)')->execute([$postId,$tagId]);
+                                }
+                            }
+                            return $postId;
+                        }
+                    }
+
+                    $themeFunctions = OMURGA_ROOT . '/themes/' . $demoInfo['theme'] . '/functions.php';
+                    if (is_file($themeFunctions)) require_once $themeFunctions;
+                    if (function_exists($demoInfo['fn'])) {
+                        $demoResult = call_user_func($demoInfo['fn'], false);
+                        update_setting('install_profile_demo_imported', $demoInfo['theme'].' '.date('c'));
+                        update_setting('install_profile_demo_result', json_encode($demoResult, JSON_UNESCAPED_UNICODE));
+                    }
+                }
+            } catch (Throwable $demoError) {
+                $pdo->prepare("INSERT INTO {$p}activity_logs (user_id,action,level,message,details,ip) VALUES (?,?,?,?,?,?)")->execute([$userId,'install.theme_demo_failed','warning','Kurulum profili tema demosu yüklenemedi',$demoError->getMessage(),$_SERVER['REMOTE_ADDR'] ?? '']);
+            }
+
             $pdo->prepare("INSERT INTO {$p}activity_logs (user_id,action,message,ip) VALUES (?,?,?,?)")->execute([$userId,'install.complete','Omurga kurulumu tamamlandı',$_SERVER['REMOTE_ADDR'] ?? '']);
             file_put_contents(OMURGA_ROOT.'/storage/installed.lock', 'installed '.date('c'));
             session_destroy();
