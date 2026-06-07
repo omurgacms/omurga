@@ -2,17 +2,17 @@
 require_once __DIR__ . '/bootstrap.php';
 if(function_exists('omurga_frontend_maintenance_lock_active') && omurga_frontend_maintenance_lock_active()){
     http_response_code(503);
-    echo '<!doctype html><meta charset="utf-8"><title>Omurga CMS</title><main style="font-family:Arial,sans-serif;max-width:720px;margin:80px auto;padding:24px"><h1>Omurga CMS</h1><p>'.e(omurga_frontend_maintenance_lock_active())."</p></main>";
+    echo '<!doctype html><meta charset="utf-8"><title>Omurga CMS</title><main style="font-family:Arial,sans-serif;max-width:720px;margin:80px auto;padding:24px"><h1>Omurga CMS</h1><p>'.e(omurga_frontend_maintenance_lock_message()).'</p></main>';
     exit;
 }
 $postsT=table_name('posts'); $catsT=table_name('categories'); $formsT=table_name('forms');
-$siteName=setting('site_name','Omurga'); $desc=setting('site_description','Web sitelerinin güçlü yayın altyapısı'); $st=site_type(); $slug=current_path();
+$siteName=setting('site_name','Omurga'); $desc=setting('site_description','Web sitelerinin gÃ¼Ã§lÃ¼ yayÄ±n altyapÄ±sÄ±'); $st=site_type(); $slug=current_path();
 if($slug==='api' || str_starts_with($slug,'api/')){ omurga_api_dispatch(); }
 
 function omurga_posts_by_category_slug(string $categorySlug, int $limit=6): array {
     $postsT=table_name('posts'); $catsT=table_name('categories');
-    $stmt=db()->prepare("SELECT p.*, c.name category_name, c.slug category_slug FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id WHERE p.status='published' AND p.type<>'page' AND c.slug=? ORDER BY p.published_at DESC LIMIT ?");
-    $stmt->execute([$categorySlug, $limit]);
+    $stmt=db()->prepare("SELECT p.*, c.name category_name, c.slug category_slug FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id WHERE p.status='published' AND p.type<>'page' AND c.slug=? ORDER BY p.sort_order ASC, p.published_at DESC, p.id DESC LIMIT ".max(1,$limit));
+    $stmt->execute([$categorySlug]);
     return $stmt->fetchAll();
 }
 function omurga_page_by_slug(string $pageSlug): ?array {
@@ -23,11 +23,11 @@ function omurga_page_by_slug(string $pageSlug): ?array {
     return $page ?: null;
 }
 
-function omurga_tpl_page_vars(array $vars=[]): array { global $title,$meta,$canonical,$ogImage,$siteName,$desc,$formNotice; return array_merge(['title'=>$title ?? $siteName, 'meta'=>$meta ?? $desc, 'canonical'=>$canonical ?? '', 'ogImage'=>$ogImage ?? '', 'formNotice'=>$formNotice ?? ''], $vars); }
+function omurga_tpl_page_vars(array $vars=[]): array { global $title,$meta,$canonical,$ogImage,$siteName,$desc,$formNotice; return array_merge(['title'=>$title ?? $siteName, 'meta'=>$meta ?? $desc, 'canonical'=>$canonical ?? omurga_url(), 'ogImage'=>$ogImage ?? '', 'seo_title'=>$title ?? $siteName, 'seo_description'=>$meta ?? $desc, 'canonical_url'=>$canonical ?? omurga_url(), 'og_image'=>$ogImage ?? '', 'head'=>omurga_seo_head(['title'=>$title ?? $siteName, 'meta'=>$meta ?? $desc, 'canonical'=>$canonical ?? omurga_url(), 'og_image'=>$ogImage ?? '']), 'formNotice'=>$formNotice ?? ''], $vars); }
 omurga_migrate();
 if(setting('maintenance_mode','0')==='1' && !is_admin_logged_in() && !in_array($slug, ['robots.txt','sitemap.xml','sitemap-posts.xml','sitemap-pages.xml','sitemap-categories.xml','news-sitemap.xml'], true)){
     http_response_code(503);
-    $title='Bakım Modu'; $meta=setting('maintenance_message','Sitemiz kısa süreli bakımda.');
+    $title='BakÄ±m Modu'; $meta=setting('maintenance_message','Sitemiz kÄ±sa sÃ¼reli bakÄ±mda.');
     if(omurga_render_theme_omg('maintenance.omg', omurga_tpl_page_vars())) exit; include omurga_theme_file('maintenance.php'); exit;
 }
 $formNotice='';
@@ -40,7 +40,7 @@ if(in_array($slug, ['hesabim','user-center'], true)){
     $meta=om_t('user_center.description','Kullanıcı profili, yazılar ve bildirimler.');
     $canonical=omurga_url('hesabim');
     $content=omurga_render_block(['slug'=>'user-center','enabled'=>1,'width'=>'100','settings'=>[]], ['route'=>'user-center']);
-    $page=['id'=>0,'title'=>om_t('user_center.title','Hesabım'),'slug'=>'hesabim','spot'=>'','content'=>$content,'featured_image'=>'','type'=>'page','status'=>'published','created_at'=>date('Y-m-d H:i:s')];
+    $page=['id'=>0,'title'=>om_t('user_center.title','Hesabım'),'slug'=>'hesabim','spot'=>'','content'=>$content,'featured_image'=>'','type'=>'page','status'=>'published','created_at'=>date('Y-m-d H:i:s'),'updated_at'=>date('Y-m-d H:i:s')];
     if(omurga_render_theme_omg('page.omg', omurga_tpl_page_vars(['post'=>$page,'page'=>$page]))) exit;
     include omurga_theme_file('page.php','static.php');
     exit;
@@ -50,116 +50,126 @@ if(in_array($slug, ['sitemap.xml','sitemap-posts.xml','sitemap-pages.xml','sitem
     if(setting('seo_sitemap_enabled','1')!=='1' && $slug!=='news-sitemap.xml'){ http_response_code(404); exit; }
     if($slug==='news-sitemap.xml' && setting('seo_news_sitemap_enabled','1')!=='1'){ http_response_code(404); exit; }
     header('Content-Type: application/xml; charset=utf-8');
-    echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+    echo '<?xml version="1.0" encoding="UTF-8"?>' . "
+";
     if($slug==='sitemap.xml'){
-        echo '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+        echo '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "
+";
         foreach(['sitemap-posts.xml','sitemap-pages.xml','sitemap-categories.xml','news-sitemap.xml'] as $map){
             if($map==='news-sitemap.xml' && setting('seo_news_sitemap_enabled','1')!=='1') continue;
-            echo '<sitemap><loc>'.e(omurga_url($map)).'</loc></sitemap>' . "\n";
+            echo '<sitemap><loc>'.e(omurga_url($map)).'</loc></sitemap>' . "
+";
         }
         echo '</sitemapindex>'; exit;
     }
     if($slug==='sitemap-categories.xml'){
         $cats=db()->query("SELECT slug, created_at FROM $catsT ORDER BY id ASC")->fetchAll();
-        echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
-        echo '<url><loc>'.e(omurga_url()).'</loc><priority>1.0</priority></url>' . "\n";
-        foreach($cats as $c){ echo '<url><loc>'.e(omurga_url('kategori/'.$c['slug'])).'</loc><priority>0.7</priority></url>' . "\n"; }
+        echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "
+";
+        echo '<url><loc>'.e(omurga_url()).'</loc><priority>1.0</priority></url>' . "
+";
+        foreach($cats as $c){ echo '<url><loc>'.e(omurga_url('kategori/'.$c['slug'])).'</loc><priority>0.7</priority></url>' . "
+"; }
         echo '</urlset>'; exit;
     }
     if($slug==='news-sitemap.xml'){
-        $posts=db()->query("SELECT p.slug,p.title,p.published_at,p.created_at FROM $postsT p WHERE p.status='published' AND p.type IN ('news','post') AND p.published_at >= DATE_SUB(NOW(), INTERVAL 2 DAY) ORDER BY p.published_at DESC LIMIT 1000")->fetchAll();
-        echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">' . "\n";
-        foreach($posts as $p){ $date=date('c', strtotime($p['published_at'] ?: $p['created_at'])); echo '<url><loc>'.e(post_url($p)).'</loc><news:news><news:publication><news:name>'.e(setting('site_name','Omurga')).'</news:name><news:publication_date>'.$date.'</news:publication_date></news:publication><news:title>'.e($p['title']).'</news:title></news:news></url>' . "\n"; }
+        $posts=db()->query("SELECT p.slug,p.title,p.published_at,p.created_at FROM $postsT p WHERE p.status='published' AND p.type IN ('news','post') AND p.published_at >= DATE_SUB(NOW(), INTERVAL 2 DAY) ORDER BY p.published_at DESC, p.id DESC LIMIT 1000")->fetchAll();
+        echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">' . "
+";
+        foreach($posts as $p){ $date=date('c', strtotime($p['published_at'] ?: $p['created_at'])); echo '<url><loc>'.e(post_url($p)).'</loc><news:news><news:publication><news:name>'.e(setting('site_name','Omurga')).'</news:name><news:language>tr</news:language></news:publication><news:publication_date>'.e($date).'</news:publication_date><news:title>'.e($p['title']).'</news:title></news:news></url>' . "
+"; }
         echo '</urlset>'; exit;
     }
     $typeWhere=$slug==='sitemap-pages.xml' ? "AND p.type='page'" : "AND p.type<>'page'";
     $posts=db()->query("SELECT p.slug, p.updated_at, p.created_at FROM $postsT p WHERE p.status='published' $typeWhere ORDER BY p.id DESC LIMIT 2000")->fetchAll();
-    echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
-    foreach($posts as $p){ $date=substr($p['updated_at'] ?: $p['created_at'],0,10); $loc=($slug==='sitemap-pages.xml') ? page_url($p) : post_url($p); echo '<url><loc>'.e($loc).'</loc><lastmod>'.e($date).'</lastmod></url>' . "\n"; }
+    echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "
+";
+    foreach($posts as $p){ $date=substr($p['updated_at'] ?: $p['created_at'],0,10); $loc=($slug==='sitemap-pages.xml') ? page_url($p) : post_url($p); echo '<url><loc>'.e($loc).'</loc><lastmod>'.e($date).'</lastmod><priority>0.8</priority></url>' . "
+"; }
     echo '</urlset>'; exit;
 }
 if($slug==='' || $slug==='index.php'){
     $title=$siteName; $meta=$desc; $canonical=omurga_url(); $ogImage=image_url(default_social_image());
     if($st==='haber'){
-        $latest=db()->query("SELECT p.*, c.name category_name, c.slug category_slug FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id WHERE p.status='published' AND p.type<>'page' ORDER BY p.published_at DESC, p.id DESC LIMIT 20")->fetchAll();
+                $latest=db()->query("SELECT p.*, c.name category_name, c.slug category_slug FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id WHERE p.status='published' AND p.type<>'page' ORDER BY p.published_at DESC, p.id DESC LIMIT 18")->fetchAll();
         $featured=[];
         $popular=array_slice($latest,0,6);
-        $catsForHome=db()->query("SELECT c.* FROM $catsT c WHERE EXISTS (SELECT 1 FROM $postsT p WHERE p.category_id=c.id AND p.status='published' AND p.type<>'page') ORDER BY c.sort_order ASC, c.id ASC LIMIT 10")->fetchAll();
+        $catsForHome=db()->query("SELECT c.* FROM $catsT c WHERE EXISTS (SELECT 1 FROM $postsT p WHERE p.category_id=c.id AND p.status='published' AND p.type<>'page') ORDER BY c.sort_order ASC, c.id ASC LIMIT 6")->fetchAll();
         $categorySections=[];
         foreach($catsForHome as $cat){
-            $cs=db()->prepare("SELECT p.*, c.name category_name, c.slug category_slug FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id WHERE p.status='published' AND p.type<>'page' AND p.category_id=? ORDER BY p.published_at DESC LIMIT 6");
+            $cs=db()->prepare("SELECT p.*, c.name category_name, c.slug category_slug FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id WHERE p.status='published' AND p.type<>'page' AND p.category_id=? ORDER BY p.published_at DESC, p.id DESC LIMIT 5");
             $cs->execute([$cat['id']]);
             $items=$cs->fetchAll();
             if($items) $categorySections[]=['category'=>$cat,'posts'=>$items];
         }
-        if(omurga_render_theme_omg('home.omg', omurga_tpl_page_vars(['content_tpl'=>'home','posts'=>$latest ?? [], 'latest'=>$latest ?? [], 'categorySections'=>$categorySections ?? []]))) exit; include omurga_theme_file('home.php','index.php'); exit;
+        if(omurga_render_theme_omg('home.omg', omurga_tpl_page_vars(['content_tpl'=>'home','posts'=>$latest ?? [], 'latest'=>$latest ?? [], 'categorySections'=>$categorySections ?? []]))) exit; include omurga_theme_file('home.php'); exit;
     }
     if($st==='kurumsal'){
         $services=omurga_posts_by_category_slug('hizmetler', 8);
         $hero=$services[0] ?? omurga_page_by_slug('hakkimizda');
         $portfolio=omurga_posts_by_category_slug('projeler', 6);
         $pages=db()->query("SELECT p.* FROM $postsT p WHERE p.status='published' AND p.type='page' ORDER BY p.sort_order,p.id DESC LIMIT 4")->fetchAll();
-        if(omurga_render_theme_omg('home.omg', omurga_tpl_page_vars(['content_tpl'=>'home','posts'=>$services ?? [], 'services'=>$services ?? [], 'portfolio'=>$portfolio ?? [], 'pages'=>$pages ?? []]))) exit; include omurga_theme_file('home.php','index.php'); exit;
+        if(omurga_render_theme_omg('home.omg', omurga_tpl_page_vars(['content_tpl'=>'home','posts'=>$services ?? [], 'services'=>$services ?? [], 'portfolio'=>$portfolio ?? [], 'pages'=>$pages ?? []]))) exit; include omurga_theme_file('home-kurumsal.php','home.php'); exit;
     }
     if($st==='topluluk'){
         $announcements=omurga_posts_by_category_slug('duyurular', 6);
         $events=omurga_posts_by_category_slug('etkinlikler', 6);
         $projects=omurga_posts_by_category_slug('projeler', 6);
         $boardPage=omurga_page_by_slug('yonetim-kurulu');
-        if(omurga_render_theme_omg('home.omg', omurga_tpl_page_vars(['content_tpl'=>'home','posts'=>$announcements ?? [], 'announcements'=>$announcements ?? [], 'events'=>$events ?? [], 'projects'=>$projects ?? [], 'boardPage'=>$boardPage ?? []]))) exit; include omurga_theme_file('home.php','index.php'); exit;
+        if(omurga_render_theme_omg('home.omg', omurga_tpl_page_vars(['content_tpl'=>'home','posts'=>$announcements ?? [], 'announcements'=>$announcements ?? [], 'events'=>$events ?? [], 'projects'=>$projects ?? [], 'boardPage'=>$boardPage ?? null]))) exit; include omurga_theme_file('home-topluluk.php','home.php'); exit;
     }
-    $latest=db()->query("SELECT p.*, c.name category_name FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id WHERE p.status='published' AND p.type<>'page' ORDER BY p.published_at DESC, p.id DESC LIMIT 12")->fetchAll();
+    $latest=db()->query("SELECT p.*, c.name category_name FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id WHERE p.status='published' AND p.type<>'page' ORDER BY p.published_at DESC, p.id DESC LIMIT 12")->fetchAll(); if(omurga_render_theme_omg('home.omg', omurga_tpl_page_vars(['content_tpl'=>'home','posts'=>$latest ?? [], 'latest'=>$latest ?? [], 'categorySections'=>$categorySections ?? []]))) exit; include omurga_theme_file('home.php'); exit;
 }
 if($slug==='search'){
     $q=trim((string)($_GET['q'] ?? ''));
     $posts=[];
     if($q!==''){
-        // Security fix: Escape LIKE wildcards to prevent SQL injection
-        $like='%'.addcslashes($q, '%_').'%';
-        $stmt=db()->prepare("SELECT p.*, c.name category_name, c.slug category_slug FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id WHERE p.status='published' AND (p.title LIKE ? OR p.spotlight LIKE ? OR p.content LIKE ?) ORDER BY p.published_at DESC LIMIT 50");
+        $like='%'.$q.'%';
+        $stmt=db()->prepare("SELECT p.*, c.name category_name, c.slug category_slug FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id WHERE p.status='published' AND (p.title LIKE ? OR p.spot LIKE ? OR p.content LIKE ?) ORDER BY COALESCE(p.published_at,p.created_at) DESC,p.id DESC LIMIT 40");
         $stmt->execute([$like,$like,$like]);
         $posts=$stmt->fetchAll();
     }
     $title=om_t('blocks.search','Ara').' - '.$siteName; $meta=om_t('blocks.search_placeholder','Aranacak kelime'); $canonical=omurga_url('search');
     if(omurga_render_theme_omg('search.omg', omurga_tpl_page_vars(['query'=>$q,'posts'=>$posts]))) exit;
     include omurga_theme_file('header.php');
-    echo '<section class="card single-wrap"><h1>'.e(om_t('blocks.search','Ara')).'</h1><form method="get" action="'.e(omurga_url('search')).'\'" class="omg-search-block"><input type="search" name="q" value="'.e($q).'" placeholder="'.e(om_t('blocks.search_placeholder','Aranacak kelime')).'"><button>'.e(om_t('blocks.search','Ara')).'</button></form>';
+    echo '<section class="card single-wrap"><h1>'.e(om_t('blocks.search','Ara')).'</h1><form method="get" action="'.e(omurga_url('search')).'" class="omg-search-block"><input type="search" name="q" value="'.e($q).'" placeholder="'.e(om_t('blocks.search_placeholder','Aranacak kelime')).'"><button type="submit">'.e(om_t('blocks.search','Ara')).'</button></form>';
     if($q==='') echo '<p class="muted">'.e(om_t('blocks.search_placeholder','Aranacak kelime')).'</p>';
-    elseif(!$posts) echo '<p class="omg-block-empty">'.e(om_t('blocks.no_content','İçerik bulunamadı.')).'</p>';
-    else { echo '<div class="omg-content-items omg-view-list">'; foreach($posts as $item){ echo '<article class="omg-content-item"><div><small>'.e($item['category_name'] ?? '').'</small><h3><a href="'.e(post_url($item)).'">'.e($item['title']).'</a></h3><p>'.e(excerpt($item['content'] ?? '', 120)).'</p></div></article>'; } echo '</div>'; }
+    elseif(!$posts) echo '<p class="omg-block-empty">'.e(om_t('blocks.no_content','Icerik bulunamadi.')).'</p>';
+    else { echo '<div class="omg-content-items omg-view-list">'; foreach($posts as $item){ echo '<article class="omg-content-item"><div><small>'.e($item['category_name'] ?? '').'</small><h3><a href="'.e(post_url($item)).'">'.e($item['title'] ?? '').'</a></h3><p>'.e(excerpt(($item['spot'] ?? '') ?: ($item['content'] ?? ''), 140)).'</p></div></article>'; } echo '</div>'; }
     echo '</section>';
     include omurga_theme_file('footer.php');
     exit;
 }
 $base = content_url_base();
 if(function_exists('str_starts_with') ? str_starts_with($slug,$base.'/') : substr($slug,0,strlen($base)+1)===$base.'/'){
-    $postSlug = trim(substr($slug,strlen($base)+1),'/');    if($postSlug !== ''){
+    $postSlug = trim(substr($slug,strlen($base)+1),'/');
+    if($postSlug !== ''){
         $statusWhere = is_admin_logged_in() ? "p.slug=?" : "p.slug=? AND p.status='published'";
-        $stmt=db()->prepare("SELECT p.*, c.name category_name, c.slug category_slug, u.name author_name FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id LEFT JOIN ".table_name('users')." u ON u.id=p.author_id WHERE $statusWhere LIMIT 1");
+        $stmt=db()->prepare("SELECT p.*, c.name category_name, c.slug category_slug, u.name author_name FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id LEFT JOIN ".table_name('users')." u ON u.id=p.author_id WHERE $statusWhere AND p.type<>'page' LIMIT 1");
         $stmt->execute([$postSlug]);
         $post=$stmt->fetch();
         if($post){
             $post['content']=omurga_render_post_content($post);
             $title=omurga_seo_title($post); $meta=omurga_seo_description($post); $canonical=omurga_canonical_url($post); $ogImage=image_url($post['social_image'] ?: $post['featured_image'] ?: default_social_image());
             $related=[];
-            if(!empty($post['category_id'])){ $rs=db()->prepare("SELECT p.*, c.name category_name FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id WHERE p.status='published' AND p.category_id=? AND p.id<>? ORDER BY RAND() LIMIT 4"); $rs->execute([$post['category_id'],$post['id']]); $related=$rs->fetchAll(); }
-            if(is_admin_logged_in() && ($post['status'] ?? '')!=='published') echo '<div style="position:fixed;z-index:99999;left:16px;bottom:16px;background:#111827;color:#fff;padding:10px 14px;border-radius:4px;font-size:12px">⚠️ Taslak - '.e($post['status']).'</div>';
+            if(!empty($post['category_id'])){ $rs=db()->prepare("SELECT p.*, c.name category_name FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id WHERE p.status='published' AND p.category_id=? AND p.id<>? ORDER BY p.published_at DESC LIMIT 4"); $rs->execute([$post['category_id'],$post['id']]); $related=$rs->fetchAll(); }
+            if(is_admin_logged_in() && ($post['status'] ?? '')!=='published') echo '<div style="position:fixed;z-index:99999;left:16px;bottom:16px;background:#111827;color:#fff;padding:10px 14px;border-radius:999px;font:600 13px Arial">Ã–nizleme: '.e(omurga_public_status_label($post)).'</div>';
             if(omurga_render_theme_omg('single.omg', omurga_tpl_page_vars(['post'=>$post, 'related'=>$related]))) exit; $templateFile=omurga_post_template_file($post); include $templateFile; exit;
         }
     }
 }
 if(function_exists('str_starts_with') ? str_starts_with($slug,'kategori/') : substr($slug,0,9)==='kategori/'){
     $catSlug=trim(substr($slug,9),'/'); $stmt=db()->prepare("SELECT * FROM $catsT WHERE slug=? LIMIT 1"); $stmt->execute([$catSlug]); $category=$stmt->fetch();
-    if($category){ $stmt=db()->prepare("SELECT p.*, c.name category_name FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id WHERE p.status='published' AND p.type<>'page' AND p.category_id=? ORDER BY p.published_at DESC LIMIT 20"); $stmt->execute([$category['id']]); $posts=$stmt->fetchAll(); $title=om_t('categories.title','Kategori').': '.e($category['name']).' - '.$siteName; $meta=e($category['description'] ?? om_t('categories.description','Kategori sayfası')); $canonical=category_url($category); $ogImage=image_url(default_social_image()); if(omurga_render_theme_omg('category.omg', omurga_tpl_page_vars(['category'=>$category,'posts'=>$posts ?? []]))) exit; include omurga_theme_file('category.php','archive.php'); exit; }
+    if($category){ $stmt=db()->prepare("SELECT p.*, c.name category_name FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id WHERE p.status='published' AND p.type<>'page' AND p.category_id=? ORDER BY p.published_at DESC, p.id DESC LIMIT 24"); $stmt->execute([$category['id']]); $posts=$stmt->fetchAll(); $title=$category['name'].' - '.$siteName; $meta=$category['description'] ?: $category['name'].' kategorisindeki son iÃ§erikler'; $canonical=category_url($category); if(omurga_render_theme_omg('category.omg', omurga_tpl_page_vars(['category'=>$category, 'posts'=>$posts]))) exit; include omurga_theme_file('category.php'); exit; }
 }
-// Sabit sayfalar kökten çalışır: /hakkimizda, /iletisim
+// Sabit sayfalar kÃ¶kten Ã§alÄ±ÅŸÄ±r: /hakkimizda, /iletisim
 $stmt=db()->prepare("SELECT p.*, u.name author_name FROM $postsT p LEFT JOIN ".table_name('users')." u ON u.id=p.author_id WHERE p.slug=? AND p.type='page' AND ".(is_admin_logged_in()?"1=1":"p.status='published'")." LIMIT 1");
 $stmt->execute([$slug]); $page=$stmt->fetch();
 if($page){
     $page['content']=omurga_render_post_content($page);
     $title=omurga_seo_title($page); $meta=omurga_seo_description($page); $canonical=page_url($page); $ogImage=image_url($page['social_image'] ?: $page['featured_image'] ?: default_social_image());
-    if(is_admin_logged_in() && ($page['status'] ?? '')!=='published') echo '<div style="position:fixed;z-index:99999;left:16px;bottom:16px;background:#111827;color:#fff;padding:10px 14px;border-radius:4px;font-size:12px">⚠️ Taslak - '.e($page['status']).'</div>';
+    if(is_admin_logged_in() && ($page['status'] ?? '')!=='published') echo '<div style="position:fixed;z-index:99999;left:16px;bottom:16px;background:#111827;color:#fff;padding:10px 14px;border-radius:999px;font:600 13px Arial">Sabit sayfa Ã¶nizleme: '.e(omurga_public_status_label($page)).'</div>';
     $post=$page;
     if(omurga_render_theme_omg('page.omg', omurga_tpl_page_vars(['post'=>$page, 'page'=>$page]))) exit; include omurga_theme_file('page.php','static.php'); exit;
 }
-render_error_page(404, 'Sayfa Bulunamadı', 'Aradığınız sayfa bulunamadı.');
+render_error_page(404, 'Sayfa BulunamadÄ±', 'AradÄ±ÄŸÄ±nÄ±z sayfa bulunamadÄ±.');

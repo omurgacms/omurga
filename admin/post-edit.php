@@ -19,6 +19,8 @@ if($id){
   if(current_user_role()==='author' && (int)($post['author_id']??0)!==(int)($_SESSION['omurga_user_id']??0)){ render_error_page(403,'Yetkisiz Erişim','Bu içeriği düzenleme yetkiniz yok.'); }
 }
 $tagLine = $id ? implode(', ', tag_names_for_post($id)) : '';
+$autosaveDraftKey = preg_replace('/[^a-zA-Z0-9_\-]/','', (string)($_POST['autosave_draft_key'] ?? ($_GET['draft_key'] ?? '')));
+if($autosaveDraftKey === ''){ $autosaveDraftKey = bin2hex(random_bytes(8)); }
 if($_SERVER['REQUEST_METHOD']==='POST'){
   try{
     $title = trim($_POST['title'] ?? '');
@@ -91,7 +93,6 @@ $previewUrl = $id ? post_url($post) : '';
 $blockMetaDefs = omurga_block_post_meta_definitions();
 $blockMetaValues = $id ? omurga_get_post_meta_values($id) : [];
 $galleryText = omurga_gallery_to_text($post['gallery_images'] ?? '');
-$autosaveDraftKey = preg_replace('/[^a-zA-Z0-9_\-]/','', $_GET['draft_key'] ?? ($_POST['autosave_draft_key'] ?? bin2hex(random_bytes(8))));
 $latestAutosave = omurga_get_autosave((int)$id, $autosaveDraftKey);
 $autosavePayload = [];
 if($latestAutosave && !empty($latestAutosave['payload'])){ $autosavePayload = json_decode((string)$latestAutosave['payload'], true) ?: []; }

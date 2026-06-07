@@ -42,7 +42,7 @@ function omg_admin_location(){
   $map = [
     'index.php'=>['Başlangıç','Genel bakış'],
     'post-edit.php'=>['İçerikler','Yeni yazı / düzenle'], 'addnews.php'=>['İçerikler','Yeni yazı'], 'posts.php'=>['İçerikler','Yazılar'], 'pages.php'=>['İçerikler','Sayfalar'], 'page-edit.php'=>['İçerikler','Sayfa düzenle'], 'categories.php'=>['İçerikler','Kategoriler'], 'tags.php'=>['İçerikler','Etiketler'], 'comments.php'=>['İçerikler','Yorumlar'], 'custom-fields.php'=>['İçerikler','Özel Alanlar'],
-    'themes.php'=>['Tasarım','Temalar'], 'theme-editor.php'=>['Tasarım','Tema düzenleyici'], 'layout.php'=>['Tasarım','Sayfa düzeni'], 'layout-header-footer.php'=>['Tasarım','Üst / Alt alanlar'], 'templates.php'=>['Tasarım','Şablonlar'], 'blocks.php'=>['Tasarım','Blok merkezi'], 'menus.php'=>['Tasarım','Menü yönetimi'], 'ads.php'=>['Tasarım','Reklam alanları'], 'design.php'=>['Tasarım','Tema ayarları'],
+    'themes.php'=>['Tasarım','Temalar'], 'theme-panel.php'=>['Tasarım','Tema paneli'], 'theme-editor.php'=>['Tasarım','Tema düzenleyici'], 'layout.php'=>['Tasarım','Sayfa düzeni'], 'layout-header-footer.php'=>['Tasarım','Üst / Alt alanlar'], 'templates.php'=>['Tasarım','Şablonlar'], 'blocks.php'=>['Tasarım','Blok merkezi'], 'menus.php'=>['Tasarım','Menü yönetimi'], 'ads.php'=>['Tasarım','Reklam alanları'], 'design.php'=>['Tasarım','Tema ayarları'],
     'media.php'=>['Medya','Kütüphane'], 'media-webp.php'=>['Medya','WebP dönüşüm'], 'media-unused.php'=>['Medya','Kullanılmayan dosyalar'],
     'forms.php'=>['Formlar','Başvurular'], 'packages.php'=>['Paketler','Paket yönetimi'], 'plugin-page.php'=>['Paketler','Paket sayfası'],
     'users.php'=>['Kullanıcılar','Kullanıcı yönetimi'], 'roles.php'=>['Kullanıcılar','Roller'], 'permissions.php'=>['Kullanıcılar','Yetkiler'],
@@ -180,7 +180,7 @@ document.addEventListener('DOMContentLoaded', function(){
   <?php omg_nav_group('content',om_t('admin.content','İçerikler'),'▤',['addnews.php','post-edit.php','page-edit.php','posts.php','pages.php','categories.php','tags.php','comments.php','custom-fields.php'], function(){ ?>
     <?php $ptype = primary_content_type(); ?>
     <?php omg_nav_item('post-edit.php?type='.rawurlencode($ptype), 'Yeni Yazı', '✚', ['addnews.php','post-edit.php']); ?>
-    <?php omg_nav_item('posts.php?type='.rawurlencode($ptype), 'Yazılar', '▤', 'posts.php'); ?>
+    <?php omg_nav_item('posts.php', 'Yazılar', '▤', 'posts.php'); ?>
     <?php omg_nav_item('pages.php','Sayfalar','▦',['pages.php','page-edit.php']); ?>
     <?php omg_nav_item('comments.php',om_t('comments.title','Yorumlar'),'☷','comments.php'); ?>
     <?php omg_nav_item('categories.php',content_category_label(),'▣','categories.php'); ?>
@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php omg_nav_item('custom-fields.php','Özel Alanlar','▧','custom-fields.php'); ?>
   <?php }, 'Yazı, sayfa, yorum ve sınıflandırma'); ?>
 
-  <?php omg_nav_group('design',om_t('admin.design','Tasarım'),'▨',['themes.php','theme-editor.php','layout.php','layout-header-footer.php','templates.php','blocks.php','design.php','menus.php','ads.php'], function(){ ?>
+  <?php omg_nav_group('design',om_t('admin.design','Tasarım'),'▨',['themes.php','theme-panel.php','theme-editor.php','layout.php','layout-header-footer.php','templates.php','blocks.php','design.php','menus.php','ads.php'], function(){ ?>
     <?php omg_nav_item('themes.php',om_t('admin.themes','Temalar'),'▨','themes.php'); ?>
     <?php omg_nav_item('design.php',om_t('admin.theme_settings','Tema Ayarları'),'✎','design.php'); ?>
     <?php omg_nav_item('layout.php','Sayfa Düzeni','▦',['layout.php','layout-header-footer.php']); ?>
@@ -198,6 +198,12 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php omg_nav_item('templates.php',om_t('admin.templates','Şablonlar'),'▤','templates.php'); ?>
     <?php omg_nav_item('theme-editor.php',om_t('admin.theme_editor','Tema Düzenleyici'),'⌨','theme-editor.php'); ?>
     <?php omg_nav_item('ads.php',om_t('admin.ads','Reklam Alanları'),'▰','ads.php'); ?>
+    <?php $omgThemePages = function_exists('omurga_theme_admin_pages') ? omurga_theme_admin_pages() : []; ?>
+    <?php foreach($omgThemePages as $tp): ?>
+      <?php if(can($tp['cap'] ?? 'design.manage') || current_user_role()==='admin'): ?>
+        <?php omg_nav_item('theme-panel.php?page='.urlencode($tp['id'] ?? ''), $tp['menu_title'] ?? $tp['title'] ?? 'Tema Paneli', $tp['icon'] ?? '▨', 'theme-panel.php'); ?>
+      <?php endif; ?>
+    <?php endforeach; ?>
   <?php }, 'Tema ayarı, blok ve yerleşim'); ?>
 
   <?php omg_nav_group('media',om_t('admin.media','Medya'),'▧',['media.php','media-webp.php','media-unused.php'], function(){ ?>

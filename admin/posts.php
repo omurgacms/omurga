@@ -6,6 +6,8 @@ if(($_GET['type'] ?? '')==='page'){ redirect('admin/pages.php'); }
 $postsT=table_name('posts');
 $catsT=table_name('categories');
 $type=preg_replace('/[^a-z0-9_\-]/','', strtolower($_GET['type'] ?? ''));
+$knownTypes = array_keys(type_labels());
+if($type !== '' && !in_array($type, $knownTypes, true)){ $type = ''; }
 $status=preg_replace('/[^a-z0-9_\-]/','', strtolower($_GET['status'] ?? ''));
 $q=trim($_GET['q'] ?? '');
 $categoryFilter=(int)($_GET['category_id'] ?? 0);
@@ -91,7 +93,7 @@ foreach($posts as $row){ if(($row['status'] ?? '')==='published') $publishedCoun
           <select name="status"><option value="">Tüm durumlar</option><?php foreach(omurga_status_labels() as $k=>$v): ?><option value="<?=e($k)?>" <?=$status===$k?'selected':''?>><?=e($v)?></option><?php endforeach; ?></select>
           <select name="category_id"><option value="0">Tüm kategoriler</option><?php foreach($categories as $c): ?><option value="<?=e((string)$c['id'])?>" <?=$categoryFilter===(int)$c['id']?'selected':''?>><?=e($c['name'])?></option><?php endforeach; ?></select>
           <input name="tag" placeholder="Etiket" value="<?=e($tagFilter)?>">
-          <button class="btn dark">Filtrele</button><a class="btn light" href="posts.php?type=<?=e($type)?>">Sıfırla</a><a class="btn light" href="posts.php?type=<?=e($type)?>&status=trash">Çöp Kutusu</a>
+          <button class="btn dark">Filtrele</button><a class="btn light" href="posts.php">Sıfırla</a><a class="btn light" href="posts.php?status=trash">Çöp Kutusu</a>
         </form>
       </details>
     </div>

@@ -1384,6 +1384,98 @@ function omurga_theme_blocks(?string $slug=null): array {
     $slug=$slug ?: omurga_active_theme();
     return omurga_scan_blocks_dir(omurga_theme_dir($slug).'/blocks', 'theme', $slug);
 }
+
+
+/* Omurga Theme Admin Panel Support
+   Aktif tema theme.json içinde admin_pages tanımlarsa admin menüsünde genel tema paneli olarak görünür.
+   Bu destek OmHaber'e özel değildir; tüm temalar aynı manifest alanını kullanabilir. */
+function omurga_theme_admin_pages(?string $slug=null): array {
+    $slug = $slug ?: omurga_active_theme();
+    $slug = preg_replace('/[^a-z0-9_-]/','', strtolower((string)$slug));
+    if($slug==='') return [];
+
+    $themeDir = rtrim(omurga_theme_dir($slug), '/');
+    $meta = omurga_theme_meta($slug);
+    $themeName = trim((string)($meta['name'] ?? $slug));
+    $pages = [];
+
+    $addPage = function(array $page, int $i=0) use (&$pages, $slug, $themeDir, $themeName, $meta): void {
+        $id = preg_replace('/[^a-z0-9_-]/','', strtolower((string)($page['id'] ?? $page['slug'] ?? ('page-'.$i))));
+        if($id==='') return;
+        $rel = str_replace(['..', chr(92)], ['', '/'], (string)($page['file'] ?? ''));
+        $rel = ltrim($rel, '/');
+        if($rel==='') return;
+        $file = $themeDir . '/' . $rel;
+        if(!is_file($file)) return;
+        $pages[$id] = [
+            'id'=>$id,
+            'theme'=>$slug,
+            'title'=>$page['title'] ?? ($themeName !== '' ? $themeName . ' Paneli' : 'Tema Paneli'),
+            'menu_title'=>$page['menu_title'] ?? $page['title'] ?? ($themeName !== '' ? $themeName . ' Paneli' : 'Tema Paneli'),
+            'file'=>$file,
+            'cap'=>$page['capability'] ?? $page['cap'] ?? 'design.manage',
+            'icon'=>$page['icon'] ?? '▨',
+            'position'=>(int)($page['position'] ?? 50),
+            'source'=>'theme',
+        ];
+    };
+
+    $items = is_array($meta['admin_pages'] ?? null) ? $meta['admin_pages'] : [];
+    foreach($items as $i=>$page){
+        if(is_array($page)) $addPage($page, $i);
+    }
+
+    // Manifest yazılmamış temalar için otomatik panel keşfi.
+    // Öncelik: wrapper içinde güvenle gösterilebilen içerik dosyası, sonra kök theme-panel.php.
+    if(!isset($pages['panel'])){
+        if(is_file($themeDir . '/admin/panel-content.php')){
+            $addPage([
+                'id'=>'panel',
+                'title'=>$themeName !== '' ? $themeName . ' Paneli' : 'Tema Paneli',
+                'menu_title'=>$themeName !== '' ? $themeName . ' Paneli' : 'Tema Paneli',
+                'file'=>'admin/panel-content.php',
+                'cap'=>'themes.manage',
+                'icon'=>'▨',
+                'position'=>20,
+            ], -1);
+        } elseif(is_file($themeDir . '/theme-panel.php')){
+            $addPage([
+                'id'=>'panel',
+                'title'=>$themeName !== '' ? $themeName . ' Paneli' : 'Tema Paneli',
+                'menu_title'=>$themeName !== '' ? $themeName . ' Paneli' : 'Tema Paneli',
+                'file'=>'theme-panel.php',
+                'cap'=>'design.manage',
+                'icon'=>'▨',
+                'position'=>20,
+            ], -1);
+        } elseif(is_file($themeDir . '/admin/panel.php')){
+            $panelPhp = file_get_contents($themeDir . '/admin/panel.php') ?: '';
+            $loadsLayout = str_contains($panelPhp, "admin/_layout.php") || str_contains($panelPhp, "admin/_footer.php");
+            if(!$loadsLayout){
+                $addPage([
+                    'id'=>'panel',
+                    'title'=>$themeName !== '' ? $themeName . ' Paneli' : 'Tema Paneli',
+                    'menu_title'=>$themeName !== '' ? $themeName . ' Paneli' : 'Tema Paneli',
+                    'file'=>'admin/panel.php',
+                    'cap'=>'themes.manage',
+                    'icon'=>'▨',
+                    'position'=>20,
+                ], -1);
+            }
+        }
+    }
+
+    uasort($pages, fn($a,$b)=>($a['position'] ?? 50)<=>($b['position'] ?? 50));
+    return array_values($pages);
+}
+function omurga_find_theme_admin_page(?string $theme=null, ?string $pageId=null): ?array {
+    $theme = $theme ?: omurga_active_theme();
+    $pageId = preg_replace('/[^a-z0-9_-]/','', strtolower((string)($pageId ?: '')));
+    foreach(omurga_theme_admin_pages($theme) as $page){
+        if(($page['id'] ?? '') === $pageId) return $page;
+    }
+    return null;
+}
 function omurga_custom_blocks(): array {
     return omurga_scan_blocks_dir(OMURGA_ROOT.'/storage/blocks', 'custom', null);
 }
