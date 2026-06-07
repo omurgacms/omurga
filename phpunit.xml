@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.5/phpunit.xsd" bootstrap="tests/bootstrap.php" colors="true" beStrictAboutOutputDuringTests="true" beStrictAboutTestsThatDoNotTestAnything="true" failOnWarning="true" failOnRisky="true" verbose="true">
+  <testsuites>
+    <testsuite name="Unit Tests">
+      <directory>tests/Unit</directory>
+    </testsuite>
+    <testsuite name="Integration Tests">
+      <directory>tests/Integration</directory>
+    </testsuite>
+    <testsuite name="Security Tests">
+      <directory>tests/Security</directory>
+    </testsuite>
+  </testsuites>
+  <coverage processUncoveredFiles="true">
+    <include>
+      <directory suffix=".php">core</directory>
+      <directory suffix=".php">admin</directory>
+    </include>
+    <exclude>
+      <directory suffix=".php">vendor</directory>
+      <directory suffix=".php">tests</directory>
+    </exclude>
+    <report>
+      <html outputDirectory="coverage/html"/>
+      <text outputFile="coverage/coverage.txt" showOnlySummary="true"/>
+    </report>
+  </coverage>
+</phpunit>
