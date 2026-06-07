@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<ruleset name="Omurga Code Standards">
+  <description>PHP Code Sniffer configuration for Omurga CMS</description>
+
+  <!-- Define which files to check -->
+  <file>core</file>
+  <file>admin</file>
+  <file>index.php</file>
+  <file>bootstrap.php</file>
+  
+  <!-- Exclude patterns -->
+  <exclude-pattern>*/tests/*</exclude-pattern>
+  <exclude-pattern>*/vendor/*</exclude-pattern>
+  <exclude-pattern>*/node_modules/*</exclude-pattern>
+
+  <!-- PSR-12 Standard -->
+  <rule ref="PSR12">
+    <!-- Relaxing some strict rules -->
+    <exclude name="PSR12.Files.FileHeader.HeaderDeclaration"/>
+  </rule>
+
+  <!-- Additional useful rules -->
+  <rule ref="Generic.Arrays.DisallowShortArraySyntax"/>
+  <rule ref="Generic.Files.LineLength">
+    <properties>
+      <property name="lineLimit" value="120"/>
+      <property name="absoluteLineLimit" value="150"/>
+    </properties>
+  </rule>
+
+  <!-- Type checking -->
+  <rule ref="Generic.PHP.ForbiddenFunctions">
+    <properties>
+      <property name="forbiddenFunctions" type="array">
+        <element key="eval" value="null"/>
+        <element key="var_dump" value="null"/>
+        <element key="print_r" value="null"/>
+      </property>
+    </properties>
+  </rule>
+</ruleset>
