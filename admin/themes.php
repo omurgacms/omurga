@@ -117,42 +117,66 @@ function omg_theme_support_scan(string $slug): array {
 <?php endif; ?>
 <section class="card">
   <div class="toolbar"><div><h2>Yüklü Temalar</h2><p class="muted">Tema sitenin ön yüzünü yönetir. Admin panel tasarımı ve Omurga logosu temadan etkilenmez.</p></div><a class="btn light" href="../" target="_blank">Siteyi Gör</a></div>
-  <div class="theme-grid">
+  <?php
+    $themeSummary=['total'=>count($themes),'active'=>0,'system'=>0,'warning'=>0];
+    foreach($themes as $t){
+      if(($t['slug'] ?? '')===$active) $themeSummary['active']++;
+      if(omurga_theme_is_system($t)) $themeSummary['system']++;
+      if(empty($t['valid']) || !empty($t['warnings']) || !empty($t['permissions'])) $themeSummary['warning']++;
+    }
+  ?>
+  <div class="omg-summary-strip">
+    <span><b><?=e((string)$themeSummary['total'])?></b> Toplam tema</span>
+    <span><b><?=e((string)$themeSummary['active'])?></b> Aktif</span>
+    <span><b><?=e((string)$themeSummary['system'])?></b> Sistem teması</span>
+    <span><b><?=e((string)$themeSummary['warning'])?></b> Uyarı/kontrol</span>
+  </div>
+  <div class="omg-view-toggle" aria-label="Görünüm seçimi"><span>Görünüm</span><button type="button" class="active" data-omg-view="list">Liste</button><button type="button" data-omg-view="grid">Kart</button></div>
+  <div class="theme-list compact-object-list" data-omg-list-view="list">
     <?php foreach($themes as $theme): ?>
-      <article class="theme-card <?=($theme['slug']===$active?'active':'')?>">
-        <div class="theme-shot">
-          <?php if(!empty($theme['screenshot'])): ?><img src="<?=e($theme['screenshot'])?>" alt="<?=e($theme['name'])?>"><?php else: ?><div class="theme-empty">Omurga</div><?php endif; ?>
+      <?php $isSystem=omurga_theme_is_system($theme); $stats=omurga_theme_dir_stats($theme['slug']); $deleteReason=null; $canDelete=omurga_theme_can_delete($theme['slug'],$deleteReason); $warningCount=(empty($theme['valid'])?1:0)+(!empty($theme['warnings'])?count($theme['warnings']):0)+(!empty($theme['permissions'])?1:0); ?>
+      <article class="object-row theme-row <?=($theme['slug']===$active?'active':'')?>">
+        <div class="object-shot">
+          <?php if(!empty($theme['screenshot'])): ?><img src="<?=e($theme['screenshot'])?>" alt="<?=e($theme['name'])?>"><?php else: ?><span>Omurga</span><?php endif; ?>
         </div>
-        <div class="theme-body">
-          <?php $isSystem=omurga_theme_is_system($theme); $stats=omurga_theme_dir_stats($theme['slug']); $deleteReason=null; $canDelete=omurga_theme_can_delete($theme['slug'],$deleteReason); ?>
-          <div class="theme-title"><h3><?=e($theme['name'])?></h3><?php if($theme['slug']===$active): ?><span>Şu Anda Kullanılıyor</span><?php endif; ?></div>
-          <div class="theme-badges">
-            <?php if($isSystem): ?><span class="badge published">Sistem Teması</span><?php endif; ?>
-            <span class="badge"><?=e(strtoupper($theme['template_engine'] ?? 'php'))?></span>
+        <div class="object-main">
+          <div class="object-head">
+            <div>
+              <h3><?=e($theme['name'])?></h3>
+              <p class="object-meta"><?=e(strtoupper($theme['template_engine'] ?? 'php'))?> · v<?=e($theme['version'])?> · <?=e($theme['slug'])?> · <?=e((string)$stats['files'])?> dosya · <?=e($stats['size'])?></p>
+            </div>
+            <div class="object-badges">
+              <?php if($theme['slug']===$active): ?><span class="badge pending">Kullanılıyor</span><?php endif; ?>
+              <?php if($isSystem): ?><span class="badge published">Sistem</span><?php endif; ?>
+              <?php if($warningCount>0): ?><span class="badge pending"><?=e((string)$warningCount)?> uyarı</span><?php else: ?><span class="badge published">Uygun</span><?php endif; ?>
+            </div>
           </div>
-          <p><?=e($theme['description'] ?: 'Omurga teması')?></p>
-          <small>Sürüm: <?=e($theme['version'])?> · Klasör: <?=e($theme['slug'])?> · <?=e((string)$stats['files'])?> dosya · <?=e($stats['size'])?></small>
-          <?php if(empty($theme['valid'])): ?><div class="alert error">Eksik dosyalar: <?=e(implode(', ', $theme['missing'] ?? []))?></div><?php endif; ?>
-          <?php if(!empty($theme['warnings'])): ?><div class="alert pending"><?=e(implode(' ', $theme['warnings']))?></div><?php endif; ?>
-          <?php if(!empty($theme['permissions'])): ?><div class="alert error">Tema izinleri: <?=e(omurga_format_permissions($theme['permissions']))?>. Temalarda kullanıcı/rol/veritabanı/sistem izinleri yasaktır.</div><?php endif; ?>
-          <div class="theme-actions">
-            <a class="btn light" href="../?theme_preview=<?=e($theme['slug'])?>" target="_blank">Önizle</a>
-            <a class="btn light" href="theme-editor.php?theme=<?=e($theme['slug'])?>">Detaylar</a>
-            <?php if($theme['slug']!==$active && !empty($theme['valid'])): ?>
-              <form method="post"><input type="hidden" name="_csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="activate"><input type="hidden" name="theme_slug" value="<?=e($theme['slug'])?>"><button class="btn primary">Etkinleştir</button></form>
-            <?php endif; ?>
-            <?php if($canDelete): ?>
-              <form method="post" class="theme-delete-form" onsubmit="return confirm('Temayı Sil\n\nBu tema kalıcı olarak silinecek. Bu işlem geri alınamaz.\n\nTema: <?=e(addslashes($theme['name']))?>\nDosya: <?=e((string)$stats['files'])?>\nBoyut: <?=e($stats['size'])?>');">
-                <input type="hidden" name="_csrf" value="<?=e(csrf_token())?>">
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="theme_slug" value="<?=e($theme['slug'])?>">
-                <label class="muted" style="display:block;margin:6px 0"><input type="checkbox" name="backup_before_delete" value="1" checked> Silmeden önce yedek oluştur</label>
-                <button class="btn danger">Sil</button>
-              </form>
-            <?php else: ?>
-              <span class="muted" title="<?=e($deleteReason ?? '')?>">Silinemez: <?=e($deleteReason ?? 'Güvenlik koruması')?></span>
-            <?php endif; ?>
-          </div>
+          <p class="object-desc"><?=e($theme['description'] ?: 'Omurga teması')?></p>
+          <?php if($warningCount>0 || !$canDelete): ?>
+            <details class="object-details">
+              <summary>Teknik detaylar ve uyarılar</summary>
+              <?php if(empty($theme['valid'])): ?><div class="alert error">Eksik dosyalar: <?=e(implode(', ', $theme['missing'] ?? []))?></div><?php endif; ?>
+              <?php if(!empty($theme['warnings'])): ?><div class="alert pending"><?=e(implode(' ', $theme['warnings']))?></div><?php endif; ?>
+              <?php if(!empty($theme['permissions'])): ?><div class="alert error">Tema izinleri: <?=e(omurga_format_permissions($theme['permissions']))?>. Temalarda kullanıcı/rol/veritabanı/sistem izinleri yasaktır.</div><?php endif; ?>
+              <?php if(!$canDelete): ?><p class="muted">Silinemez: <?=e($deleteReason ?? 'Güvenlik koruması')?></p><?php endif; ?>
+            </details>
+          <?php endif; ?>
+        </div>
+        <div class="object-actions">
+          <a class="btn light" href="../?theme_preview=<?=e($theme['slug'])?>" target="_blank">Önizle</a>
+          <a class="btn light" href="theme-editor.php?theme=<?=e($theme['slug'])?>">Detaylar</a>
+          <?php if($theme['slug']!==$active && !empty($theme['valid'])): ?>
+            <form method="post"><input type="hidden" name="_csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="activate"><input type="hidden" name="theme_slug" value="<?=e($theme['slug'])?>"><button class="btn primary">Etkinleştir</button></form>
+          <?php endif; ?>
+          <?php if($canDelete): ?>
+            <form method="post" class="object-delete" onsubmit="return confirm('Temayı Sil\n\nBu tema kalıcı olarak silinecek. Bu işlem geri alınamaz.\n\nTema: <?=e(addslashes($theme['name']))?>\nDosya: <?=e((string)$stats['files'])?>\nBoyut: <?=e($stats['size'])?>');">
+              <input type="hidden" name="_csrf" value="<?=e(csrf_token())?>">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="theme_slug" value="<?=e($theme['slug'])?>">
+              <label class="muted"><input type="checkbox" name="backup_before_delete" value="1" checked> Yedekle</label>
+              <button class="btn danger">Sil</button>
+            </form>
+          <?php endif; ?>
         </div>
       </article>
     <?php endforeach; ?>

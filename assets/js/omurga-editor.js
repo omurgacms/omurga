@@ -32,6 +32,7 @@
     return txt ? txt.split(/\s+/).length : 0;
   }
   function updateWordCount(){ if(wordCount) wordCount.textContent = countWords(editor ? editor.innerHTML : (source ? source.value : '')); }
+  window.omurgaEditorRefreshWordCount = updateWordCount;
   function sync(){
     if(!source) return;
     if(htmlBox && htmlBox.style.display !== 'none' && htmlEditor) source.value = htmlEditor.value;
@@ -291,6 +292,82 @@
     }
   }
 
+  function normalizeMediaSrc(src){
+    src = String(src||'').trim();
+    if(!src) return '';
+    if(src.startsWith('../')) src = src.replace(/^\.\.\//,'');
+    if(/^https?:\/\//i.test(src) || src.startsWith('/')) return src;
+    return '../' + src.replace(/^\/+/, '');
+  }
+  function blockTextToHtml(text){
+    return String(text||'').split(/\n{2,}/).map(v=>v.trim()).filter(Boolean).map(p=>'<p>'+esc(p).replace(/\n/g,'<br>')+'</p>').join('');
+  }
+  function blocksToHtml(blocks){
+    return (blocks||[]).map(block => {
+      const type = cleanType(block.type || 'text');
+      const value = String(block.value || '').trim();
+      const caption = String(block.caption || '').trim();
+      if(!value && !caption) return '';
+      if(type === 'text') return blockTextToHtml(value);
+      if(type === 'image'){
+        if(!value) return '';
+        const figcap = caption ? '<figcaption>'+esc(caption)+'</figcaption>' : '';
+        return '<figure class="om-block-image"><img src="'+esc(normalizeMediaSrc(value))+'" alt="'+esc(caption)+'">'+figcap+'</figure>';
+      }
+      if(type === 'quote') return '<blockquote class="om-block-quote">'+esc(value).replace(/\n/g,'<br>')+(caption ? '<cite>'+esc(caption)+'</cite>' : '')+'</blockquote>';
+      if(type === 'video') return value ? '<p>[video url="'+esc(value)+'"]</p>' : '';
+      return '';
+    }).join('');
+  }
+  function htmlToText(html){
+    const tmp=document.createElement('div');
+    tmp.innerHTML=html || '';
+    tmp.querySelectorAll('br').forEach(br=>br.replaceWith('\n'));
+    tmp.querySelectorAll('p,div,blockquote,figure,h1,h2,h3,h4,h5,h6,li').forEach(el=>{ el.appendChild(document.createTextNode('\n\n')); });
+    return (tmp.textContent || '').replace(/\n{3,}/g,'\n\n').trim();
+  }
+  function htmlToBlocks(html){
+    const tmp=document.createElement('div');
+    tmp.innerHTML=html || '';
+    const out=[];
+    Array.from(tmp.childNodes).forEach(node=>{
+      if(node.nodeType===3){ const t=node.textContent.trim(); if(t) out.push({type:'text', value:t, caption:''}); return; }
+      if(node.nodeType!==1) return;
+      const tag=node.tagName.toLowerCase();
+      if(tag==='figure'){
+        const img=node.querySelector('img');
+        if(img){ out.push({type:'image', value:(img.getAttribute('src')||'').replace(/^\.\.\//,''), caption:(img.getAttribute('alt') || (node.querySelector('figcaption')?node.querySelector('figcaption').textContent:'') || '').trim()}); return; }
+      }
+      if(tag==='img'){ out.push({type:'image', value:(node.getAttribute('src')||'').replace(/^\.\.\//,''), caption:(node.getAttribute('alt')||'').trim()}); return; }
+      if(tag==='blockquote'){ const cite=node.querySelector('cite'); const cap=cite?cite.textContent.trim():''; if(cite) cite.remove(); out.push({type:'quote', value:htmlToText(node.innerHTML), caption:cap}); return; }
+      const text=htmlToText(node.outerHTML); if(text) out.push({type:'text', value:text, caption:''});
+    });
+    if(!out.length){ const text=htmlToText(html); if(text) out.push({type:'text', value:text, caption:''}); }
+    return out.length ? out : [{type:'text', value:'', caption:''}];
+  }
+  function syncBlocksToClassic(){
+    serialize();
+    const source=document.getElementById('contentEditor');
+    const visual=document.getElementById('omVisualEditor');
+    const htmlEd=document.getElementById('omHtmlEditor');
+    const html=blocksToHtml(readBlocks());
+    if(source) source.value=html;
+    if(visual) visual.innerHTML=html;
+    if(htmlEd) htmlEd.value=html;
+    if(typeof window.omurgaEditorRefreshWordCount === 'function') window.omurgaEditorRefreshWordCount();
+  }
+  function syncClassicToBlocks(){
+    const source=document.getElementById('contentEditor');
+    const visual=document.getElementById('omVisualEditor');
+    const htmlEd=document.getElementById('omHtmlEditor');
+    let html = source ? source.value : '';
+    const htmlBox=document.getElementById('omHtmlEditorBox');
+    if(htmlBox && htmlBox.style.display !== 'none' && htmlEd) html = htmlEd.value;
+    else if(visual) html = visual.innerHTML;
+    blocksInput.value = JSON.stringify(htmlToBlocks(html));
+    render(readBlocks());
+  }
+
   const tabs = document.createElement('div');
   tabs.className = 'om-editor-mode-tabs';
   tabs.setAttribute('role','tablist');
@@ -338,6 +415,11 @@
 
   function setMode(mode){
     mode = mode === 'classic' ? 'classic' : 'blocks';
+    const previous = typeInput.value === 'classic' ? 'classic' : 'blocks';
+    if(previous !== mode){
+      if(mode === 'classic') syncBlocksToClassic();
+      else syncClassicToBlocks();
+    }
     typeInput.value = mode;
     card.classList.toggle('editor-mode-blocks', mode === 'blocks');
     card.classList.toggle('editor-mode-classic', mode === 'classic');
@@ -364,7 +446,10 @@
   });
   panel.addEventListener('input', serialize);
   const form = card.closest('form');
-  if(form) form.addEventListener('submit', () => { if(typeInput.value === 'blocks') serialize(); });
+  if(form) form.addEventListener('submit', () => {
+    if(typeInput.value === 'blocks') { serialize(); syncBlocksToClassic(); typeInput.value = 'blocks'; }
+    else { syncClassicToBlocks(); typeInput.value = 'classic'; }
+  });
 
   render(readBlocks());
   setMode(typeInput.value || 'blocks');

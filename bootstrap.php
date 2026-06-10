@@ -2,7 +2,7 @@
 session_start();
 
 define('OMURGA_ROOT', __DIR__);
-define('OMURGA_VERSION', '1.0.8-beta');
+define('OMURGA_VERSION', '1.1.0-beta');
 define('OMURGA_SCHEMA_VERSION', '4.0.0');
 define('OMURGA_INIT', true);
 require_once OMURGA_ROOT.'/core/hooks.php';
@@ -738,6 +738,11 @@ function create_webp_copy(string $absolutePath, string $mime, int $quality=82): 
     else return null;
     if(!$image) return null;
     $webp=preg_replace('/\.[a-zA-Z0-9]+$/','.webp',$absolutePath);
+    if(is_file($webp)){
+        $dir=dirname($webp); $base=pathinfo($webp, PATHINFO_FILENAME); $n=2;
+        do { $candidate=$dir.'/'.$base.'-'.$n.'.webp'; $n++; } while(is_file($candidate) && $n<9999);
+        $webp=$candidate ?? $webp;
+    }
     if(!@imagewebp($image,$webp,$quality)){ imagedestroy($image); return null; }
     imagedestroy($image); return $webp;
 }
@@ -764,10 +769,64 @@ function omurga_resize_image_if_needed(string $absolutePath, string $mime, int $
 }
 function omurga_media_rel_dir(): string { return 'uploads/'.date('Y/m'); }
 function omurga_human_size(int $bytes): string { if($bytes>=1048576) return round($bytes/1048576,2).' MB'; if($bytes>=1024) return round($bytes/1024,1).' KB'; return $bytes.' B'; }
+function omurga_visual_seo_enabled(string $key, string $default='1'): bool { return setting($key, $default)==='1'; }
+function omurga_clean_upload_basename(string $name, string $fallback='gorsel'): string {
+    $base=slugify($name);
+    $base=trim((string)$base, '-');
+    if($base==='') $base=$fallback;
+    return mb_substr($base, 0, 110, 'UTF-8');
+}
+function omurga_upload_title_hint(string $titleHint=''): string {
+    $candidates=[
+        $titleHint,
+        $_POST['media_title_hint'] ?? '',
+        $_POST['title_hint'] ?? '',
+        $_POST['title'] ?? '',
+        $_POST['post_title'] ?? '',
+        $_POST['seo_title'] ?? '',
+        $_POST['alt_text'] ?? '',
+    ];
+    foreach($candidates as $candidate){
+        $candidate=trim((string)$candidate);
+        if($candidate!=='') return $candidate;
+    }
+    return '';
+}
+function omurga_unique_upload_name(string $dir, string $base, string $ext): string {
+    $ext=strtolower(trim($ext,'.'));
+    $base=omurga_clean_upload_basename($base);
+    $name=$base.($ext?'.'.$ext:'');
+    $n=2;
+    while(is_file(rtrim($dir,'/').'/'.$name)){
+        $name=$base.'-'.$n.($ext?'.'.$ext:'');
+        $n++;
+        if($n>9999){ $name=$base.'-'.date('YmdHis').'-'.substr(bin2hex(random_bytes(3)),0,6).($ext?'.'.$ext:''); break; }
+    }
+    return $name;
+}
 function omurga_prepare_upload_name(string $originalName, string $titleHint=''): string {
     $ext=strtolower(pathinfo($originalName,PATHINFO_EXTENSION));
-    $base=$titleHint!=='' ? slugify($titleHint) : slugify(pathinfo($originalName,PATHINFO_FILENAME));
-    return trim($base,'-').'-'.date('YmdHis').'-'.substr(bin2hex(random_bytes(3)),0,6).($ext?'.'.$ext:'');
+    $hint=omurga_upload_title_hint($titleHint);
+    $useTitle=omurga_visual_seo_enabled('seo_image_filename_from_title','1') && $hint!=='';
+    $base=$useTitle ? $hint : pathinfo($originalName,PATHINFO_FILENAME);
+    return omurga_clean_upload_basename($base).($ext?'.'.$ext:'');
+}
+function omurga_prepare_upload_name_for_dir(string $dir, string $originalName, string $titleHint=''): string {
+    $prepared=omurga_prepare_upload_name($originalName,$titleHint);
+    return omurga_unique_upload_name($dir, pathinfo($prepared,PATHINFO_FILENAME), pathinfo($prepared,PATHINFO_EXTENSION));
+}
+function omurga_auto_image_alt(string $currentAlt='', string $titleHint='', string $path=''): string {
+    $currentAlt=trim($currentAlt);
+    if($currentAlt!=='') return $currentAlt;
+    if(!omurga_visual_seo_enabled('seo_image_alt_from_title','1')) return '';
+    $hint=omurga_upload_title_hint($titleHint);
+    if($hint!=='') return mb_substr($hint,0,160,'UTF-8');
+    if($path!==''){
+        $base=pathinfo(basename($path),PATHINFO_FILENAME);
+        $base=str_replace(['-','_'], ' ', $base);
+        return mb_substr(trim($base),0,160,'UTF-8');
+    }
+    return '';
 }
 function omurga_convert_existing_media_to_webp(array $media, bool $replaceRecord=false, int $quality=82): array {
     $path=$media['file_path'] ?? ''; $abs=OMURGA_ROOT.'/'.$path;
@@ -787,18 +846,20 @@ function omurga_convert_existing_media_to_webp(array $media, bool $replaceRecord
 }
 
 function save_uploaded_file(string $field, bool $createWebp=true): ?string {
+    unset($GLOBALS['omurga_last_uploaded_original_path'], $GLOBALS['omurga_last_uploaded_original_filename']);
     if(empty($_FILES[$field]['name'])||($_FILES[$field]['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK) return null;
     $allowed=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif'];
     $tmp=$_FILES[$field]['tmp_name']; $mime=mime_content_type($tmp);
     if(!isset($allowed[$mime])) throw new RuntimeException('Sadece JPG, PNG, WEBP veya GIF yüklenebilir.');
     if(($_FILES[$field]['size']??0)>12*1024*1024) throw new RuntimeException('Görsel 12 MB üstünde olamaz.');
     $relDir='uploads/'.date('Y/m'); $dir=OMURGA_ROOT.'/'.$relDir; if(!is_dir($dir)) mkdir($dir,0775,true);
-    $name=omurga_prepare_upload_name($_FILES[$field]['name'], $_POST['media_title_hint'] ?? ''); $target=$dir.'/'.$name;
+    $name=omurga_prepare_upload_name_for_dir($dir, $_FILES[$field]['name'], $_POST['media_title_hint'] ?? ''); $target=$dir.'/'.$name;
+    $GLOBALS['omurga_last_uploaded_original_filename'] = basename((string)$_FILES[$field]['name']);
     if(!move_uploaded_file($tmp,$target)) throw new RuntimeException('Dosya yüklenemedi.');
     omurga_resize_image_if_needed($target,$mime,(int)setting('media_max_width','1600'),(int)setting('media_jpeg_quality','86'));
     if($createWebp && in_array($mime,['image/jpeg','image/png'],true)){
         $webp=create_webp_copy($target,$mime,(int)setting('webp_quality','82'));
-        if($webp) return $relDir.'/'.basename($webp);
+        if($webp){ $GLOBALS['omurga_last_uploaded_original_path'] = $relDir.'/'.$name; return $relDir.'/'.basename($webp); }
     }
     return $relDir.'/'.$name;
 }
@@ -810,24 +871,28 @@ function insert_media_record(string $path, string $alt='', ?int $userId=null, ?s
         $size=file_exists($abs)?filesize($abs):0;
         $base=basename($path);
         $extension=strtolower(pathinfo($base, PATHINFO_EXTENSION));
+        $uploadedOriginalName=$GLOBALS['omurga_last_uploaded_original_filename'] ?? '';
+        if($originalPath===null && !empty($GLOBALS['omurga_last_uploaded_original_path'])) $originalPath=(string)$GLOBALS['omurga_last_uploaded_original_path'];
+        $originalBase=$uploadedOriginalName !== '' ? basename((string)$uploadedOriginalName) : ($originalPath ? basename($originalPath) : $base);
+        $finalAlt=omurga_auto_image_alt($alt, '', $path);
         $values=[
             'file_path'=>$path,
             'file_name'=>$base,
             'mime'=>$mime,
-            'alt_text'=>$alt,
+            'alt_text'=>$finalAlt,
             'uploaded_by'=>$userId,
             'original_path'=>$originalPath,
             'width'=>$info['width'],
             'height'=>$info['height'],
             'file_size'=>$size,
             'filename'=>$base,
-            'original_filename'=>basename($originalPath ?: $path),
+            'original_filename'=>$originalBase,
             'mime_type'=>$mime,
             'extension'=>$extension,
             'size'=>$size,
             'path'=>$path,
             'url'=>image_url($path),
-            'title'=>$alt,
+            'title'=>$finalAlt,
             'caption'=>'',
         ];
         $fields=[]; $params=[];
@@ -835,14 +900,25 @@ function insert_media_record(string $path, string $alt='', ?int $userId=null, ?s
         if(!$fields) throw new RuntimeException('Medya tablosu alanları okunamadı.');
         $marks=implode(',', array_fill(0,count($fields),'?'));
         db()->prepare("INSERT INTO $t (".implode(',',$fields).") VALUES ($marks)")->execute($params);
-    }catch(Throwable $e){ omurga_write_error($e); throw $e; }
+        unset($GLOBALS['omurga_last_uploaded_original_path'], $GLOBALS['omurga_last_uploaded_original_filename']);
+    }catch(Throwable $e){ unset($GLOBALS['omurga_last_uploaded_original_path'], $GLOBALS['omurga_last_uploaded_original_filename']); omurga_write_error($e); throw $e; }
 }
 function robots_txt_content(): string {
     $custom=trim((string)setting('robots_txt_custom',''));
-    if($custom!=='') return str_replace('{sitemap}', omurga_url('sitemap.xml'), $custom)."\n";
+    if($custom!=='') return str_replace('{sitemap}', omurga_url('sitemap.xml'), $custom)."
+";
     $allowIndex=setting('seo_allow_index','1')==='1';
-    $lines=["User-agent: *", $allowIndex ? "Allow: /" : "Disallow: /", "Disallow: /admin/", "Disallow: /install/", "", 'Sitemap: '.omurga_url('sitemap.xml')];
-    return implode("\n",$lines)."\n";
+    $lines=["User-agent: *", $allowIndex ? "Allow: /" : "Disallow: /", "Disallow: /admin/", "Disallow: /install/", "Disallow: /storage/", ""];
+    foreach(['sitemap.xml','sitemap-posts.xml','sitemap-pages.xml','sitemap-categories.xml','sitemap-tags.xml','sitemap-images.xml','sitemap-authors.xml','news-sitemap.xml'] as $map){
+        if($map==='news-sitemap.xml' && setting('seo_news_sitemap_enabled','1')!=='1') continue;
+        if($map==='sitemap-tags.xml' && setting('seo_sitemap_tags_enabled','1')!=='1') continue;
+        if($map==='sitemap-images.xml' && setting('seo_sitemap_images_enabled','1')!=='1') continue;
+        if($map==='sitemap-authors.xml' && setting('seo_sitemap_authors_enabled','1')!=='1') continue;
+        $lines[]='Sitemap: '.omurga_url($map);
+    }
+    return implode("
+",$lines)."
+";
 }
 function default_social_image(): string { return setting('seo_default_og_image','') ?: setting('default_social_image','') ?: setting('site_logo_image',''); }
 function omurga_seo_setting(string $key, string $default=''): string { return setting('seo_'.$key, $default); }
@@ -872,41 +948,48 @@ function omurga_should_index(?array $post=null): bool {
     if($post && !empty($post['seo_noindex'])) return false;
     return true;
 }
-function omurga_seo_head(array $ctx=[]): string {
-    $post=$ctx['post'] ?? null; $category=$ctx['category'] ?? null;
-    $title=$ctx['seo_title'] ?? omurga_seo_title(is_array($post)?$post:null, is_array($category)?$category:null, $ctx['title'] ?? '');
-    $desc=$ctx['seo_description'] ?? omurga_seo_description(is_array($post)?$post:null, is_array($category)?$category:null, $ctx['meta'] ?? '');
-    $canonical=$ctx['canonical_url'] ?? omurga_canonical_url(is_array($post)?$post:null, is_array($category)?$category:null, $ctx['canonical'] ?? omurga_url());
-    $og=image_url($ctx['og_image'] ?? ($post['social_image'] ?? '') ?: ($post['featured_image'] ?? '') ?: default_social_image());
-    $site=setting('site_name','Omurga');
-    $out=[];
-    $out[]='<title>'.e($title).'</title>';
-    if($desc!=='') $out[]='<meta name="description" content="'.e($desc).'">';
-    $out[]='<link rel="canonical" href="'.e($canonical).'">';
-    $out[]='<meta name="robots" content="'.(omurga_should_index(is_array($post)?$post:null)?'index,follow':'noindex,nofollow').'">';
-    if(setting('seo_enable_og','1')==='1'){
-        $out[]='<meta property="og:site_name" content="'.e($site).'">';
-        $out[]='<meta property="og:title" content="'.e($post['social_title'] ?? '' ?: $title).'">';
-        $out[]='<meta property="og:description" content="'.e($post['social_description'] ?? '' ?: $desc).'">';
-        $out[]='<meta property="og:url" content="'.e($canonical).'">';
-        $out[]='<meta property="og:type" content="'.($post?'article':'website').'">';
-        if($og) $out[]='<meta property="og:image" content="'.e($og).'">';
-    }
-    if(setting('seo_enable_twitter','1')==='1'){
-        $out[]='<meta name="twitter:card" content="summary_large_image">';
-        $out[]='<meta name="twitter:title" content="'.e($post['social_title'] ?? '' ?: $title).'">';
-        if($desc) $out[]='<meta name="twitter:description" content="'.e($post['social_description'] ?? '' ?: $desc).'">';
-        if($og) $out[]='<meta name="twitter:image" content="'.e($og).'">';
-    }
-    if(setting('seo_enable_schema','1')==='1'){
-        $schema=['@context'=>'https://schema.org','@type'=>$post?(site_type()==='haber'?'NewsArticle':'Article'):setting('schema_org_type','Organization'),'name'=>$title,'url'=>$canonical];
-        if($desc) $schema['description']=$desc;
-        if($og) $schema['image']=$og;
-        if($post){ $schema['headline']=$post['title'] ?? $title; $schema['datePublished']=$post['published_at'] ?? $post['created_at'] ?? null; $schema['dateModified']=$post['updated_at'] ?? $post['created_at'] ?? null; $schema['author']=['@type'=>'Person','name'=>$post['author_name'] ?? setting('site_name','Omurga')]; }
-        $out[]='<script type="application/ld+json">'.json_encode(array_filter($schema), JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES).'</script>';
-    }
-    return implode("\n", $out)."\n";
+function omurga_seo_media_by_path(string $path): ?array {
+    $rel=str_replace('\\','/', ltrim($path,'/')); if($rel==='') return null;
+    try{ $m=table_name('media'); $st=db()->prepare("SELECT * FROM $m WHERE file_path=? OR file_name=? OR filename=? LIMIT 1"); $st->execute([$rel, basename($rel), basename($rel)]); $row=$st->fetch(); return $row ?: null; }catch(Throwable $e){ return null; }
 }
+function omurga_seo_image_object(string $path, string $fallbackAlt='') {
+    $path=trim($path); if($path==='') return null; $url=image_url($path); if($url==='') return null;
+    $rel=str_replace('\\','/', ltrim($path,'/')); $media=omurga_seo_media_by_path($rel); $abs=OMURGA_ROOT.'/'.$rel;
+    $width=(int)($media['width'] ?? 0); $height=(int)($media['height'] ?? 0);
+    if(($width<=0 || $height<=0) && is_file($abs)){ $dim=@getimagesize($abs); if($dim){ $width=(int)$dim[0]; $height=(int)$dim[1]; } }
+    $alt=trim((string)($media['alt_text'] ?? '')) ?: $fallbackAlt; $obj=['@type'=>'ImageObject','url'=>$url]; if($width>0) $obj['width']=$width; if($height>0) $obj['height']=$height; if($alt!=='') $obj['caption']=$alt; return $obj;
+}
+function omurga_schema_org_node(): array {
+    $name=setting('schema_org_name', setting('site_name','Omurga')); $logo=setting('schema_org_logo','') ?: setting('site_logo_image','') ?: default_social_image();
+    $node=['@type'=>setting('schema_org_type','Organization') ?: 'Organization','@id'=>omurga_url('#organization'),'name'=>$name,'url'=>omurga_url()];
+    $logoObj=$logo!=='' ? omurga_seo_image_object($logo, $name) : null; if($logoObj) $node['logo']=$logoObj;
+    $sameAs=array_values(array_filter(array_map('trim', preg_split('/\R+/', (string)setting('schema_sameas',''))))); if($sameAs) $node['sameAs']=$sameAs;
+    if(setting('schema_phone','')!=='') $node['telephone']=setting('schema_phone',''); if(setting('schema_address','')!=='') $node['address']=['@type'=>'PostalAddress','streetAddress'=>setting('schema_address','')]; return $node;
+}
+function omurga_schema_breadcrumb_node(array $items): array { $list=[]; $i=1; foreach($items as $it){ $name=trim((string)($it['name'] ?? '')); $url=trim((string)($it['url'] ?? '')); if($name==='') continue; $row=['@type'=>'ListItem','position'=>$i++,'name'=>$name]; if($url!=='') $row['item']=$url; $list[]=$row; } return ['@type'=>'BreadcrumbList','@id'=>omurga_url('#breadcrumb'),'itemListElement'=>$list]; }
+function omurga_seo_schema_graph(array $ctx=[]): array {
+    $post=is_array($ctx['post'] ?? null)?$ctx['post']:null; $category=is_array($ctx['category'] ?? null)?$ctx['category']:null;
+    $canonical=$ctx['canonical_url'] ?? omurga_canonical_url($post,$category,$ctx['canonical'] ?? omurga_url()); $title=$ctx['seo_title'] ?? omurga_seo_title($post,$category,$ctx['title'] ?? ''); $desc=$ctx['seo_description'] ?? omurga_seo_description($post,$category,$ctx['meta'] ?? ''); $site=setting('site_name','Omurga');
+    $graph=[omurga_schema_org_node()]; $web=['@type'=>'WebSite','@id'=>omurga_url('#website'),'url'=>omurga_url(),'name'=>$site,'publisher'=>['@id'=>omurga_url('#organization')]]; if(setting('schema_search_action','1')==='1') $web['potentialAction']=['@type'=>'SearchAction','target'=>omurga_url('search?q={search_term_string}'),'query-input'=>'required name=search_term_string']; $graph[]=$web;
+    $crumbs=[['name'=>'Anasayfa','url'=>omurga_url()]]; if($category) $crumbs[]=['name'=>$category['name'] ?? 'Kategori','url'=>category_url($category)]; if($post && !empty($post['category_name'])) $crumbs[]=['name'=>$post['category_name'],'url'=>!empty($post['category_slug'])?omurga_url('kategori/'.$post['category_slug']):'']; if($post) $crumbs[]=['name'=>$post['title'] ?? $title,'url'=>$canonical]; elseif(!$category) $crumbs[]=['name'=>$title,'url'=>$canonical]; $graph[]=omurga_schema_breadcrumb_node($crumbs);
+    if($post){ $image=omurga_seo_image_object($post['social_image'] ?? '' ?: ($post['featured_image'] ?? ''), $post['title'] ?? $title); $articleType=(site_type()==='haber')?'NewsArticle':(($post['type'] ?? '')==='page'?'WebPage':'Article'); $article=['@type'=>$articleType,'@id'=>$canonical.'#article','mainEntityOfPage'=>['@type'=>'WebPage','@id'=>$canonical],'url'=>$canonical,'headline'=>mb_substr((string)($post['title'] ?? $title),0,110,'UTF-8'),'name'=>$post['title'] ?? $title,'description'=>$desc,'datePublished'=>date('c', strtotime($post['published_at'] ?? $post['created_at'] ?? 'now')),'dateModified'=>date('c', strtotime($post['updated_at'] ?? $post['created_at'] ?? 'now')),'author'=>['@type'=>'Person','name'=>$post['author_name'] ?? $site],'publisher'=>['@id'=>omurga_url('#organization')],'isAccessibleForFree'=>true]; if($image) $article['image']=$image; if(!empty($post['category_name'])) $article['articleSection']=$post['category_name']; try{ if(!empty($post['id'])){ $tags=tag_names_for_post((int)$post['id']); if($tags) $article['keywords']=implode(', ', $tags); } }catch(Throwable $e){} $graph[]=$article; }
+    elseif($category){ $graph[]=['@type'=>'CollectionPage','@id'=>$canonical.'#collection','url'=>$canonical,'name'=>$category['name'] ?? $title,'description'=>$desc,'isPartOf'=>['@id'=>omurga_url('#website')]]; }
+    else { $graph[]=['@type'=>'WebPage','@id'=>$canonical.'#webpage','url'=>$canonical,'name'=>$title,'description'=>$desc,'isPartOf'=>['@id'=>omurga_url('#website')]]; }
+    return ['@context'=>'https://schema.org','@graph'=>array_values(array_filter($graph))];
+}
+function omurga_seo_head(array $ctx=[]): string {
+    $post=is_array($ctx['post'] ?? null)?$ctx['post']:null; $category=is_array($ctx['category'] ?? null)?$ctx['category']:null; $title=$ctx['seo_title'] ?? omurga_seo_title($post,$category,$ctx['title'] ?? ''); $desc=$ctx['seo_description'] ?? omurga_seo_description($post,$category,$ctx['meta'] ?? ''); $canonical=$ctx['canonical_url'] ?? omurga_canonical_url($post,$category,$ctx['canonical'] ?? omurga_url()); $ogPath=$ctx['og_image'] ?? ($post['social_image'] ?? '') ?: ($post['featured_image'] ?? '') ?: default_social_image(); $og=image_url($ogPath); $site=setting('site_name','Omurga'); $out=[];
+    $out[]='<title>'.e($title).'</title>'; if($desc!=='') $out[]='<meta name="description" content="'.e($desc).'">'; $out[]='<link rel="canonical" href="'.e($canonical).'">'; $out[]='<meta name="robots" content="'.(omurga_should_index($post)?'index,follow,max-image-preview:large':'noindex,nofollow').'">';
+    if(setting('seo_hreflang_enabled','0')==='1'){ $lang=e(setting('site_language','tr')); $out[]='<link rel="alternate" hreflang="'.$lang.'" href="'.e($canonical).'">'; $out[]='<link rel="alternate" hreflang="x-default" href="'.e($canonical).'">'; }
+    if(setting('seo_enable_og','1')==='1'){ $out[]='<meta property="og:site_name" content="'.e($site).'">'; $out[]='<meta property="og:title" content="'.e($post['social_title'] ?? '' ?: $title).'">'; $out[]='<meta property="og:description" content="'.e($post['social_description'] ?? '' ?: $desc).'">'; $out[]='<meta property="og:url" content="'.e($canonical).'">'; $out[]='<meta property="og:type" content="'.($post?'article':'website').'">'; if($og){ $out[]='<meta property="og:image" content="'.e($og).'">'; $imgObj=omurga_seo_image_object($ogPath,$title); if(is_array($imgObj)){ if(!empty($imgObj['width'])) $out[]='<meta property="og:image:width" content="'.(int)$imgObj['width'].'">'; if(!empty($imgObj['height'])) $out[]='<meta property="og:image:height" content="'.(int)$imgObj['height'].'">'; } } if($post){ if(!empty($post['published_at'])) $out[]='<meta property="article:published_time" content="'.e(date('c',strtotime($post['published_at']))).'">'; if(!empty($post['updated_at'])) $out[]='<meta property="article:modified_time" content="'.e(date('c',strtotime($post['updated_at']))).'">'; if(!empty($post['author_name'])) $out[]='<meta property="article:author" content="'.e($post['author_name']).'">'; if(!empty($post['category_name'])) $out[]='<meta property="article:section" content="'.e($post['category_name']).'">'; } }
+    if(setting('seo_enable_twitter','1')==='1'){ $out[]='<meta name="twitter:card" content="summary_large_image">'; $out[]='<meta name="twitter:title" content="'.e($post['social_title'] ?? '' ?: $title).'">'; if(setting('twitter_site','')!=='') $out[]='<meta name="twitter:site" content="'.e(setting('twitter_site','')).'">'; if($desc) $out[]='<meta name="twitter:description" content="'.e($post['social_description'] ?? '' ?: $desc).'">'; if($og) $out[]='<meta name="twitter:image" content="'.e($og).'">'; }
+    if(setting('seo_enable_schema','1')==='1') $out[]='<script type="application/ld+json">'.json_encode(omurga_seo_schema_graph($ctx), JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES).'</script>'; return implode("
+", $out)."
+";
+}
+function omurga_seo_normalize_path(string $path): string { $p='/'.trim(parse_url($path, PHP_URL_PATH) ?: $path, '/'); return $p==='/'?'/':rtrim($p,'/'); }
+function omurga_seo_apply_redirect(string $slug): bool { if(setting('seo_redirects_enabled','1')!=='1') return false; if($slug==='' || str_starts_with($slug,'admin/')) return false; try{ omurga_migrate_seo_pro_1015(); $r=table_name('seo_redirects'); $path=omurga_seo_normalize_path($slug); $st=db()->prepare("SELECT * FROM $r WHERE active=1 AND source_path=? LIMIT 1"); $st->execute([$path]); $row=$st->fetch(); if(!$row) return false; db()->prepare("UPDATE $r SET hits=hits+1,last_hit_at=NOW() WHERE id=?")->execute([(int)$row['id']]); $target=(string)$row['target_url']; if($target!=='' && !preg_match('#^https?://#i',$target)) $target=omurga_url(ltrim($target,'/')); header('Location: '.$target, true, in_array((int)$row['status_code'],[301,302,307,308],true)?(int)$row['status_code']:301); return true; }catch(Throwable $e){ return false; } }
+function omurga_seo_log_404(string $slug): void { if(setting('seo_404_logging_enabled','1')!=='1') return; if($slug==='' || str_starts_with($slug,'admin/')) return; try{ omurga_migrate_seo_pro_1015(); $l=table_name('seo_404_logs'); $path=omurga_seo_normalize_path($slug); $ref=mb_substr((string)($_SERVER['HTTP_REFERER'] ?? ''),0,500); $ua=mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''),0,255); $ip=mb_substr((string)($_SERVER['REMOTE_ADDR'] ?? ''),0,64); db()->prepare("INSERT INTO $l (path,referrer,user_agent,ip,last_seen_at) VALUES (?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE hits=hits+1, referrer=VALUES(referrer), user_agent=VALUES(user_agent), ip=VALUES(ip), last_seen_at=NOW()")->execute([$path,$ref,$ua,$ip]); }catch(Throwable $e){} }
 
 function setting_json(string $key, array $default=[]): array { $raw=setting($key, ''); if(!$raw) return $default; $data=json_decode($raw,true); return is_array($data)?$data:$default; }
 function update_setting_json(string $key, array $value): void { update_setting($key, json_encode($value, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT)); }
@@ -2463,6 +2546,8 @@ function omurga_custom_field_definitions_for(string $type='post', array $post=[]
             $field['group_id']=$group['id'] ?? '';
             $field['group_name']=$group['name'] ?? 'Özel Alanlar';
             $field['type']=$field['type'] ?? 'text';
+            $field['show_admin'] = !isset($field['show_admin']) || (int)$field['show_admin'] === 1 ? 1 : 0;
+            $field['show_frontend'] = !empty($field['show_frontend']) ? 1 : 0;
             $out[$key]=$field;
         }
     }
@@ -2502,6 +2587,20 @@ function omurga_save_custom_field_values(int $postId, string $type, array $post,
         omurga_set_post_meta($postId, '_field_'.$key, omurga_sanitize_custom_field_value($field, $posted[$key] ?? null));
     }
 }
+
+function omurga_custom_field_definitions_for_frontend(string $type='post', array $post=[]): array {
+    $out=[];
+    foreach(omurga_custom_field_definitions_for($type,$post) as $key=>$field){
+        if(!empty($field['show_frontend'])) $out[$key]=$field;
+    }
+    return $out;
+}
+function omurga_save_custom_field_values_frontend(int $postId, string $type, array $post, array $posted): void {
+    if($postId<=0) return;
+    foreach(omurga_custom_field_definitions_for_frontend($type,$post) as $key=>$field){
+        omurga_set_post_meta($postId, '_field_'.$key, omurga_sanitize_custom_field_value($field, $posted[$key] ?? null));
+    }
+}
 function omurga_get_custom_field_values(int $postId, string $type='post', array $post=[]): array {
     $values=[]; if($postId<=0) return $values;
     $meta=omurga_get_post_meta_values($postId);
@@ -2516,6 +2615,34 @@ function omurga_custom_field_value(int $postId, string $key, $default='') {
     $val=omurga_get_post_meta($postId, '_field_'.$key, null);
     return $val===null ? $default : $val;
 }
+
+function omurga_render_custom_fields_frontend(string $type, array $post): string {
+    $defs=omurga_custom_field_definitions_for_frontend($type,$post);
+    if(!$defs) return '';
+    $values=omurga_get_custom_field_values((int)($post['id'] ?? 0),$type,$post);
+    $out='<div class="om-form-section om-custom-fields-front"><div class="om-form-section-title"><strong>Ek Haber Bilgileri</strong><small>Muhabir formuna açılan özel alanlar.</small></div>';
+    $currentGroup='';
+    foreach($defs as $key=>$field){
+        if(($field['group_name'] ?? '')!==$currentGroup){ $currentGroup=(string)($field['group_name'] ?? 'Özel Alanlar'); $out.='<div class="om-field-group-title">'.e($currentGroup).'</div>'; }
+        $label=e($field['label'] ?? $key); $val=$values[$key] ?? ''; $name='custom_fields['.e($key).']'; $typeField=$field['type'] ?? 'text';
+        $out.='<label>'.$label;
+        if($typeField==='textarea' || $typeField==='gallery' || $typeField==='map') $out.='<textarea name="'.$name.'" rows="3">'.e($val).'</textarea>';
+        elseif($typeField==='checkbox') $out.='<span class="check-line"><input type="checkbox" name="'.$name.'" value="1" '.(!empty($val)&&$val!=='0'?'checked':'').'> Aktif</span>';
+        elseif($typeField==='select' || $typeField==='multiselect'){
+            $out.='<select name="'.$name.($typeField==='multiselect'?'[]':'').'" '.($typeField==='multiselect'?'multiple size="4"':'').'>';
+            $selected=$typeField==='multiselect'?explode(',',(string)$val):[(string)$val];
+            foreach(omurga_custom_field_options($field) as $ok=>$ol){ $out.='<option value="'.e($ok).'" '.(in_array((string)$ok,$selected,true)?'selected':'').'>'.e($ol).'</option>'; }
+            $out.='</select>';
+        } else {
+            $htmlType=in_array($typeField,['number','url','email','tel','date','time','color'],true)?$typeField:'text';
+            $out.='<input type="'.e($htmlType).'" name="'.$name.'" value="'.e($val).'">';
+        }
+        if(!empty($field['help'])) $out.='<small>'.e($field['help']).'</small>';
+        $out.='</label>';
+    }
+    return $out.'</div>';
+}
+
 function omurga_render_custom_fields_admin(string $type, array $post): string {
     $defs=omurga_custom_field_definitions_for($type,$post);
     if(!$defs) return '';
@@ -2523,6 +2650,7 @@ function omurga_render_custom_fields_admin(string $type, array $post): string {
     $out='<div class="side-box custom-fields-box"><h3>Özel Alanlar</h3><small>Tema ve içerik şablonlarında <code>{{ field(\'alan_adi\') }}</code> ile kullanılır.</small>';
     $currentGroup='';
     foreach($defs as $key=>$field){
+        if(isset($field['show_admin']) && (int)$field['show_admin'] !== 1) continue;
         if(($field['group_name'] ?? '')!==$currentGroup){ $currentGroup=(string)($field['group_name'] ?? 'Özel Alanlar'); $out.='<div class="custom-field-group-title">'.e($currentGroup).'</div>'; }
         $label=e($field['label'] ?? $key); $val=$values[$key] ?? ''; $name='custom_fields['.e($key).']'; $typeField=$field['type'] ?? 'text';
         $out.='<label>'.$label;
@@ -2622,7 +2750,7 @@ function omurga_public_status_label(array $post): string {
     return 'Yayında';
 }
 function omurga_reserved_root_slugs(): array {
-    return ['admin','install','uploads','storage','themes','assets','api','core','kategori','etiket','sayfa','sitemap','sitemap.xml','robots.txt','news-sitemap.xml','login','logout'];
+    return ['admin','install','uploads','storage','themes','assets','api','core','kategori','etiket','yazar','sayfa','sitemap','sitemap.xml','robots.txt','news-sitemap.xml','sitemap-news.xml','sitemap-tags.xml','sitemap-images.xml','sitemap-authors.xml','feed.xml','rss.xml','atom.xml','google-news.xml','indexnow-key.txt','login','logout'];
 }
 function omurga_slug_is_reserved(string $slug): bool {
     $slug = strtolower(trim($slug, '/'));
@@ -2774,7 +2902,7 @@ function omurga_permalink_bases(): array {
 function omurga_normalize_content_base(string $base): string {
     $base = trim(slugify($base), '-');
     if($base === '') $base = 'yazi';
-    $reserved = ['admin','install','uploads','storage','themes','assets','api','core','kategori','etiket','sayfa','sitemap','sitemap.xml','robots.txt','news-sitemap.xml','login','logout'];
+    $reserved = omurga_reserved_root_slugs();
     if(in_array($base, $reserved, true)) $base = 'yazi';
     return $base;
 }
@@ -3615,6 +3743,53 @@ function omurga_migrate_07(): void {
     }catch(Throwable $e){ }
 }
 
+
+function omurga_migrate_seo_center_1010(): void {
+    static $done=false; if($done) return; $done=true;
+    if(!omurga_is_installed()) return;
+    try{
+        $q=table_name('seo_index_queue');
+        db()->exec("CREATE TABLE IF NOT EXISTS $q (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            object_type VARCHAR(40) NOT NULL DEFAULT 'post',
+            object_id INT UNSIGNED NULL,
+            url VARCHAR(500) NOT NULL,
+            service VARCHAR(40) NOT NULL,
+            status VARCHAR(30) NOT NULL DEFAULT 'pending',
+            http_code INT NULL,
+            response TEXT NULL,
+            attempts INT UNSIGNED NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            sent_at DATETIME NULL,
+            INDEX(service), INDEX(status), INDEX(object_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        if(setting('seo_feed_enabled', null)===null) update_setting('seo_feed_enabled','1');
+        if(setting('seo_category_feed_enabled', null)===null) update_setting('seo_category_feed_enabled','1');
+        if(setting('seo_google_news_feed_enabled', null)===null) update_setting('seo_google_news_feed_enabled','1');
+        if(setting('seo_indexnow_enabled', null)===null) update_setting('seo_indexnow_enabled','0');
+        if(setting('seo_index_queue_enabled', null)===null) update_setting('seo_index_queue_enabled','1');
+        if(setting('seo_google_news_feed_limit', null)===null) update_setting('seo_google_news_feed_limit','100');
+        if(setting('seo_feed_limit', null)===null) update_setting('seo_feed_limit','50');
+        if(setting('seo_indexnow_key', null)===null || setting('seo_indexnow_key','')==='') update_setting('seo_indexnow_key', bin2hex(random_bytes(16)));
+        update_setting('omurga_version', OMURGA_VERSION);
+        update_setting('db_version', OMURGA_VERSION);
+    }catch(Throwable $e){ if(function_exists('omurga_write_error')) omurga_write_error($e); }
+}
+
+
+function omurga_migrate_seo_pro_1015(): void {
+    static $done=false; if($done) return; $done=true;
+    if(!omurga_is_installed()) return;
+    try{
+        $r=table_name('seo_redirects');
+        db()->exec("CREATE TABLE IF NOT EXISTS $r (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, source_path VARCHAR(500) NOT NULL, target_url VARCHAR(500) NOT NULL, status_code SMALLINT UNSIGNED NOT NULL DEFAULT 301, active TINYINT(1) NOT NULL DEFAULT 1, hits INT UNSIGNED NOT NULL DEFAULT 0, last_hit_at DATETIME NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY source_path (source_path), INDEX(active), INDEX(status_code)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $l=table_name('seo_404_logs');
+        db()->exec("CREATE TABLE IF NOT EXISTS $l (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, path VARCHAR(500) NOT NULL, referrer VARCHAR(500) NULL, user_agent VARCHAR(255) NULL, ip VARCHAR(64) NULL, hits INT UNSIGNED NOT NULL DEFAULT 1, last_seen_at DATETIME NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY path (path), INDEX(last_seen_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        foreach(['seo_sitemap_tags_enabled'=>'1','seo_sitemap_images_enabled'=>'1','seo_sitemap_authors_enabled'=>'1','seo_atom_enabled'=>'1','seo_redirects_enabled'=>'1','seo_404_logging_enabled'=>'1','seo_hreflang_enabled'=>'0','seo_theme_audit_enabled'=>'1','schema_sameas'=>'','schema_contact_url'=>'','schema_phone'=>'','schema_address'=>'','schema_search_action'=>'1','twitter_site'=>''] as $key=>$value){ if(setting($key, null)===null) update_setting($key,$value); }
+        update_setting('omurga_version', OMURGA_VERSION); update_setting('db_version', OMURGA_VERSION);
+    }catch(Throwable $e){ if(function_exists('omurga_write_error')) omurga_write_error($e); }
+}
+
 function omurga_migrate(): void {
     omurga_migrate_07();
     omurga_migrate_08();
@@ -3639,6 +3814,8 @@ function omurga_migrate(): void {
     omurga_migrate_trash_system();
     omurga_migrate_autosave_system();
     omurga_migrate_membership_system();
+    omurga_migrate_seo_center_1010();
+    omurga_migrate_seo_pro_1015();
 }
 
 
@@ -5425,6 +5602,65 @@ function omurga_render_sidebar(string $location='sidebar'): string {
 function omurga_register_sidebar(string $key, string $label): void {
     $GLOBALS['omurga_extra_sidebars'][$key] = $label;
 }
+
+
+function omurga_seo_post_row(int $postId): ?array {
+    if($postId <= 0) return null;
+    try{
+        $postsT=table_name('posts'); $catsT=table_name('categories'); $usersT=table_name('users');
+        $stmt=db()->prepare("SELECT p.*, c.name category_name, c.slug category_slug, u.name author_name FROM $postsT p LEFT JOIN $catsT c ON c.id=p.category_id LEFT JOIN $usersT u ON u.id=p.author_id WHERE p.id=? LIMIT 1");
+        $stmt->execute([$postId]);
+        $row=$stmt->fetch();
+        return $row ?: null;
+    }catch(Throwable $e){ return null; }
+}
+function omurga_seo_queue_add(string $url, string $service, string $objectType='post', ?int $objectId=null, string $status='pending', ?int $httpCode=null, string $response=''): void {
+    if(setting('seo_index_queue_enabled','1')!=='1') return;
+    try{
+        omurga_migrate_seo_center_1010();
+    omurga_migrate_seo_pro_1015();
+        $q=table_name('seo_index_queue');
+        db()->prepare("INSERT INTO $q (object_type,object_id,url,service,status,http_code,response,attempts,sent_at) VALUES (?,?,?,?,?,?,?,?,?)")
+          ->execute([$objectType,$objectId,$url,$service,$status,$httpCode,$response,$status==='pending'?0:1,$status==='pending'?null:date('Y-m-d H:i:s')]);
+    }catch(Throwable $e){ if(function_exists('omurga_write_error')) omurga_write_error($e); }
+}
+function omurga_indexnow_key_location(): string { return omurga_url(setting('seo_indexnow_key','').'.txt'); }
+function omurga_indexnow_ping(string $url, ?int $objectId=null): array {
+    $key=trim(setting('seo_indexnow_key',''));
+    if($key==='') return ['ok'=>false,'code'=>0,'body'=>'IndexNow anahtarı yok.'];
+    $host=parse_url(omurga_url(), PHP_URL_HOST) ?: ($_SERVER['HTTP_HOST'] ?? 'localhost');
+    $payload=json_encode(['host'=>$host,'key'=>$key,'keyLocation'=>omurga_indexnow_key_location(),'urlList'=>[$url]], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
+    $endpoints=['https://api.indexnow.org/indexnow','https://www.bing.com/indexnow'];
+    $last=['ok'=>false,'code'=>0,'body'=>''];
+    foreach($endpoints as $endpoint){
+        $code=0; $body='';
+        try{
+            if(function_exists('curl_init')){
+                $ch=curl_init($endpoint);
+                curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_RETURNTRANSFER=>true,CURLOPT_HTTPHEADER=>['Content-Type: application/json; charset=utf-8'],CURLOPT_POSTFIELDS=>$payload,CURLOPT_TIMEOUT=>8]);
+                $body=(string)curl_exec($ch); $code=(int)curl_getinfo($ch, CURLINFO_HTTP_CODE); if(curl_errno($ch)) $body=curl_error($ch); curl_close($ch);
+            } else {
+                $ctx=stream_context_create(['http'=>['method'=>'POST','header'=>"Content-Type: application/json; charset=utf-8\r\n",'content'=>$payload,'timeout'=>8]]);
+                $body=(string)@file_get_contents($endpoint,false,$ctx);
+                if(isset($http_response_header[0]) && preg_match('/\s(\d{3})\s/', $http_response_header[0], $m)) $code=(int)$m[1];
+            }
+        }catch(Throwable $e){ $body=$e->getMessage(); }
+        $ok=in_array($code,[200,202],true);
+        $last=['ok'=>$ok,'code'=>$code,'body'=>$body,'endpoint'=>$endpoint];
+        if($ok) break;
+    }
+    omurga_seo_queue_add($url,'IndexNow','post',$objectId,$last['ok']?'sent':'error',$last['code'],mb_substr((string)$last['body'],0,1000));
+    return $last;
+}
+function omurga_seo_after_post_publish($postId, $postData=[]): void {
+    $post=omurga_seo_post_row((int)$postId);
+    if(!$post || ($post['type'] ?? '')==='page') return;
+    $url=post_url($post);
+    omurga_seo_queue_add($url,'Sitemap','post',(int)$postId,'sent',200,'Sitemap otomatik endpoint üzerinden güncel.');
+    if(setting('seo_google_news_feed_enabled','1')==='1') omurga_seo_queue_add($url,'GoogleNewsRSS','post',(int)$postId,'sent',200,'/google-news.xml otomatik endpoint üzerinden güncel.');
+    if(setting('seo_indexnow_enabled','0')==='1') omurga_indexnow_ping($url,(int)$postId);
+}
+if(function_exists('omurga_add_action')) omurga_add_action('omurga_after_post_publish','omurga_seo_after_post_publish',20);
 
 omurga_load_active_packages();
 omurga_load_active_plugins();

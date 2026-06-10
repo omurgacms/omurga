@@ -66,23 +66,42 @@ $packages=omurga_all_packages();
 <section class="card" style="margin-top:18px">
   <h2>Yüklü Paketler</h2>
   <?php if(!$packages): ?><p class="muted">Henüz package.json içeren paket yok. <code>packages/ornek-paket/package.json</code> yapısını kullanın.</p><?php endif; ?>
-  <div class="plugin-grid">
-    <?php foreach($packages as $slug=>$pkg): $active=omurga_package_is_active($slug); ?>
-      <article class="plugin-card <?=$active?'active':''?>">
-        <div class="plugin-top"><div><h3><?=e($pkg['name'])?></h3><small>v<?=e($pkg['version'])?><?=!empty($pkg['author'])?' · '.e($pkg['author']):''?></small></div><span class="badge <?=$active?'ok':'muted'?>"><?=$active?'Aktif':'Pasif'?></span></div>
-        <p><?=e($pkg['description'] ?: 'Açıklama yok.')?></p>
-        <?php if(empty($pkg['compatible'])): ?><div class="alert error"><?=e(implode(' ', $pkg['requirement_messages'] ?? ['Paket gereksinimleri karşılanmıyor.']))?></div><?php endif; ?>
-        <div class="plugin-meta"><span>Slug: <code><?=e($slug)?></code></span><span>Blok: <?=count($pkg['blocks'] ?? [])?></span><span>Admin: <?=count($pkg['admin_pages'] ?? [])?></span></div>
-        <p class="muted">İzinler: <code><?=e(omurga_format_permissions($pkg['permissions'] ?? []))?></code></p>
-        <?php if(!empty($pkg['permissions'])): ?><pre class="codebox"><?=e(omurga_permissions_html_summary($pkg['permissions']))?></pre><?php endif; ?>
-        <?php if(!empty($pkg['standard_warnings'])): ?><div class="alert pending"><?=e(implode(' ', $pkg['standard_warnings']))?></div><?php endif; ?>
-        <div class="theme-actions">
+  <?php $pkgSummary=['total'=>count($packages),'active'=>0,'passive'=>0,'warning'=>0]; foreach($packages as $s=>$pkg){ $isActive=omurga_package_is_active($s); if($isActive) $pkgSummary['active']++; else $pkgSummary['passive']++; if(empty($pkg['compatible']) || !empty($pkg['standard_warnings'])) $pkgSummary['warning']++; } ?>
+  <div class="omg-summary-strip">
+    <span><b><?=e((string)$pkgSummary['total'])?></b> Toplam paket</span>
+    <span><b><?=e((string)$pkgSummary['active'])?></b> Aktif</span>
+    <span><b><?=e((string)$pkgSummary['passive'])?></b> Pasif</span>
+    <span><b><?=e((string)$pkgSummary['warning'])?></b> Uyarı/kontrol</span>
+  </div>
+  <div class="omg-view-toggle" aria-label="Görünüm seçimi"><span>Görünüm</span><button type="button" class="active" data-omg-view="list">Liste</button><button type="button" data-omg-view="grid">Kart</button></div>
+  <div class="package-list compact-object-list" data-omg-list-view="list">
+    <?php foreach($packages as $slug=>$pkg): $active=omurga_package_is_active($slug); $warningCount=(empty($pkg['compatible'])?1:0)+(!empty($pkg['standard_warnings'])?count($pkg['standard_warnings']):0); ?>
+      <article class="object-row package-row <?=$active?'active':''?>">
+        <div class="object-icon"><?=e(strtoupper(substr((string)($pkg['name'] ?: $slug),0,1)))?></div>
+        <div class="object-main">
+          <div class="object-head">
+            <div>
+              <h3><?=e($pkg['name'])?></h3>
+              <p class="object-meta">v<?=e($pkg['version'])?><?=!empty($pkg['author'])?' · '.e($pkg['author']):''?> · slug: <code><?=e($slug)?></code> · blok: <?=count($pkg['blocks'] ?? [])?> · admin: <?=count($pkg['admin_pages'] ?? [])?></p>
+            </div>
+            <div class="object-badges"><span class="badge <?=$active?'published':'muted'?>"><?=$active?'Aktif':'Pasif'?></span><?php if($warningCount>0): ?><span class="badge pending"><?=e((string)$warningCount)?> uyarı</span><?php else: ?><span class="badge published">Uyumlu</span><?php endif; ?></div>
+          </div>
+          <p class="object-desc"><?=e($pkg['description'] ?: 'Açıklama yok.')?></p>
+          <details class="object-details">
+            <summary>İzinler ve teknik detaylar</summary>
+            <p class="muted">İzinler: <code><?=e(omurga_format_permissions($pkg['permissions'] ?? []))?></code></p>
+            <?php if(!empty($pkg['permissions'])): ?><pre class="codebox"><?=e(omurga_permissions_html_summary($pkg['permissions']))?></pre><?php endif; ?>
+            <?php if(empty($pkg['compatible'])): ?><div class="alert error"><?=e(implode(' ', $pkg['requirement_messages'] ?? ['Paket gereksinimleri karşılanmıyor.']))?></div><?php endif; ?>
+            <?php if(!empty($pkg['standard_warnings'])): ?><div class="alert pending"><?=e(implode(' ', $pkg['standard_warnings']))?></div><?php endif; ?>
+          </details>
+        </div>
+        <div class="object-actions">
           <form method="post" class="inline-form">
             <?=csrf_field()?><input type="hidden" name="slug" value="<?=e($slug)?>">
             <?php if($active): ?>
               <input type="hidden" name="action" value="deactivate">
               <label><input type="checkbox" name="delete_after_deactivate" value="1"> Devre dışı bırakınca sil</label>
-              <label><input type="checkbox" name="backup_before_delete" value="1" checked> Silmeden önce yedekle</label>
+              <label><input type="checkbox" name="backup_before_delete" value="1" checked> Yedekle</label>
               <button class="btn">Devre Dışı Bırak</button>
             <?php elseif(!empty($pkg['compatible'])): ?>
               <input type="hidden" name="action" value="activate"><button class="btn primary">Etkinleştir</button>

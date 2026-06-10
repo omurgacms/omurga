@@ -104,7 +104,7 @@ final class Omurga_PlatformApi {
         if($subdir!=='') $relDir.='/'.trim(preg_replace('/[^a-zA-Z0-9_\-\/]/','',(string)$subdir),'/');
         $dir = OMURGA_ROOT.'/'.$relDir;
         if(!is_dir($dir)) mkdir($dir, 0755, true);
-        $safe = function_exists('omurga_prepare_upload_name') ? omurga_prepare_upload_name((string)($file['name'] ?? 'file')) : (uniqid('media_', true).'-'.preg_replace('/[^a-zA-Z0-9._-]+/', '-', basename((string)($file['name'] ?? 'file'))));
+        $safe = function_exists('omurga_prepare_upload_name_for_dir') ? omurga_prepare_upload_name_for_dir($dir,(string)($file['name'] ?? 'file')) : (uniqid('media_', true).'-'.preg_replace('/[^a-zA-Z0-9._-]+/', '-', basename((string)($file['name'] ?? 'file'))));
         $target = $dir.'/'.$safe;
         if(!move_uploaded_file($file['tmp_name'], $target)) return ['ok'=>false,'error'=>'Dosya taşınamadı.'];
         $rel=$relDir.'/'.basename($target);

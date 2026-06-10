@@ -52,6 +52,7 @@ $total = count($checks);
 <section class="card">
   <h2>Genel Durum</h2>
   <p><b><?=e((string)$okCount)?> / <?=e((string)$total)?></b> kontrol sorunsuz görünüyor.</p>
+  <div class="omg-summary-strip"><span><b><?=e((string)$total)?></b> Toplam kontrol</span><span><b><?=e((string)$okCount)?></b> Sorunsuz</span><span><b><?=e((string)($total-$okCount))?></b> Uyarı</span><span><b><?=e(omurga_active_theme())?></b> Aktif tema</span></div>
   <div class="profile-help">
     <div><b>Profil</b><span><?=e((string)($profile['label'] ?? site_type()))?></span><small>Panel dili ve URL yapısı bu profile göre çalışır.</small></div>
     <div><b>URL</b><span>/<?=e(content_url_base())?>/icerik-adi</span><small>Profil değişirse yeni içerik bağlantısı buna göre oluşur.</small></div>
@@ -76,7 +77,7 @@ $total = count($checks);
 <section class="card" style="margin-top:18px">
   <h2>Hızlı Admin Sayfa Testleri</h2>
   <p class="muted">Aşağıdaki bağlantıları açarak 500 veren ekran varsa doğrudan tespit edebilirsin.</p>
-  <div class="dle-quick-grid">
+  <div class="dle-quick-grid compact-admin-links">
     <a class="dle-quick" href="post-edit.php"><span class="qicon doc">✚</span><span><b><?=e(content_quick_add_label())?></b><small>Yazı/içerik editörü</small></span></a>
     <a class="dle-quick" href="posts.php"><span class="qicon doc">▤</span><span><b><?=e(content_label_plural())?></b><small>İçerik listesi</small></span></a>
     <a class="dle-quick" href="pages.php"><span class="qicon doc">▦</span><span><b>Sayfalar</b><small>Sayfa listesi</small></span></a>

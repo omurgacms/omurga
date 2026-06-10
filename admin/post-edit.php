@@ -167,7 +167,7 @@ $autosaveInterval = max(15, min(300, (int)setting('autosave_interval_seconds','3
 </style>
 
 <?php require __DIR__.'/_media_picker.php'; ?>
-<script src="../assets/js/omurga-editor.js?v=1.0.8-beta"></script>
+<script src="../assets/js/omurga-editor.js?v=1.1.0-beta"></script>
 <script>(function(){const title=document.getElementById('titleInput'), slug=document.getElementById('slugInput'), meta=document.getElementById('metaDescription'), metaCount=document.getElementById('metaCount'), seoTitle=document.getElementById('seoPreviewTitle'), seoDesc=document.getElementById('seoPreviewDesc'); const tr={'ş':'s','Ş':'s','ı':'i','İ':'i','ğ':'g','Ğ':'g','ü':'u','Ü':'u','ö':'o','Ö':'o','ç':'c','Ç':'c'}; function slugify(s){return (s||'').replace(/[şŞıİğĞüÜöÖçÇ]/g,m=>tr[m]||m).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')} if(title&&slug){title.addEventListener('input',()=>{ if(!slug.dataset.touched && !slug.value) slug.placeholder=slugify(title.value)||'otomatik-olusturulur'; if(seoTitle) seoTitle.textContent=title.value||'Başlık önizlemesi';}); slug.addEventListener('input',()=>slug.dataset.touched='1');} if(meta){meta.addEventListener('input',()=>{ if(metaCount) metaCount.textContent=meta.value.length; if(seoDesc) seoDesc.textContent=meta.value||'Meta açıklaması burada görünecek.';});}})();</script>
 
 

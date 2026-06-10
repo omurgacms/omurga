@@ -50,6 +50,63 @@ function omurga_user_center_posts(int $userId, int $limit=50): array {
     } catch (Throwable $e) { omurga_write_error($e); return []; }
 }
 
+function omurga_user_center_post_stats(int $userId): array {
+    $stats = ['total'=>0,'pending'=>0,'published'=>0,'draft'=>0];
+    try {
+        $posts = table_name('posts');
+        $st = db()->prepare("SELECT status, COUNT(*) total FROM $posts WHERE author_id=? AND type<>'page' GROUP BY status");
+        $st->execute([$userId]);
+        foreach ($st->fetchAll() as $row) {
+            $status = (string)($row['status'] ?? 'draft');
+            $count = (int)($row['total'] ?? 0);
+            $stats['total'] += $count;
+            if (isset($stats[$status])) $stats[$status] += $count;
+        }
+    } catch (Throwable $e) { omurga_write_error($e); }
+    return $stats;
+}
+
+function omurga_user_center_categories(): array {
+    try {
+        return db()->query('SELECT id,name FROM '.table_name('categories').' ORDER BY name ASC')->fetchAll();
+    } catch (Throwable $e) { omurga_write_error($e); return []; }
+}
+
+function omurga_user_center_save_upload(string $field, ?int $userId=null): ?string {
+    if (empty($_FILES[$field]['name']) || ($_FILES[$field]['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) return null;
+    if (!can('media.upload') && !can('media.manage')) throw new RuntimeException(om_t('user_center.no_media_permission','Görsel yükleme yetkiniz yok.'));
+    $path = save_uploaded_file($field, true);
+    if ($path) insert_media_record($path, omurga_auto_image_alt('', trim((string)($_POST['title'] ?? '')), $path), $userId ?: ($_SESSION['omurga_user_id'] ?? null));
+    return $path;
+}
+
+function omurga_user_center_gallery_input(array $files): array {
+    $out = [];
+    if (empty($files['name']) || !is_array($files['name'])) return $out;
+    $count = count($files['name']);
+    for ($i=0; $i<$count; $i++) {
+        if (($files['error'][$i] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) continue;
+        $out[] = [
+            'name'=>$files['name'][$i] ?? '', 'type'=>$files['type'][$i] ?? '', 'tmp_name'=>$files['tmp_name'][$i] ?? '',
+            'error'=>$files['error'][$i] ?? UPLOAD_ERR_NO_FILE, 'size'=>$files['size'][$i] ?? 0,
+        ];
+    }
+    return $out;
+}
+
+function omurga_user_center_save_gallery_uploads(string $field, ?int $userId=null): array {
+    $saved = [];
+    if (empty($_FILES[$field]['name']) || !is_array($_FILES[$field]['name'])) return $saved;
+    $original = $_FILES[$field];
+    foreach (omurga_user_center_gallery_input($original) as $file) {
+        $_FILES[$field] = $file;
+        $path = omurga_user_center_save_upload($field, $userId);
+        if ($path) $saved[] = $path;
+    }
+    $_FILES[$field] = $original;
+    return $saved;
+}
+
 function omurga_user_center_post_for_edit(int $postId, int $userId): ?array {
     if ($postId <= 0 || !omurga_user_center_can_write()) return null;
     try {
@@ -137,6 +194,16 @@ function omurga_user_center_handle(): void {
             $status = can('posts.publish') ? omurga_normalize_post_status($_POST['status'] ?? ($existing['status'] ?? 'draft')) : 'pending';
             $publishedAt = $status === 'published' ? (($existing['published_at'] ?? '') ?: date('Y-m-d H:i:s')) : null;
             $slug = omurga_unique_slug(slugify(trim((string)($_POST['slug'] ?? '')) ?: $title), $postId);
+            $categoryId = max(0, (int)($_POST['category_id'] ?? ($existing['category_id'] ?? 0)));
+            $featuredImage = trim((string)($_POST['featured_image'] ?? ($existing['featured_image'] ?? '')));
+            $uploadedFeatured = omurga_user_center_save_upload('featured_upload', (int)$user['id']);
+            if ($uploadedFeatured) $featuredImage = $uploadedFeatured;
+            $galleryText = trim((string)($_POST['gallery_images'] ?? ($existing['gallery_images'] ?? '')));
+            $uploadedGallery = omurga_user_center_save_gallery_uploads('gallery_uploads', (int)$user['id']);
+            if ($uploadedGallery) {
+                $existingGallery = array_filter(array_map('trim', preg_split('/[\r\n,]+/u', $galleryText) ?: []));
+                $galleryText = implode("\n", array_values(array_unique(array_merge($existingGallery, $uploadedGallery))));
+            }
             $fields = [
                 'title'=>$title,
                 'slug'=>$slug,
@@ -146,6 +213,10 @@ function omurga_user_center_handle(): void {
                 'content_blocks'=>'',
                 'type'=>$existing['type'] ?? primary_content_type(),
                 'status'=>$status,
+                'category_id'=>$categoryId ?: null,
+                'featured_image'=>$featuredImage,
+                'video_url'=>trim((string)($_POST['video_url'] ?? ($existing['video_url'] ?? ''))),
+                'gallery_images'=>$galleryText,
                 'author_id'=>(int)$user['id'],
                 'comments_enabled'=>om_default_comments_enabled() ? 1 : 0,
                 'published_at'=>$publishedAt,
@@ -163,6 +234,10 @@ function omurga_user_center_handle(): void {
                 db()->prepare("INSERT INTO $posts (".implode(',', $cols).") VALUES ($marks)")->execute(array_values($fields));
                 $savedId = (int)db()->lastInsertId();
             }
+            if (function_exists('omurga_save_custom_field_values_frontend')) {
+                omurga_save_custom_field_values_frontend($savedId, (string)$fields['type'], $fields, $_POST['custom_fields'] ?? []);
+            }
+            omurga_sync_post_categories($savedId, $categoryId ? [$categoryId] : []);
             omurga_do_action('omurga_after_post_save', $savedId, $fields);
             omurga_notify_admins(om_t('user_center.post_submitted_title','Yeni kullanıcı yazısı'), $title, 'user', 'admin/post-edit.php?id='.$savedId);
             omurga_user_center_notice('success', can('posts.publish') ? om_t('user_center.post_saved','Yazınız kaydedildi.') : om_t('user_center.post_pending','Yazınız incelemeye gönderildi.'));

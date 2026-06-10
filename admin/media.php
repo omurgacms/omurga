@@ -71,7 +71,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                 if(!isset($allowed[$mime])){ $skipped++; continue; }
                 if(($files['size'][$i]??0)>64*1024*1024){ $skipped++; continue; }
                 $relDir=omurga_media_rel_dir(); $dir=dirname(__DIR__).'/'.$relDir; if(!is_dir($dir)) mkdir($dir,0775,true);
-                $name=omurga_prepare_upload_name($files['name'][$i], trim($_POST['title_hint']??'')); $originalPath=$relDir.'/'.$name; $target=$dir.'/'.$name;
+                $name=omurga_prepare_upload_name_for_dir($dir, $files['name'][$i], trim($_POST['title_hint']??'')); $originalPath=$relDir.'/'.$name; $target=$dir.'/'.$name; $GLOBALS['omurga_last_uploaded_original_filename']=basename((string)($one['name'] ?? $files['name'][$i] ?? '')); $GLOBALS['omurga_last_uploaded_original_path']=$originalPath;
                 if(!move_uploaded_file($tmp,$target)){ $skipped++; continue; }
                 if(str_starts_with($mime,'image/')) omurga_resize_image_if_needed($target,$mime,(int)setting('media_max_width','1600'),(int)setting('media_jpeg_quality','86'));
                 $finalPath=$originalPath;
@@ -79,7 +79,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                     $webp=create_webp_copy($target,$mime,(int)setting('webp_quality','82'));
                     if($webp){ $finalPath=$relDir.'/'.basename($webp); $createdWebp++; }
                 }
-                $alt=trim($_POST['alt_text']??'');
+                $alt=omurga_auto_image_alt(trim($_POST['alt_text']??''), trim($_POST['title_hint']??''), $finalPath);
                 insert_media_record($finalPath, $alt, $_SESSION['omurga_user_id'] ?? null, $originalPath===$finalPath ? null : $originalPath);
                 $ok++;
             }

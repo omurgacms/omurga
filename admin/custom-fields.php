@@ -26,6 +26,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         'default'=>trim((string)($_POST['field_default'][$i] ?? '')),
         'help'=>trim((string)($_POST['field_help'][$i] ?? '')),
         'options'=>trim((string)($_POST['field_options'][$i] ?? '')),
+        'show_admin'=>!empty($_POST['field_show_admin'][$i]) ? 1 : 0,
+        'show_frontend'=>!empty($_POST['field_show_frontend'][$i]) ? 1 : 0,
       ];
     }
     $group=[
@@ -69,7 +71,7 @@ $edit=$editIdx>=0?$groups[$editIdx]:['id'=>'','name'=>'','active'=>1,'targets'=>
       </select></label>
       <h3>Alanlar</h3>
       <div id="cfFields">
-        <?php $fields=$edit['fields'] ?: [['key'=>'kaynak','label'=>'Kaynak','type'=>'text','default'=>'','help'=>'','options'=>'']]; foreach($fields as $f): ?>
+        <?php $fields=$edit['fields'] ?: [['key'=>'kaynak','label'=>'Kaynak','type'=>'text','default'=>'','help'=>'','options'=>'','show_admin'=>1,'show_frontend'=>1]]; foreach($fields as $i=>$f): ?>
         <div class="cf-row">
           <input name="field_label[]" value="<?=e($f['label']??'')?>" placeholder="Etiket">
           <input name="field_key[]" value="<?=e($f['key']??'')?>" placeholder="anahtar">
@@ -77,6 +79,8 @@ $edit=$editIdx>=0?$groups[$editIdx]:['id'=>'','name'=>'','active'=>1,'targets'=>
           <input name="field_default[]" value="<?=e($f['default']??'')?>" placeholder="Varsayılan">
           <input name="field_help[]" value="<?=e($f['help']??'')?>" placeholder="Yardım metni">
           <textarea name="field_options[]" placeholder="Seçenekler: anahtar=Etiket"><?=e(is_array($f['options']??'')?implode("\n",$f['options']):($f['options']??''))?></textarea>
+          <input type="hidden" name="field_show_admin[<?= (int)$i ?>]" value="0"><label class="check-line cf-check"><input type="checkbox" name="field_show_admin[<?= (int)$i ?>]" value="1" <?=!isset($f['show_admin']) || (int)$f['show_admin']===1?'checked':''?>> Admin formunda</label>
+          <input type="hidden" name="field_show_frontend[<?= (int)$i ?>]" value="0"><label class="check-line cf-check"><input type="checkbox" name="field_show_frontend[<?= (int)$i ?>]" value="1" <?=!empty($f['show_frontend'])?'checked':''?>> Muhabir formunda</label>
           <button type="button" class="btn light" onclick="this.closest('.cf-row').remove()">Sil</button>
         </div>
         <?php endforeach; ?>
@@ -98,7 +102,8 @@ $edit=$editIdx>=0?$groups[$editIdx]:['id'=>'','name'=>'','active'=>1,'targets'=>
 function omAddCustomFieldRow(){
  var wrap=document.getElementById('cfFields');
  var div=document.createElement('div'); div.className='cf-row';
- div.innerHTML='<input name="field_label[]" placeholder="Etiket"><input name="field_key[]" placeholder="anahtar"><select name="field_type[]"><?php foreach($types as $tk=>$tv): ?><option value="<?=e($tk)?>"><?=e($tv)?></option><?php endforeach; ?></select><input name="field_default[]" placeholder="Varsayılan"><input name="field_help[]" placeholder="Yardım metni"><textarea name="field_options[]" placeholder="Seçenekler"></textarea><button type="button" class="btn light" onclick="this.closest(\'.cf-row\').remove()">Sil</button>';
+ var idx=wrap.querySelectorAll('.cf-row').length;
+ div.innerHTML='<input name="field_label[]" placeholder="Etiket"><input name="field_key[]" placeholder="anahtar"><select name="field_type[]"><?php foreach($types as $tk=>$tv): ?><option value="<?=e($tk)?>"><?=e($tv)?></option><?php endforeach; ?></select><input name="field_default[]" placeholder="Varsayılan"><input name="field_help[]" placeholder="Yardım metni"><textarea name="field_options[]" placeholder="Seçenekler"></textarea><input type="hidden" name="field_show_admin['+idx+']" value="0"><label class="check-line cf-check"><input type="checkbox" name="field_show_admin['+idx+']" value="1" checked> Admin formunda</label><input type="hidden" name="field_show_frontend['+idx+']" value="0"><label class="check-line cf-check"><input type="checkbox" name="field_show_frontend['+idx+']" value="1"> Muhabir formunda</label><button type="button" class="btn light" onclick="this.closest(\'.cf-row\').remove()">Sil</button>';
  wrap.appendChild(div);
 }
 </script>

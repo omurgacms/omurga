@@ -69,4 +69,21 @@
   if(document.readyState !== 'loading') refreshAll();
 })();
 
-</script></body></html>
+</script>
+<script>
+(function(){
+  document.querySelectorAll('.omg-view-toggle').forEach(function(toggle){
+    var list=toggle.nextElementSibling;
+    if(!list || !list.hasAttribute('data-omg-list-view')) return;
+    toggle.querySelectorAll('[data-omg-view]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var view=btn.getAttribute('data-omg-view') || 'list';
+        list.setAttribute('data-omg-list-view', view);
+        toggle.querySelectorAll('[data-omg-view]').forEach(function(b){ b.classList.toggle('active', b===btn); });
+      });
+    });
+  });
+})();
+</script>
+
+</body></html>

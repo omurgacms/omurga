@@ -1,234 +1,143 @@
-## 1.0.8 Beta
+# Changelog / Değişiklik Günlüğü
 
-- Ön yüz Kullanıcı Merkezi route'u eklendi: /hesabim ve user-center.
-- Kullanıcı Merkezi, Profil Kartı, Yazılarım, Yeni Yazı ve Bildirimlerim çekirdek blokları eklendi.
-- Kullanıcılar admin panele girmeden profil, şifre, kendi yazıları, yeni yazı ve bildirim işlemlerini yapabilir.
-- Ön yüz yazı düzenleme yalnız kullanıcının kendi yazılarıyla sınırlandı.
-- Yayınlama yetkisi olmayan kullanıcıların gönderileri inceleme durumuna düşer.
+## 1.1.0 Beta - Major SEO, Admin and Editor Synchronization Release
 
-## 1.0.7.9 Beta
+### Türkçe
 
-- Resmi sürüm bilgisi 1.0.7.9 Beta olarak güncellendi.
-- Güncelleme paketlerinde storage/ yazma engeli yeniden sıkılaştırıldı.
-- Production modda aynı sürüm ve düşük sürüm kurulumu engellendi.
-- Özel Alanlar ekranı için custom_fields.manage yetkisi eklendi.
-- Ayarlar, tasarım ve reklam ekranlarındaki yetki kontrolleri ilgili izinlere taşındı.
-- REST API ayar ekranında yetkisiz erişim sistem hata ekranıyla uyumlu hale getirildi.
-- Üyelik/kayıt varsayılanı güvenli şekilde kapalı yapıldı.
+- 1.0.8 Beta’dan 1.0.15.1 Beta’ya kadar yapılan yazı paneli, tema paneli, muhabir paneli, SEO Merkezi, görsel SEO, admin sadeleştirme ve canlı kurulum düzeltmeleri 1.1.0 Beta altında toparlandı.
+- Blok editörde eklenen içeriklerin Klasik Editör’e geçince görünmemesi düzeltildi.
+- Editör geçişinde blok içerikleri HTML’e çevrilerek klasik editöre aktarılır.
+- Klasik editörden blok editöre geçişte içerik temel bloklara dönüştürülür.
+- Kaydetme sırasında aktif editör tipine göre hem `content` hem `content_blocks` güvenli şekilde senkronize edilir.
+- GitHub için release notları, changelog, güvenlik politikası ve issue/PR şablonları güncellendi.
 
-## 1.0.7.8 Beta
+### English
 
-- Bildirim sistemi iyileştirildi.
-- `notifications.manage` yetkisi eklendi.
-- `om_notify()` ve `omurga_notify_admins()` yardımcıları eklendi.
-- Yanlış parametre sıralı bildirim çağrısı düzeltildi.
-- Yeni yorum, kullanıcı, paket ve güncelleme olayları bildirim üretir hale getirildi.
-- Bildirim ekranına tür filtresi eklendi.
-- Bildirim dokümantasyonu eklendi.
+- Consolidated all post panel, theme panel, reporter panel, SEO Center, image SEO, admin cleanup and live installation fixes from 1.0.8 Beta through 1.0.15.1 Beta into the 1.1.0 Beta release.
+- Fixed block editor content not appearing when switching to Classic Editor.
+- Block content is converted into HTML when switching to Classic Editor.
+- Classic content can be converted back into basic blocks when switching to Block Editor.
+- On save, `content` and `content_blocks` are synchronized safely based on the active editor mode.
+- Updated GitHub release notes, changelog, security policy and issue/PR templates.
 
-## 1.0.7.8 Beta
+## 1.0.15.1 Beta - Live Installation SEO Fix
 
-- Haber V1, Kurumsal V1 ve Topluluk V1 temaları dağıtım paketine eklendi.
-- Tema demo yapısı `demos/` altında düzenlendi.
-- Kurulum profil seçimine göre varsayılan tema eşlemesi korundu.
-- Temiz dağıtım için config, lock, log, cache ve eski paket çıktıları paketten çıkarıldı.
-- Resmi sürüm bilgisi 1.0.7.8 Beta olarak güncellendi.
+### Türkçe
+- Türkçe karakter bozulmaları düzeltildi.
+- SEO endpointleri için korunan slug listesi genişletildi.
+- Boş veya sistem klasörlerini hedefleyen güvensiz yönlendirmeler engellendi.
+- `/admin/seo-test.php` canlı kurulum kontrol sayfası eklendi.
+- `storage/cache`, `storage/logs` ve `uploads` klasörleri dağıtıma güvenli şekilde dahil edildi.
 
+### English
+- Fixed corrupted Turkish text in fallback pages.
+- Expanded reserved slug protection for SEO endpoints.
+- Blocked unsafe redirect rules targeting empty paths or system folders.
+- Added `/admin/seo-test.php` for live installation checks.
+- Included `storage/cache`, `storage/logs` and `uploads` folders safely in the distribution.
 
-## 1.0.3.15 Beta
+## 1.0.15 Beta - SEO Completion Update
 
-- Admin panelde kalan DLE/mavi renk tonları Omurga turuncu + slate renk sistemine uyarlandı.
-- Mavi bilgi/sekme/vurgu renkleri sadeleştirildi.
-- PHP syntax kontrolü yapıldı.
+### Türkçe
+- Gelişmiş schema sistemi eklendi: Organization, WebSite, SearchAction, BreadcrumbList, Article, NewsArticle, WebPage, CollectionPage ve ImageObject.
+- Open Graph ve Twitter kartları genişletildi.
+- `/sitemap-tags.xml`, `/sitemap-images.xml`, `/sitemap-authors.xml` ve `/atom.xml` eklendi.
+- Etiket ve yazar arşivleri eklendi.
+- Yönlendirme merkezi ve 404 izleme eklendi.
+- E-E-A-T kontrolleri, tema SEO denetimi ve SEO sağlık raporu eklendi.
 
-# Omurga CMS 1.0.3.15 Beta
+### English
+- Added advanced schema support: Organization, WebSite, SearchAction, BreadcrumbList, Article, NewsArticle, WebPage, CollectionPage and ImageObject.
+- Expanded Open Graph and Twitter card metadata.
+- Added `/sitemap-tags.xml`, `/sitemap-images.xml`, `/sitemap-authors.xml` and `/atom.xml`.
+- Added tag and author archive routes.
+- Added redirect manager and 404 tracking.
+- Added E-E-A-T checks, theme SEO audit and SEO health report.
 
-- Medya seçici ve medya yükleme API'leri JSON uyumlu hale getirildi.
-- Yazı ve sayfa editörlerinde öne çıkan görsel/görsel ekleme sırasında güvenlik hataları artık düz metin yerine JSON döndürür.
-- Medya yükleme CSRF token gönderimi düzeltildi.
+## 1.0.14 Beta - Image SEO Update
 
-# Omurga CMS 1.0.3.15 Beta
+### Türkçe
+- Görsellerin yazı başlığına göre SEO uyumlu adlandırılması eklendi.
+- Alt metin otomatik doldurma eklendi.
+- Orijinal dosya adı medya kaydında saklanır.
+- Admin yazı ekranı, muhabir paneli ve medya yükleme akışına bağlandı.
 
-- REST API sistemi eklendi.
-- API anahtarı yönetim ekranı eklendi.
-- Posts, pages, categories, tags, media ve users endpointleri eklendi.
-- API dokümantasyonu eklendi.
+### English
+- Added SEO-friendly image renaming from the post title.
+- Added automatic alt text filling.
+- Original filenames are preserved in media records.
+- Connected to admin post editing, reporter panel and media upload flows.
 
-# Omurga CMS 1.0.3.15 Beta
+## 1.0.13 Beta - Admin Menu Centers
 
-- Tema API yardımcıları eklendi.
-- `theme.json` manifest standardı netleştirildi.
-- Tema bazlı menü konumları desteklendi.
-- Tema ayar API yardımcıları eklendi.
-- Aktif temanın `functions.php` dosyası güvenli şekilde yüklenir.
-- Hook sistemi tema geliştiriciler için dokümante edildi.
-- Varsayılan tema dokümantasyonu eklendi.
+### Türkçe
+- Kullanıcılar, Roller ve Yetkiler Kullanıcı Yönetimi altında toplandı.
+- SEO Merkezi sekmeli hale getirildi.
+- Performans / Cache sayfasına güvenli sistem temizliği eklendi.
 
-# Omurga CMS 1.0.3.15 Beta
+### English
+- Grouped Users, Roles and Permissions under User Management.
+- Added tabs to the SEO Center.
+- Added safe cleanup tools to Performance / Cache.
 
-- Admin menü görünümü sadeleştirildi.
-- Kategori/grup bazlı renkli işaretlemeler azaltıldı.
-- Aktif sayfa vurgusu daha sade hale getirildi.
-- Panel logosu tıklanabilir yapıldı ve panel ana sayfasına bağlandı.
+## 1.0.12 Beta - Compact Menu and Maintenance
 
-# Omurga CMS 1.0.3.15 Beta
+### Türkçe
+- SEO Merkezi Ayarlar menüsüne taşındı.
+- Performans ve Cache tek sayfada birleştirildi.
+- İşlem kayıtları ve geri dön/rollback sayfaları kompakt hale getirildi.
 
-## Yazılar Ekranı Kullanılabilirlik Düzenlemesi
+### English
+- Moved SEO Center under Settings.
+- Merged Performance and Cache into one page.
+- Compacted activity logs and rollback pages.
 
-- 1.0.3 modern liste tasarımı korundu.
-- Yazılar ekranında satır ve işlem alanları ekrandan taşmayacak şekilde düzenlendi.
-- Mobilde gelişmiş arama kaldırıldı; sadece küçük arama alanı ve Ara butonu bırakıldı.
-- Masaüstünde gelişmiş arama WordPress benzeri kısa ve yatay filtre alanı olarak düzenlendi.
-- Toplu İşlemler alanına yayınla, taslağa al, çöpe taşı, kategori değiştir, etiket ekle ve etiket kaldır seçenekleri eklendi.
-- Satır işlemlerinde taşmayı azaltmak için ek işlemler üç nokta menüsüne alındı.
+## 1.0.11 Beta - Compact Admin Lists
 
-# Omurga CMS 1.0.3.15 Beta
+### Türkçe
+- Temalar, Paketler ve Tanılama sayfaları kompakt liste görünümüne alındı.
+- Liste/Kart görünüm anahtarı eklendi.
+- Mobil görünüm toparlandı.
 
-- Menü Yönetimi sayfasının boş ekran verme riski giderildi.
-- Menü ekranına yetki geriye uyumluluğu, varsayılan menü fallback’i ve hata yakalama eklendi.
-- Sayfa/kategori/etiket hazır bağlantı listeleri hata verse bile menü ekranı açılmaya devam eder.
+### English
+- Added compact list views for Themes, Packages and Diagnostics.
+- Added List/Card view switch.
+- Improved mobile admin layout.
 
-# Omurga CMS 1.0.3.15 Beta
+## 1.0.10 Beta - SEO Center, RSS and IndexNow
 
-- Güncelleme sisteminde aynı sürüm ve sürüm düşürme blokları kaldırıldı; kullanıcı onayıyla devam eden uyarı akışına çevrildi.
-- GitHub release kontrolü `/releases` listesi üzerinden beta/pre-release sürümleri de okuyacak şekilde korundu.
-- Sistem Sağlığı ve Güncellemeler ekran ayrımı korundu.
+### Türkçe
+- Genel RSS ve kategori bazlı RSS eklendi.
+- Google News RSS eklendi.
+- IndexNow ve indeks kuyruğu eklendi.
+- SEO kalite kontrolleri genişletildi.
 
-- Aynı sürüm veya düşük sürüm güncelleme paketleri artık engellenmez; kullanıcı onayıyla uygulanır ve işlem loglanır.
+### English
+- Added general RSS and category RSS feeds.
+- Added Google News RSS.
+- Added IndexNow and index queue.
+- Expanded SEO quality checks.
 
-## Omurga CMS 1.0.3.15 Beta - Güvenli Güncelleme Sistemi
+## 1.0.9 Beta - Reporter Panel and Custom Fields
 
-- Admin paneline `Güncellemeler` ekranı eklendi.
-- GitHub Releases üzerinden cache destekli güncelleme kontrolü eklendi.
-- Otomatik ve manuel güncelleme aynı güvenli installer akışına bağlandı.
-- Güncelleme öncesi veritabanı ve çekirdek dosya yedeği alma sistemi eklendi.
-- `config.php`, `uploads`, `storage`, kullanıcı temaları ve kullanıcı paketleri koruma altına alındı.
-- Zip güvenlik kontrolleri, sürüm düşürme engeli, bakım modu kilidi ve update log sistemi eklendi.
-- Migration dosyalarının tek sefer çalışması için `omurga_migrations` kayıt sistemi hazırlandı.
+### Türkçe
+- `/hesabim` muhabir paneli geliştirildi.
+- Ön yüzden haber gönderme formu genişletildi.
+- Muhabire açık özel alanlar formda görünür ve kaydedilir hale getirildi.
 
-## v1.0.1 Beta - Block Center
+### English
+- Improved the `/hesabim` reporter panel.
+- Expanded front-end post submission.
+- Added permission-based custom fields for reporter forms.
 
-- `admin/blocks.php` Blok Merkezi olarak düzenlendi.
-- Varsayılan blokların kaynak etiketi `Çekirdek` yapıldı.
-- Blok listesine kaynak, kategori, durum, kullanım alanı, context, ayar ve dosya/render bilgisi eklendi.
-- Blok Merkezi dokümanı eklendi: `docs/block-center.md`.
+## 1.0.8 Beta - Post Panel and Theme Admin Menu Fixes
 
-# Changelog
+### Türkçe
+- Yazılar menüsünde mevcut yazıların görünmemesi düzeltildi.
+- Yayınlama sırasında autosave silme hatası düzeltildi.
+- Aktif temanın kendi panelinin admin menüde görünmesi sağlandı.
 
-## Omurga CMS 1.0.1 Beta
-
-First public beta release.
-
-### Added
-
-- OMG based default theme: Omurga Kolay.
-- PHP based default theme: Omurga Sabit.
-- Theme engine validation for `template_engine: omg` and `template_engine: php`.
-- Theme safety system: active theme protection, system theme protection and minimum 2-theme rule.
-- Block API foundation.
-- Package API foundation.
-- Hook foundation.
-- Shared media picker foundation.
-- Form builder and submission management beta.
-- One sample post and one sample comment after installation.
-- MIT License.
-- Bilingual README, roadmap, contribution guide and release notes.
-
-### Cleaned
-
-- Removed old release packages, generated logs and cache files from the release package.
-- Simplified the default theme set.
-- Moved older development notes to `docs/archive/`.
-
-### Note
-
-This is a beta release. Take backups before production use.
-
----
-
-## Omurga CMS 1.0.1 Beta
-
-İlk herkese açık beta sürümü.
-
-### Eklenenler
-
-- OMG tabanlı varsayılan tema: Omurga Kolay.
-- PHP tabanlı varsayılan tema: Omurga Sabit.
-- `template_engine: omg` ve `template_engine: php` için tema motoru doğrulama sistemi.
-- Tema güvenlik sistemi: aktif tema koruması, sistem teması koruması ve minimum 2 tema kuralı.
-- Blok API altyapısı.
-- Paket API altyapısı.
-- Hook altyapısı.
-- Ortak medya seçici altyapısı.
-- Form oluşturucu ve form başvuru yönetimi beta.
-- Kurulum sonrası 1 örnek yazı ve 1 örnek yorum.
-- MIT lisansı.
-- Çift dilli README, yol haritası, katkı rehberi ve yayın notları.
-
-### Temizlenenler
-
-- Eski sürüm paketleri, üretilmiş loglar ve cache dosyaları yayın paketinden çıkarıldı.
-- Varsayılan tema seti sadeleştirildi.
-- Eski geliştirme notları `docs/archive/` altına taşındı.
-
-### Not
-
-Bu sürüm beta durumundadır. Canlı kullanım öncesi yedek alın.
-
-## 1.0.1 Beta - Developer API Standardı
-
-- `core/DeveloperApi.php` eklendi.
-- `Omurga::addAction`, `Omurga::addFilter`, `Omurga::addBlock`, `Omurga::addAdminPage`, `Omurga::addRoute`, `Omurga::addStyle`, `Omurga::addScript`, `Omurga::addThemeDemo` API'leri eklendi.
-- Paket admin sayfaları için runtime kayıt desteği eklendi.
-- Tema ve paket manifestleri filtrelenebilir hale getirildi.
-- Çoklu tema demo standardı eklendi.
-- Demo içe aktarmada kullanıcı/rol/sistem/SQL alanları çekirdek seviyesinde yasaklandı.
-- Geliştirici dokümanı ve örnek tema/paket eklendi.
-
-
-## 1.0.1 Beta - Platform API
-- Standart Hook/Event listesi eklendi.
-- Manifest doğrulama standardı eklendi.
-- Paket bağımlılık kontrol API'si eklendi.
-- Cron/görev zamanlayıcı API'si eklendi.
-- Medya yükleme ve WebP dönüştürme API'si eklendi.
-- Omurga Merkezi endpoint API'si eklendi.
-- Child theme standardı eklendi.
-- Temel Omurga CLI eklendi.
-
-## 1.0.1 Beta - Tema/Paket Standardı ve İzin Sistemi
-- Resmi tema klasör standardı eklendi.
-- Resmi paket klasör standardı eklendi.
-- Paket izin katalog sistemi eklendi.
-- Paket yüklerken izin onayı zorunlu hale getirildi.
-- Temalarda kullanıcı/rol/veritabanı/sistem/çekirdek izinleri engellendi.
-- Yönetim ekranlarına standart uyarıları ve izin açıklamaları eklendi.
-
-## 1.0.1 Beta - Security Health Center
-
-- Güvenlik Merkezi durum paneli eklendi.
-- Tema/paket riskli fonksiyon taraması eklendi.
-- Sistem Sağlığı kontrolleri genişletildi.
-- PHP, veritabanı, disk, cron, cache, SSL, hata günlüğü ve klasör izinleri tek ekranda raporlandı.
-- Doküman eklendi: `docs/security-health-center.md`.
-
-## 1.0.1 Beta - Otomatik Kaydetme Sistemi
-
-- Yazı ve sayfa editörlerine otomatik taslak kaydı eklendi.
-- `post_autosaves` tablosu eklendi.
-- `admin/autosave-api.php` eklendi.
-- Otomatik kayıt geri yükleme butonu eklendi.
-- Normal kaydetme sonrası otomatik kayıt temizleme eklendi.
-
-## 1.0.1 Beta - Dashboard Sistemi
-
-- Kontrol Paneli ekranı yenilendi.
-- Yazı, sayfa, yorum, aktivite ve sistem özeti eklendi.
-- Hızlı işlem kartları düzenlendi.
-- Sistem sağlığı ve güvenlik merkezi özetleri dashboard'a eklendi.
-- Son aktiviteler ve bekleyen yorumlar dashboard'da gösterildi.
-
-## 1.0.3.15 Beta
-- Yazı ve sayfa editörüne kaydetmeden kullanılabilen Editör Önizleme penceresi eklendi.
-- Üst menüdeki Profilim bağlantısı gerçek profil düzenleme ekranına bağlandı.
-- /admin/users.php profil modunda kullanıcı listesi yerine sadece mevcut kullanıcının bilgilerini gösterir.
+### English
+- Fixed existing posts not showing in the Posts menu.
+- Fixed autosave deletion error during publishing.
+- Added active theme admin panel visibility in the admin menu.
