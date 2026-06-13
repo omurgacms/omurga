@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($action === 'run_migration') {
             create_database_backup();
-            omurga_migrate();
+            omurga_migrate(true);
             log_activity('system.migrate', 'Migration kontrolleri çalıştırıldı');
             $msg = 'Migration kontrolleri çalıştırıldı. İşlem öncesi veritabanı yedeği alındı.';
         }

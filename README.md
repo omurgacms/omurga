@@ -1,4 +1,24 @@
-# Omurga CMS 1.1.0 Beta
+
+## Omurga CMS 1.2.0 RC1
+
+> Current release candidate: Omurga CMS 1.2.0 RC1 (`1.2.0-rc.1`)
+
+This is not a new feature release. Feature work is frozen for this candidate. The goal of 1.2.0 RC1 is stabilization, release readiness and real-user flow hardening across installation, admin login, content editing, media, theme/package uploads, migrations, SEO/API endpoints, health checks and security behavior.
+
+Bu sürüm yeni özellik sürümü değildir. Yeni özellikler dondurulmuştur. 1.2.0 RC1 yalnızca stabilizasyon, release candidate hazırlığı, hata düzeltme, güvenlik, kurulum, medya, tema/paket, migration ve admin kararlılığına odaklanır.
+
+## 1.1.8 Beta - Testing, Installer & Health Check Update
+
+- Added `/admin/health-check.php` for post-install server, permissions, migration, security and endpoint checks.
+- Added `/admin/system-tests.php` for safe non-destructive admin tests.
+- Added CLI tools: `tools/health-check.php` and `tools/run-tests.php`.
+- Improved installer requirements with ZipArchive, storage/cache, storage/logs, packages and themes write checks.
+- Added `docs/TEST_CHECKLIST.md` in Turkish and English.
+- Added System menu entries for Health Check and System Tests.
+
+# Omurga CMS
+
+> Current candidate: Omurga CMS 1.2.0 RC1 — Stabilization and release readiness
 
 <p align="center">
   <strong>Modern CMS for news, corporate and community websites.</strong><br>
@@ -14,7 +34,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.1.0%20Beta-blue">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.2.0--rc.1-blue">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
   <img alt="Status" src="https://img.shields.io/badge/status-beta-orange">
 </p>
@@ -23,7 +43,7 @@
 
 ## English
 
-**Omurga CMS 1.1.0 Beta** is a lightweight, extensible CMS foundation for news, corporate and community websites. It includes a theme system, package foundation, admin panel, front-end reporter panel, SEO Center, RSS/sitemap infrastructure, IndexNow, image SEO and compact admin management screens.
+**Omurga CMS 1.2.0 RC1** is a lightweight, extensible CMS foundation for news, corporate and community websites. This candidate freezes new features and focuses on installer compatibility, admin stability, media flow reliability, theme/package upload safety, migrations, SEO endpoints, API status and health checks.
 
 ### Main features
 
@@ -71,7 +91,7 @@
 
 ## Türkçe
 
-**Omurga CMS 1.1.0 Beta**, haber, kurumsal ve topluluk web siteleri için geliştirilen hafif ve genişletilebilir bir CMS temelidir. Tema sistemi, paket altyapısı, admin panel, ön yüz muhabir paneli, SEO Merkezi, RSS/sitemap altyapısı, IndexNow, görsel SEO ve kompakt admin yönetim ekranları içerir.
+**Omurga CMS 1.1.1 Beta**, haber, kurumsal ve topluluk web siteleri için geliştirilen hafif ve genişletilebilir bir CMS temelidir. Tema sistemi, paket altyapısı, admin panel, ön yüz muhabir paneli, SEO Merkezi, RSS/sitemap altyapısı, IndexNow, görsel SEO ve kompakt admin yönetim ekranları içerir.
 
 ### Ana özellikler
 
@@ -125,3 +145,21 @@
 ## License
 
 MIT License.
+
+
+## 1.1.5 Beta Media Jobs
+
+Omurga now includes a media processing queue for WebP conversion, thumbnail generation, image size detection, SEO alt text filling and image sitemap refresh. Open `/admin/media-jobs.php` to process or retry pending media jobs.
+
+
+## 1.1.8 Beta Account Security
+
+This release adds a stronger password reset flow, account security screen, password policy checks and 2FA-ready user fields.
+
+## 1.1.8 Beta Theme & Package Upload Experience
+
+- Tema ve paket yükleme sayfaları artık üç aşamalı çalışır: ZIP seç, analiz et, kurulumu onayla.
+- Büyük ZIP yüklemelerinde kullanıcıya “Yükleniyor...” bilgilendirmesi gösterilir.
+- Kurulumdan önce sürüm karşılaştırması yapılır: güncelleme, aynı sürüm üzerine yazma veya eski sürüme dönme.
+- Tema/paket güncellemeden önce mevcut klasör otomatik yedeklenir.
+- Paket izinleri, standart uyarıları ve güvenlik notları kurulumdan önce gösterilir.

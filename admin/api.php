@@ -6,12 +6,14 @@ if(!can('api.manage') && !can('settings.manage') && !can('system.manage')){
 }
 $notice=''; $error=''; $newToken='';
 if($_SERVER['REQUEST_METHOD']==='POST'){
-    csrf_check();
+    verify_csrf();
     $action=$_POST['action'] ?? '';
     try{
         if($action==='settings'){
             update_setting('api_enabled', !empty($_POST['api_enabled']) ? '1' : '0');
-            update_setting('api_cors_origin', trim((string)($_POST['api_cors_origin'] ?? '')));
+            update_setting('api_cors_origins', trim((string)($_POST['api_cors_origins'] ?? '')));
+            update_setting('api_rate_limit_enabled', !empty($_POST['api_rate_limit_enabled']) ? '1' : '0');
+            update_setting('api_rate_limit_per_hour', (string)max(10, min(10000, (int)($_POST['api_rate_limit_per_hour'] ?? 120))));
             $notice='API ayarları kaydedildi.';
         } elseif($action==='create_token'){
             $name=trim((string)($_POST['name'] ?? '')) ?: 'API Anahtarı';
@@ -44,7 +46,9 @@ include __DIR__.'/_layout.php';
     <h2>API Ayarları</h2>
     <form method="post"><?=csrf_field()?><input type="hidden" name="action" value="settings">
       <label class="check"><input type="checkbox" name="api_enabled" value="1" <?=omurga_api_enabled()?'checked':''?>> REST API aktif</label>
-      <label>CORS Origin <small>Boşsa kapalı. Örnek: https://site.com</small><input type="text" name="api_cors_origin" value="<?=e(setting('api_cors_origin',''))?>" placeholder="https://example.com"></label>
+      <label>CORS Originleri <small>Virgülle ayırın. Boşsa kapalı. Örnek: https://site.com</small><input type="text" name="api_cors_origins" value="<?=e(setting('api_cors_origins', setting('api_cors_origin','')))?>" placeholder="https://example.com"></label>
+      <label class="check"><input type="checkbox" name="api_rate_limit_enabled" value="1" <?=setting('api_rate_limit_enabled','1')==='1'?'checked':''?>> API rate limit aktif</label>
+      <label>Saatlik istek limiti <input type="number" min="10" max="10000" name="api_rate_limit_per_hour" value="<?=e(setting('api_rate_limit_per_hour','120'))?>"></label>
       <button class="btn primary">Ayarları Kaydet</button>
     </form>
   </section>
@@ -68,9 +72,9 @@ include __DIR__.'/_layout.php';
 </section>
 <section class="card">
   <h2>Örnek Endpointler</h2>
-  <p><code><?=e(omurga_url('api/status'))?></code></p>
-  <p><code><?=e(omurga_url('api/posts'))?></code></p>
-  <p><code><?=e(omurga_url('api/pages'))?></code></p>
-  <p><code><?=e(omurga_url('api/categories'))?></code></p>
+  <p><code><?=e(omurga_url('api/v1/status'))?></code></p>
+  <p><code><?=e(omurga_url('api/v1/posts'))?></code></p>
+  <p><code><?=e(omurga_url('api/v1/pages'))?></code></p>
+  <p><code><?=e(omurga_url('api/v1/categories'))?></code></p>
 </section>
 <?php include __DIR__.'/_footer.php'; ?>

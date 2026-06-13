@@ -1,2 +1,0 @@
-<?php require_once dirname(__DIR__, 2).'/functions.php'; $settings=$settings ?? ($block['settings'] ?? []); ?>
-<?php $posts=omh_block_posts($settings,3); ?><div class="omh-small-headlines"><?php foreach($posts as $p): ?><a class="omh-small-card" href="<?=omh_e(omh_post_url($p))?>"><img src="<?=omh_e(omh_img($p))?>" alt=""><div><span><?=omh_e($p['category_name'] ?? 'Haber')?></span><strong><?=omh_e($p['title'])?></strong></div></a><?php endforeach; ?></div>

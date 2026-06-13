@@ -2,7 +2,7 @@
 require_once __DIR__.'/_layout.php';
 require_cap('themes.manage');
 omurga_migrate();
-$msg=''; $err='';
+$msg=''; $err=''; $uploadReport=null; $uploadStage=null;
 if($_SERVER['REQUEST_METHOD']==='POST'){
     verify_csrf();
     try{
@@ -16,12 +16,19 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             log_activity('theme.activate','Tema etkinleştirildi: '.$slug);
             $msg='Tema etkinleştirildi: '.$info['name'];
         }
-        if($action==='upload'){
-            if(empty($_FILES['theme_zip']['name']) || ($_FILES['theme_zip']['error'] ?? UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK) throw new RuntimeException('Tema zip dosyası seçilmedi.');
-            if(strtolower(pathinfo($_FILES['theme_zip']['name'],PATHINFO_EXTENSION))!=='zip') throw new RuntimeException('Sadece .zip tema paketi yüklenebilir.');
-            $info=omurga_install_theme_zip($_FILES['theme_zip']['tmp_name'], [
+        if($action==='analyze_upload'){
+            $stage=omurga_stage_extension_zip($_FILES['theme_zip'] ?? [], 'theme');
+            $uploadReport=omurga_analyze_theme_zip($stage['path']);
+            $uploadStage=$stage;
+            $msg='Tema zip yüklendi ve analiz edildi. Kurulum için aşağıdaki raporu onayla.';
+        }
+        if($action==='confirm_upload'){
+            $token=(string)($_POST['stage_token'] ?? '');
+            $zipPath=omurga_staged_extension_zip_path($token,'theme');
+            $info=omurga_install_theme_zip($zipPath, [
                 'version_policy'=>(string)($_POST['version_policy'] ?? 'auto'),
             ]);
+            omurga_clear_staged_extension_zip($token,'theme');
             log_activity('theme.upload','Tema '.($info['install_action'] ?? 'yüklendi').': '.($info['slug'] ?? ''));
             $msg='Tema '.($info['install_action'] ?? 'yüklendi').': '.($info['name'] ?? $info['slug']).' ('.(($info['installed_version'] ?? '') ?: 'yok').' → '.($info['uploaded_version'] ?? $info['version'] ?? '').')'.(!empty($info['backup']) ? ' — önceki sürüm yedeklendi.' : '');
             if(!empty($_POST['activate_after_upload'])){
@@ -32,6 +39,13 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             } else {
                 $msg .= ' — pasif bırakıldı.';
             }
+        }
+        if($action==='upload'){
+            $stage=omurga_stage_extension_zip($_FILES['theme_zip'] ?? [], 'theme');
+            $info=omurga_install_theme_zip($stage['path'], ['version_policy'=>(string)($_POST['version_policy'] ?? 'auto')]);
+            omurga_clear_staged_extension_zip($stage['token'],'theme');
+            log_activity('theme.upload','Tema '.($info['install_action'] ?? 'yüklendi').': '.($info['slug'] ?? ''));
+            $msg='Tema '.($info['install_action'] ?? 'yüklendi').': '.($info['name'] ?? $info['slug']).' ('.(($info['installed_version'] ?? '') ?: 'yok').' → '.($info['uploaded_version'] ?? $info['version'] ?? '').')'.(!empty($info['backup']) ? ' — önceki sürüm yedeklendi.' : '');
         }
         if($action==='delete'){
             $slug=preg_replace('/[^a-z0-9_-]/','',strtolower($_POST['theme_slug'] ?? ''));
@@ -186,7 +200,51 @@ function omg_theme_support_scan(string $slug): array {
   <h2>Yeni Tema Yükle / Güncelle</h2>
   <p class="muted">Aynı slug varsa sürüme göre otomatik güncelleme, yeniden kurma veya sürüm düşürme yapılır; eski tema yedeklenir. Tema zip içinde <code>theme.json</code> olmalı. Tema görünüm işidir; kullanıcı, rol, veritabanı, SQL, sistem ve çekirdek izinleri tema tarafında engellenir.</p>
   <div class="alert pending"><b>Resmi tema standardı:</b> <code>theme.json</code> zorunlu; <code>functions.php</code>, <code>screenshot.jpg</code>, <code>preview.jpg</code>, <code>assets/</code>, <code>views/</code>, <code>blocks/</code>, <code>demos/</code>, <code>languages/</code> önerilen standart yapıdır.</div>
-  <form method="post" enctype="multipart/form-data" class="inline-form"><input type="hidden" name="_csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="upload"><input type="file" name="theme_zip" accept=".zip" required><label><input type="checkbox" name="activate_after_upload" value="1"> Yükledikten sonra etkinleştir</label><select name="version_policy"><option value="auto">Aynı tema varsa: yüksekse güncelle, aynıysa yenile, düşükse sürüm düşür</option><option value="only_newer">Sadece daha yüksek sürümse güncelle</option><option value="only_same">Sadece aynı sürümü yeniden kur</option><option value="only_lower">Sadece düşük sürüme düşür</option></select><button class="btn primary">Tema Zip Yükle</button></form>
+  <div class="upload-wizard">
+    <div class="upload-steps"><span class="active">1 ZIP seç</span><span>2 Analiz</span><span>3 Onayla</span></div>
+    <form method="post" enctype="multipart/form-data" class="upload-form omurga-loading-form" data-loading-title="Tema yükleniyor..." data-loading-text="ZIP dosyası sunucuya aktarılıyor, güvenlik ve sürüm kontrolü yapılacak.">
+      <input type="hidden" name="_csrf" value="<?=e(csrf_token())?>">
+      <input type="hidden" name="action" value="analyze_upload">
+      <label class="upload-drop"><strong>Tema ZIP dosyası seç</strong><span>theme.json içeren .zip paketini yükle. Büyük dosyalarda sayfadan ayrılma.</span><input type="file" name="theme_zip" accept=".zip,application/zip" required></label>
+      <label><input type="checkbox" name="activate_after_upload" value="1"> Kurulumdan sonra etkinleştir</label>
+      <button class="btn primary">Yükle ve Kontrol Et</button>
+    </form>
+    <p class="muted">Sunucu limiti: upload_max_filesize <?=e((string)ini_get('upload_max_filesize'))?>, post_max_size <?=e((string)ini_get('post_max_size'))?>.</p>
+  </div>
+  <?php if($uploadReport && ($uploadReport['type'] ?? '')==='theme' && $uploadStage): ?>
+    <div class="install-report">
+      <h3><?=e($uploadReport['action_title'])?></h3>
+      <p><?=e($uploadReport['action_description'])?></p>
+      <div class="omg-summary-strip"><span><b><?=e($uploadReport['name'])?></b> Tema</span><span><b><?=e($uploadReport['slug'])?></b> Slug</span><span><b><?=e($uploadReport['installed_version'] ?: 'yok')?></b> Kurulu</span><span><b><?=e($uploadReport['uploaded_version'])?></b> Yüklenen</span><span><b><?=e($uploadReport['size'])?></b> Boyut</span></div>
+      <?php $zr=$uploadReport['zip_report'] ?? []; ?>
+      <details class="object-details" open>
+        <summary>ZIP güvenlik kontrolü</summary>
+        <div class="omg-summary-strip">
+          <span><b><?=e((string)($uploadReport['checked_files'] ?? ($uploadReport['files'] ?? 0)))?></b> kontrol edilen dosya</span>
+          <span><b><?=e((string)count($uploadReport['ignored_system_files'] ?? []))?></b> yok sayılan sistem dosyası</span>
+          <span><b><?=e((string)count($uploadReport['allowed_admin_files'] ?? []))?></b> izinli admin dosyası</span>
+          <span><b><?=e((string)count($uploadReport['blocked_files'] ?? []))?></b> engellenen dosya</span>
+          <span><b><?=!empty($uploadReport['install_allowed'])?'Evet':'Hayır'?></b> kuruluma izin</span>
+        </div>
+        <?php if(!empty($uploadReport['ignored_system_files'])): ?><div class="alert pending"><b>Yok sayılan sistem dosyaları:</b><br><?=nl2br(e(implode("\n", array_slice($uploadReport['ignored_system_files'],0,12))))?></div><?php endif; ?>
+        <?php if(!empty($uploadReport['allowed_admin_files'])): ?><div class="alert success"><b>Tema içi admin dosyaları izinli:</b><br><?=nl2br(e(implode("\n", array_map(fn($b)=>($b['path'] ?? '').' → '.($b['target'] ?? ''), array_slice($uploadReport['allowed_admin_files'],0,12)))))?></div><?php endif; ?>
+        <?php if(!empty($uploadReport['blocked_files'])): ?><div class="alert error"><b>Engellenen dosyalar:</b><br><?=nl2br(e(implode("\n", array_map(fn($b)=>($b['path'] ?? '').(!empty($b['reason'])?' - '.$b['reason']:''), $uploadReport['blocked_files']))))?></div><?php endif; ?>
+      </details>
+      <?php if(!empty($uploadReport['errors'])): ?><div class="alert error"><b>Kurulumu engelleyen hata:</b> <?=e(implode(' | ', $uploadReport['errors']))?></div><?php endif; ?>
+      <?php if(!empty($uploadReport['warnings'])): ?><div class="alert pending"><b>Uyarılar:</b> <?=e(implode(' | ', $uploadReport['warnings']))?></div><?php endif; ?>
+      <?php if(!empty($uploadReport['security_issues'])): ?><div class="alert pending"><b>Güvenlik notları:</b><br><?=nl2br(e(implode("\n", array_slice($uploadReport['security_issues'],0,8))))?></div><?php else: ?><div class="alert success">Güvenlik taramasında kritik risk bulunmadı.</div><?php endif; ?>
+      <?php if(empty($uploadReport['errors'])): ?>
+      <form method="post" class="inline-form omurga-loading-form" data-loading-title="Tema kuruluyor..." data-loading-text="Mevcut sürüm yedekleniyor ve yeni tema dosyaları güvenli şekilde yazılıyor.">
+        <input type="hidden" name="_csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="confirm_upload"><input type="hidden" name="stage_token" value="<?=e($uploadStage['token'])?>"><input type="hidden" name="version_policy" value="<?=e($uploadReport['recommended_policy'])?>">
+        <label><input type="checkbox" name="activate_after_upload" value="1"> Kurulumdan sonra etkinleştir</label>
+        <button class="btn primary"><?=e($uploadReport['action_key']==='update' ? $uploadReport['uploaded_version'].' sürümüne güncelle' : ($uploadReport['action_key']==='overwrite' ? 'Aynı sürüm üzerine yaz' : ($uploadReport['action_key']==='downgrade' ? 'Eski sürüme dön' : 'Temayı kur')))?></button>
+        <a class="btn light" href="themes.php">İptal</a>
+      </form>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
+  <div class="omurga-loading-overlay" hidden><div><strong>Yükleniyor...</strong><p>Lütfen bekleyin.</p></div></div>
+  <script>document.addEventListener('submit',function(e){var f=e.target;if(!f.classList||!f.classList.contains('omurga-loading-form'))return;var o=document.querySelector('.omurga-loading-overlay');if(o){o.hidden=false;o.querySelector('strong').textContent=f.dataset.loadingTitle||'Yükleniyor...';o.querySelector('p').textContent=f.dataset.loadingText||'İşlem devam ediyor, lütfen bekleyin.';}f.querySelectorAll('button').forEach(function(b){b.disabled=true;});});</script>
 </section>
 <section class="card">
   <h2>Kolay Tema Yapısı / PHP Tema Yapısı</h2>

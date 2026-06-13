@@ -33,10 +33,13 @@ if (!in_array($tab, ['login','register','forgot','reset'], true)) $tab = 'login'
 $error='';
 $success='';
 $resetToken = preg_replace('/[^a-f0-9]/i', '', (string)($_GET['reset'] ?? $_POST['reset_token'] ?? ''));
-$lockedUntil = (int)($_SESSION['login_locked_until'] ?? 0);
-
-if ($tab === 'login' && $lockedUntil && time() < $lockedUntil) {
-    $error='Çok fazla hatalı giriş denemesi oldu. Lütfen birkaç dakika sonra tekrar deneyin.';
+$lockedRemaining = 0;
+if ($tab === 'login') {
+    $probeUser = trim((string)($_POST['username'] ?? $_GET['username'] ?? ''));
+    $lockedRemaining = $probeUser !== '' ? omurga_login_lock_remaining($probeUser) : 0;
+    if ($lockedRemaining > 0) {
+        $error='Çok fazla hatalı giriş denemesi oldu. Lütfen '.ceil($lockedRemaining/60).' dakika sonra tekrar deneyin.';
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD']==='POST' && !$error) {
@@ -46,16 +49,17 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && !$error) {
         $stmt=db()->prepare('SELECT * FROM '.table_name('users').' WHERE (username=? OR email=?) AND status="active" LIMIT 1');
         $stmt->execute([$username,$username]); $user=$stmt->fetch();
         if ($user && password_verify($password,$user['password'])) {
-            $_SESSION['login_attempts']=0; unset($_SESSION['login_locked_until']);
+            omurga_record_login_attempt($username, true, (int)$user['id']);
+            if (!headers_sent()) @session_regenerate_id(true);
             $_SESSION['omurga_user_id']=$user['id']; $_SESSION['omurga_user_name']=$user['name']; $_SESSION['omurga_last_seen']=time();
-            db()->prepare('UPDATE '.table_name('users').' SET last_login_at=NOW(), last_login_ip=? WHERE id=?')->execute([$_SERVER['REMOTE_ADDR'] ?? '', $user['id']]);
+            db()->prepare('UPDATE '.table_name('users').' SET last_login_at=NOW(), last_login_ip=? WHERE id=?')->execute([omurga_client_ip(), $user['id']]);
             log_activity('auth.login','Panele giriş yapıldı.', (int)$user['id']);
             redirect('admin/');
         } else {
-            $_SESSION['login_attempts']=(int)($_SESSION['login_attempts'] ?? 0)+1;
-            if($_SESSION['login_attempts']>=5){ $_SESSION['login_locked_until']=time()+300; }
+            omurga_record_login_attempt($username, false, null);
             log_activity('auth.failed','Hatalı giriş denemesi: '.$username, null);
-            $error='Kullanıcı adı veya şifre hatalı.';
+            $remaining = omurga_login_lock_remaining($username);
+            $error = $remaining > 0 ? 'Çok fazla hatalı giriş denemesi oldu. Lütfen '.ceil($remaining/60).' dakika sonra tekrar deneyin.' : 'Kullanıcı adı veya şifre hatalı.';
         }
     } elseif ($tab === 'register') {
         if (!omurga_auth_registration_enabled()) {
@@ -94,52 +98,55 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && !$error) {
             }
         }
     } elseif ($tab === 'forgot') {
-        $email=trim((string)($_POST['email'] ?? ''));
-        if(!filter_var($email, FILTER_VALIDATE_EMAIL)) $error='Geçerli bir e-posta adresi girin.';
-        else {
-            $st=db()->prepare('SELECT id,name,email FROM '.table_name('users').' WHERE email=? AND status="active" LIMIT 1');
-            $st->execute([$email]);
-            $user=$st->fetch();
-            if($user){
-                $token=bin2hex(random_bytes(32));
-                $expires=date('Y-m-d H:i:s', time()+3600);
-                db()->prepare('UPDATE '.table_name('users').' SET password_reset_token=?, password_reset_expires=? WHERE id=?')->execute([$token,$expires,$user['id']]);
-                $link=omurga_login_url(['reset'=>$token]);
-                $body="Merhaba {$user['name']},\n\nŞifrenizi yenilemek için bağlantı:\n{$link}\n\nBu bağlantı 1 saat geçerlidir.";
-                $mailSent=function_exists('om_mail') ? om_mail($user['email'], 'Omurga Şifre Sıfırlama', $body) : false;
-                if($mailSent) $success='Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.';
-                else $success='Şifre sıfırlama bağlantısı oluşturuldu. Mail paketi aktif değilse bağlantıyı yöneticinizden isteyin.';
-                log_activity('auth.password_reset_request','Şifre sıfırlama istendi: '.$email, (int)$user['id']);
-            } else {
-                $success='Eğer bu e-posta ile aktif bir hesap varsa sıfırlama bağlantısı gönderilecektir.';
+        if(setting('account_password_reset_enabled','1') !== '1') {
+            $error='Şifre sıfırlama şu anda kapalı.';
+        } else {
+            $email=trim((string)($_POST['email'] ?? ''));
+            if(!filter_var($email, FILTER_VALIDATE_EMAIL)) $error='Geçerli bir e-posta adresi girin.';
+            else {
+                $st=db()->prepare('SELECT id,name,email FROM '.table_name('users').' WHERE email=? AND status="active" LIMIT 1');
+                $st->execute([$email]);
+                $user=$st->fetch();
+                if($user){
+                    $token=omurga_create_password_reset($user);
+                    if($token){
+                        $link=omurga_login_url(['reset'=>$token]);
+                        $minutes=omurga_password_reset_expire_minutes();
+                        $body="Merhaba {$user['name']},
+
+Şifrenizi yenilemek için bağlantı:
+{$link}
+
+Bu bağlantı {$minutes} dakika geçerlidir ve tek kullanımlıktır.";
+                        $mailSent=function_exists('om_mail') ? om_mail($user['email'], 'Omurga Şifre Sıfırlama', $body) : false;
+                        if($mailSent) $success='Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.';
+                        else $success='Şifre sıfırlama bağlantısı oluşturuldu. Mail ayarları aktif değilse bağlantı gönderilemeyebilir.';
+                    } else {
+                        $error='Sıfırlama bağlantısı oluşturulamadı.';
+                    }
+                } else {
+                    $success='Eğer bu e-posta ile aktif bir hesap varsa sıfırlama bağlantısı gönderilecektir.';
+                }
             }
         }
     } elseif ($tab === 'reset') {
         $password=(string)($_POST['password'] ?? '');
         $password2=(string)($_POST['password2'] ?? '');
         if(!$resetToken) $error='Geçersiz sıfırlama bağlantısı.';
-        elseif(strlen($password)<6) $error='Şifre en az 6 karakter olmalı.';
         elseif($password!==$password2) $error='Şifreler eşleşmiyor.';
         else {
-            $st=db()->prepare('SELECT id FROM '.table_name('users').' WHERE password_reset_token=? AND password_reset_expires > NOW() AND status="active" LIMIT 1');
-            $st->execute([$resetToken]);
-            $user=$st->fetch();
-            if(!$user) $error='Sıfırlama bağlantısı geçersiz veya süresi dolmuş.';
-            else {
-                db()->prepare('UPDATE '.table_name('users').' SET password=?, password_reset_token=NULL, password_reset_expires=NULL WHERE id=?')->execute([password_hash($password,PASSWORD_DEFAULT), $user['id']]);
-                log_activity('auth.password_reset','Şifre sıfırlandı.', (int)$user['id']);
-                $success='Şifreniz yenilendi. Giriş yapabilirsiniz.';
-                $tab='login';
-            }
+            $result=omurga_consume_password_reset($resetToken, $password);
+            if(!empty($result['ok'])) { $success=$result['message']; $tab='login'; }
+            else $error=$result['message'] ?? 'Şifre yenilenemedi.';
         }
     }
 }
 $registerEnabled = omurga_auth_registration_enabled();
 ?>
-<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Omurga Giriş</title><link rel="stylesheet" href="../assets/css/omurga.css"></head><body>
+<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Omurga Giriş</title><link rel="icon" type="image/png" href="../assets/images/omurga-icon.png"><link rel="apple-touch-icon" href="../assets/images/omurga-icon.png"><link rel="stylesheet" href="../assets/css/omurga.css?v=1.2.0-rc.1"></head><body>
 <div class="login-wrap">
   <div class="login-card om-auth-card">
-    <div class="brand"><div class="brand-mark">O</div><div><h1>Omurga Panel</h1><p>Yayın yönetiminin ana yapısı</p></div></div>
+    <div class="brand"><div class="brand-mark brand-icon"><img src="../assets/images/omurga-icon.png" alt="" aria-hidden="true"></div><div><h1>Omurga Panel</h1><p>Yayın yönetiminin ana yapısı</p></div></div>
     <div class="om-auth-tabs">
       <a class="<?= $tab==='login'?'active':'' ?>" href="<?=e(omurga_login_url(['tab'=>'login']))?>">Giriş</a>
       <?php if($registerEnabled): ?><a class="<?= $tab==='register'?'active':'' ?>" href="<?=e(omurga_login_url(['tab'=>'register']))?>">Kayıt Ol</a><?php endif; ?>
@@ -171,7 +178,7 @@ $registerEnabled = omurga_auth_registration_enabled();
       </form>
     <?php elseif($tab==='reset'): ?>
       <form method="post"><input type="hidden" name="tab" value="reset"><input type="hidden" name="reset_token" value="<?=e($resetToken)?>"><?=csrf_field()?>
-        <label>Yeni şifre<input type="password" name="password" required></label>
+        <label>Yeni şifre<input type="password" name="password" required></label><small class="om-auth-hint">En az 8 karakter, harf ve rakam kullanmanız önerilir.</small><small class="om-auth-hint">En az 8 karakter, harf ve rakam kullanmanız önerilir.</small>
         <label>Yeni şifre tekrar<input type="password" name="password2" required></label>
         <button class="btn primary" style="width:100%;justify-content:center">Şifreyi Yenile</button>
       </form>
@@ -180,5 +187,5 @@ $registerEnabled = omurga_auth_registration_enabled();
     <?php endif; ?>
   </div>
 </div>
-<style>.om-auth-tabs{display:flex;gap:6px;margin:14px 0 16px;flex-wrap:wrap}.om-auth-tabs a{padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;text-decoration:none;color:#374151;background:#fff;font-size:13px}.om-auth-tabs a.active{border-color:#f97316;color:#9a3412;background:#fff7ed}.om-auth-card form{display:grid;gap:10px}.om-auth-card label{display:grid;gap:5px;font-size:13px;color:#374151}.om-auth-card input{width:100%;box-sizing:border-box}</style>
+<style>.om-auth-tabs{display:flex;gap:6px;margin:14px 0 16px;flex-wrap:wrap}.om-auth-tabs a{padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;text-decoration:none;color:#374151;background:#fff;font-size:13px}.om-auth-tabs a.active{border-color:#f97316;color:#9a3412;background:#fff7ed}.om-auth-card form{display:grid;gap:10px}.om-auth-card label{display:grid;gap:5px;font-size:13px;color:#374151}.om-auth-card input{width:100%;box-sizing:border-box}.om-auth-hint{display:block;color:#6b7280;font-size:12px;margin-top:-4px}</style>
 </body></html>

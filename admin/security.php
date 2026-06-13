@@ -26,8 +26,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             log_activity('security.integrity_create','Çekirdek bütünlük kaydı oluşturuldu.');
             $notice='Çekirdek bütünlük kaydı oluşturuldu. Dosya sayısı: '.count($manifest);
         } else {
-        $checks=['theme_editor','php_file_edit','plugin_upload','plugin_delete','core_guard','developer_mode','maintenance_mode'];
+        $checks=['theme_editor','php_file_edit','plugin_upload','plugin_delete','maintenance_mode'];
         foreach($checks as $k){ update_setting('security_'.$k, isset($_POST[$k]) ? '1':'0'); }
+        update_setting('security_core_guard', '1');
+        update_setting('security_developer_mode', (!omurga_is_production() && isset($_POST['developer_mode'])) ? '1':'0');
         update_setting('security_login_fail_limit', (string)max(1,min(20,(int)($_POST['login_fail_limit'] ?? 5))));
         update_setting('security_login_lock_minutes', (string)max(1,min(1440,(int)($_POST['login_lock_minutes'] ?? 15))));
         update_setting('security_maintenance_message', trim((string)($_POST['maintenance_message'] ?? $defaults['maintenance_message'])));
@@ -43,7 +45,7 @@ $integrity=omurga_core_integrity_check();
 function secv($key,$default=''){ return e(setting('security_'.$key,$default)); }
 function secc($key,$default='1'){ return setting('security_'.$key,$default)==='1' ? 'checked' : ''; }
 ?>
-<div class="page-head"><div><h1>Güvenlik Merkezi</h1><p>Çekirdek koruması, tema/paket güvenliği, PHP dosya düzenleme, bakım modu ve giriş güvenliği ayarları.</p></div></div>
+<div class="page-head"><div><h1>Güvenlik Merkezi</h1><p>Çekirdek koruması, tema/paket güvenliği, güvenli oturum, PHP dosya düzenleme, bakım modu ve giriş güvenliği ayarları.</p><p class="muted">Ortam: <?=e(omurga_environment())?> · Core Guard: zorunlu aktif</p></div></div>
 <?php if($notice): ?><div class="alert success"><?=e($notice)?></div><?php endif; ?>
 <?php if($error): ?><div class="alert danger"><?=e($error)?></div><?php endif; ?>
 
@@ -69,9 +71,9 @@ $okCount=0; $warnCount=0; $errCount=0; foreach($report['items'] as $it){ if($it[
   <p class="muted">OMG, CSS, JS ve JSON düzenleme açık kalabilir; PHP düzenleme varsayılan olarak kapalıdır.</p>
 </div>
 <div class="card"><h2>Çekirdek koruması</h2>
-  <label class="check"><input type="checkbox" name="core_guard" value="1" <?=secc('core_guard','1')?>> Tema ve paketlerin çekirdek alanlarına yazması engellensin</label>
-  <label class="check"><input type="checkbox" name="developer_mode" value="1" <?=secc('developer_mode','0')?>> Geliştirici modu açık olsun</label>
-  <p class="muted">Geliştirici modu açılırsa koruma gevşer. Normal sitelerde kapalı kalmalıdır.</p>
+  <label class="check"><input type="checkbox" name="core_guard" value="1" checked disabled> Çekirdek koruması her zaman aktif kalsın</label>
+  <label class="check"><input type="checkbox" name="developer_mode" value="1" <?=secc('developer_mode','0')?> <?=omurga_is_production()?'disabled':''?>> Geliştirici modu açık olsun</label>
+  <p class="muted">Geliştirici modu üretim ortamında korumayı kapatamaz. Production ortamında devre dışıdır; geliştirme ortamında yalnızca daha ayrıntılı log/uyarı üretir.</p>
 </div>
 <div class="card"><h2>Paket güvenliği</h2>
   <label class="check"><input type="checkbox" name="plugin_upload" value="1" <?=secc('plugin_upload','1')?>> Paket ZIP yükleme açık olsun</label>
@@ -101,5 +103,5 @@ $okCount=0; $warnCount=0; $errCount=0; foreach($report['items'] as $it){ if($it[
     <button class="btn light">Bütünlük Kaydını Oluştur / Yenile</button>
   </form>
 </div>
-<div class="card"><h2>Korunan çekirdek alanları</h2><p><code>admin</code>, <code>core</code>, <code>install</code>, <code>vendor</code>, <code>bootstrap.php</code>, <code>config.php</code> ve sistem dosyaları tema/paket tarafından değiştirilemez. Temalar <code>themes/</code>, paketler <code>packages/</code>, medya ise <code>uploads/</code> ve <code>storage/</code> içinde çalışır.</p></div>
+<div class="card"><h2>Korunan çekirdek alanları</h2><p><code>admin</code>, <code>core</code>, <code>install</code>, <code>vendor</code>, <code>bootstrap.php</code>, <code>config.php</code> ve sistem dosyaları tema/paket tarafından değiştirilemez. Temalar <code>themes/</code>, paketler <code>packages/</code>, medya ise <code>uploads/</code> ve <code>storage</code> içinde çalışır.</p><p class="muted">Engellenen yazma/silme denemeleri <code>storage/logs/security.log</code> dosyasına yazılır.</p></div>
 <?php require_once __DIR__.'/_footer.php'; ?>

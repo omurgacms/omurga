@@ -1,5 +1,13 @@
 # Omurga CMS Roadmap
 
+## v1.2.0 RC1 - Stabilization Freeze
+
+- [x] Feature freeze for 1.2.0 RC1.
+- [x] Real-user stabilization pass for installer, admin, editor, media, theme/package, SEO, migration, health, API and security flows.
+- [x] RC documentation and upgrade notes.
+- [ ] Final manual regression pass on target hosting environments.
+- [ ] Package build audit to exclude `config.php`, `storage/installed.lock`, logs, cache and old zip packages.
+
 ## Omurga CMS 1.0.3.15 Beta
 
 - [x] OMG template theme support
@@ -22,15 +30,15 @@
 
 ## v1.2
 
-- [ ] Role and permission management improvements
-- [ ] Import/export tools
-- [ ] Theme/package marketplace foundation
-- [ ] More default block examples
+- [x] Role and permission management foundation
+- [x] Theme/package upload analysis and permission confirmation
+- [x] Migration runner, health checks and system tests
+- [ ] Post-RC fixes only until 1.2.0 stable
 
 ## v2.0 Stable
 
 - [ ] Stable upgrade system
-- [ ] Migration system
+- [x] Migration system foundation
 - [ ] Full developer documentation
 - [ ] Production-ready release package
 

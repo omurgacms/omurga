@@ -1,10 +1,57 @@
 <?php
-session_start();
 
 define('OMURGA_ROOT', __DIR__);
-define('OMURGA_VERSION', '1.1.0-beta');
+define('OMURGA_VERSION', '1.2.0-rc.1');
+define('OMURGA_VERSION_NAME', 'Omurga CMS 1.2.0 RC1');
 define('OMURGA_SCHEMA_VERSION', '4.0.0');
 define('OMURGA_INIT', true);
+
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
+
+function omurga_request_is_https(): bool {
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') return true;
+    if (($_SERVER['SERVER_PORT'] ?? '') === '443') return true;
+    $proto = strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+    return $proto === 'https';
+}
+function omurga_boot_session(): void {
+    if (session_status() !== PHP_SESSION_NONE) return;
+    ini_set('session.use_strict_mode', '1');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.cookie_httponly', '1');
+    ini_set('session.cookie_samesite', 'Lax');
+    if (omurga_request_is_https()) ini_set('session.cookie_secure', '1');
+    $params = session_get_cookie_params();
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => $params['path'] ?: '/',
+        'domain' => $params['domain'] ?: '',
+        'secure' => omurga_request_is_https(),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    session_start();
+    $now = time();
+    if (empty($_SESSION['_omurga_session_started'])) {
+        $_SESSION['_omurga_session_started'] = $now;
+        $_SESSION['_omurga_last_activity'] = $now;
+        if (!headers_sent()) @session_regenerate_id(true);
+    }
+    $timeout = 1800;
+    if (!empty($_SESSION['omurga_user_id']) && !empty($_SESSION['_omurga_last_activity']) && ($now - (int)$_SESSION['_omurga_last_activity']) > $timeout) {
+        $_SESSION = [];
+        if (ini_get('session.use_cookies')) {
+            $p = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], (bool)$p['secure'], (bool)$p['httponly']);
+        }
+        session_destroy();
+        session_start();
+        $_SESSION['_omurga_session_timeout'] = 1;
+    }
+    $_SESSION['_omurga_last_activity'] = $now;
+}
+omurga_boot_session();
 require_once OMURGA_ROOT.'/core/hooks.php';
 require_once OMURGA_ROOT.'/core/MailBridge.php';
 require_once OMURGA_ROOT.'/core/BlockRegistry.php';
@@ -13,8 +60,7 @@ require_once OMURGA_ROOT.'/core/DeveloperApi.php';
 require_once OMURGA_ROOT.'/core/PlatformApi.php';
 require_once OMURGA_ROOT.'/core/Updater.php';
 require_once OMURGA_ROOT.'/core/UserCenter.php';
-ini_set('display_errors', '0');
-error_reporting(E_ALL);
+require_once OMURGA_ROOT.'/core/MigrationRunner.php';
 
 // Acil uyumluluk: Önceki bir güncellemede yanlış yazılmış set_exception_handler() çağrısı
 // görülürse siteyi 500'e düşürmemek için doğru PHP fonksiyonuna yönlendir.
@@ -59,6 +105,11 @@ if (!function_exists('mb_strtolower')) {
         return strtolower((string)$string);
     }
 }
+if (!function_exists('mb_strtoupper')) {
+    function mb_strtoupper($string, $encoding = null): string {
+        return strtoupper((string)$string);
+    }
+}
 if (!function_exists('mb_convert_case')) {
     if (!defined('MB_CASE_TITLE')) define('MB_CASE_TITLE', 2);
     function mb_convert_case($string, $mode, $encoding = null): string {
@@ -71,6 +122,183 @@ function omurga_config(): array {
     $file = OMURGA_ROOT . '/config.php';
     if (!file_exists($file)) return require OMURGA_ROOT . '/config.sample.php';
     return require $file;
+}
+function omurga_environment(): string {
+    $cfg = omurga_config();
+    $env = (string)($cfg['app_env'] ?? getenv('OMURGA_ENV') ?: 'production');
+    $env = strtolower(trim($env));
+    return in_array($env, ['local','development','dev','staging','test','production'], true) ? $env : 'production';
+}
+function omurga_is_production(): bool { return omurga_environment() === 'production'; }
+function omurga_security_log(string $event, array $context=[]): void {
+    $dir = OMURGA_ROOT.'/storage/logs';
+    if (!is_dir($dir)) @mkdir($dir, 0775, true);
+    $line = json_encode(['time'=>date('c'),'event'=>$event,'context'=>$context], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+    @file_put_contents($dir.'/security.log', $line.PHP_EOL, FILE_APPEND|LOCK_EX);
+}
+
+function omurga_client_ip(): string {
+    $candidates = [$_SERVER['HTTP_CF_CONNECTING_IP'] ?? '', $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '', $_SERVER['REMOTE_ADDR'] ?? ''];
+    foreach ($candidates as $ip) {
+        $ip = trim(explode(',', (string)$ip)[0]);
+        if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) return mb_substr($ip, 0, 64);
+    }
+    return '0.0.0.0';
+}
+function omurga_log_error_record(string $level, string $message, array $context=[]): void {
+    try {
+        $dir = OMURGA_ROOT.'/storage/logs';
+        if (!is_dir($dir)) @mkdir($dir, 0775, true);
+        $payload = ['time'=>date('c'),'level'=>$level,'message'=>$message,'context'=>$context,'url'=>$_SERVER['REQUEST_URI'] ?? '','ip'=>omurga_client_ip()];
+        @file_put_contents($dir.'/error.log', json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES).PHP_EOL, FILE_APPEND|LOCK_EX);
+    } catch (Throwable $e) {}
+}
+function omurga_send_security_headers(): void {
+    if (headers_sent()) return;
+    header('X-Frame-Options: SAMEORIGIN');
+    header('X-Content-Type-Options: nosniff');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+}
+function omurga_api_cors_headers(): void {
+    if (headers_sent()) return;
+    $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
+    $allowed = '';
+    try { $allowed = trim((string)setting('api_cors_origins', setting('api_cors_origin',''))); } catch (Throwable $e) { $allowed = ''; }
+    if ($origin !== '' && $allowed !== '') {
+        $list = array_filter(array_map('trim', explode(',', $allowed)));
+        if (in_array('*', $list, true) || in_array($origin, $list, true)) {
+            header('Access-Control-Allow-Origin: '.(in_array('*',$list,true) ? '*' : $origin));
+            header('Vary: Origin', false);
+        }
+    }
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Authorization, Content-Type, X-Omurga-Token');
+    header('Access-Control-Max-Age: 600');
+}
+function omurga_rate_limit_hit(string $key, int $limit, int $windowSeconds): array {
+    $limit = max(1, $limit); $windowSeconds = max(60, $windowSeconds);
+    $now = time(); $windowStart = $now - ($now % $windowSeconds); $expires = $windowStart + $windowSeconds;
+    try {
+        $t = table_name('rate_limits');
+        $hash = hash('sha256', $key);
+        $st = db()->prepare("SELECT * FROM $t WHERE rate_key=? LIMIT 1");
+        $st->execute([$hash]);
+        $row = $st->fetch();
+        if (!$row || (int)($row['expires_at'] ?? 0) <= $now || (int)($row['window_start'] ?? 0) !== $windowStart) {
+            db()->prepare("INSERT INTO $t (rate_key,hits,window_start,expires_at,updated_at) VALUES (?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE hits=1,window_start=VALUES(window_start),expires_at=VALUES(expires_at),updated_at=NOW()")->execute([$hash,1,$windowStart,$expires]);
+            return ['allowed'=>true,'remaining'=>$limit-1,'retry_after'=>0,'limit'=>$limit];
+        }
+        $hits = (int)$row['hits'] + 1;
+        db()->prepare("UPDATE $t SET hits=?,updated_at=NOW() WHERE rate_key=?")->execute([$hits,$hash]);
+        return ['allowed'=>$hits <= $limit,'remaining'=>max(0,$limit-$hits),'retry_after'=>max(1,$expires-$now),'limit'=>$limit];
+    } catch (Throwable $e) {
+        return ['allowed'=>true,'remaining'=>$limit,'retry_after'=>0,'limit'=>$limit,'fallback'=>true];
+    }
+}
+function omurga_login_lock_remaining(string $username): int {
+    $username = mb_strtolower(trim($username));
+    $ip = omurga_client_ip();
+    try {
+        $t = table_name('login_attempts');
+        $st = db()->prepare("SELECT MAX(locked_until) locked_until FROM $t WHERE (ip=? OR username=?) AND locked_until IS NOT NULL AND locked_until > NOW()");
+        $st->execute([$ip,$username]);
+        $row = $st->fetch();
+        if (!empty($row['locked_until'])) return max(0, strtotime($row['locked_until']) - time());
+    } catch (Throwable $e) {}
+    return 0;
+}
+function omurga_record_login_attempt(string $username, bool $success, ?int $userId=null): void {
+    $username = mb_strtolower(trim($username));
+    $ip = omurga_client_ip();
+    $ua = mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
+    try {
+        $t = table_name('login_attempts');
+        $lockedUntil = null;
+        if (!$success) {
+            $st = db()->prepare("SELECT COUNT(*) c FROM $t WHERE success=0 AND (ip=? OR username=?) AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)");
+            $st->execute([$ip,$username]);
+            $count = (int)($st->fetch()['c'] ?? 0) + 1;
+            if ($count >= 5) $lockedUntil = date('Y-m-d H:i:s', time()+900);
+        }
+        db()->prepare("INSERT INTO $t (username,ip,user_id,success,locked_until,user_agent,created_at) VALUES (?,?,?,?,?,?,NOW())")->execute([$username,$ip,$userId,$success?1:0,$lockedUntil,$ua]);
+        if ($lockedUntil) omurga_security_log('login.locked', ['username'=>$username,'ip'=>$ip,'until'=>$lockedUntil]);
+    } catch (Throwable $e) {
+        omurga_security_log('login_attempt_log_failed', ['error'=>$e->getMessage()]);
+    }
+}
+
+function omurga_password_policy(string $password, ?int $userId=null): array {
+    $min = max(8, (int)setting('account_password_min_length','8'));
+    $errors = [];
+    if (strlen($password) < $min) $errors[] = 'Şifre en az '.$min.' karakter olmalı.';
+    if (!preg_match('/[A-Za-zÇĞİÖŞÜçğıöşü]/u', $password)) $errors[] = 'Şifre en az bir harf içermeli.';
+    if (!preg_match('/\d/', $password)) $errors[] = 'Şifre en az bir rakam içermeli.';
+    if (preg_match('/^(123456|12345678|password|qwerty|admin|omurga)$/i', $password)) $errors[] = 'Bu şifre çok zayıf.';
+    if ($userId) {
+        try {
+            $st=db()->prepare('SELECT password FROM '.table_name('users').' WHERE id=? LIMIT 1');
+            $st->execute([$userId]);
+            $row=$st->fetch();
+            if($row && password_verify($password, (string)$row['password'])) $errors[]='Yeni şifre eski şifreyle aynı olamaz.';
+        } catch(Throwable $e) {}
+    }
+    $score = 0;
+    if (strlen($password) >= $min) $score += 25;
+    if (preg_match('/[a-zçğıöşü]/u', $password) && preg_match('/[A-ZÇĞİÖŞÜ]/u', $password)) $score += 25;
+    if (preg_match('/\d/', $password)) $score += 20;
+    if (preg_match('/[^A-Za-z0-9ÇĞİÖŞÜçğıöşü]/u', $password)) $score += 20;
+    if (strlen($password) >= 14) $score += 10;
+    return ['ok'=>empty($errors), 'errors'=>$errors, 'score'=>min(100,$score)];
+}
+function omurga_password_reset_expire_minutes(): int { return max(10, min(1440, (int)setting('account_password_reset_minutes','60'))); }
+function omurga_create_password_reset(array $user): ?string {
+    try {
+        $token = bin2hex(random_bytes(32));
+        $hash = hash('sha256', $token);
+        $expires = date('Y-m-d H:i:s', time() + omurga_password_reset_expire_minutes()*60);
+        $t = table_name('password_resets');
+        db()->prepare("UPDATE $t SET used_at=NOW() WHERE user_id=? AND used_at IS NULL")->execute([(int)$user['id']]);
+        db()->prepare("INSERT INTO $t (user_id,email,token_hash,expires_at,ip_address,user_agent,created_at) VALUES (?,?,?,?,?,?,NOW())")->execute([
+            (int)$user['id'], (string)$user['email'], $hash, $expires, omurga_client_ip(), mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''),0,255)
+        ]);
+        // Legacy columns are cleared so old plain reset-token flow cannot remain active.
+        try { db()->prepare('UPDATE '.table_name('users').' SET password_reset_token=NULL,password_reset_expires=NULL WHERE id=?')->execute([(int)$user['id']]); } catch(Throwable $e) {}
+        log_activity('auth.password_reset_request','Şifre sıfırlama bağlantısı oluşturuldu.', (int)$user['id']);
+        return $token;
+    } catch(Throwable $e) { omurga_log_error_record('error','password_reset_create_failed',['error'=>$e->getMessage()]); return null; }
+}
+function omurga_find_password_reset(string $token): ?array {
+    $token = preg_replace('/[^a-f0-9]/i','',$token);
+    if(strlen($token) < 40) return null;
+    try {
+        $t = table_name('password_resets'); $u = table_name('users');
+        $hash = hash('sha256', $token);
+        $st = db()->prepare("SELECT pr.*, u.name, u.username, u.status, u.password FROM $t pr INNER JOIN $u u ON u.id=pr.user_id WHERE pr.token_hash=? AND pr.used_at IS NULL AND pr.expires_at > NOW() AND u.status='active' LIMIT 1");
+        $st->execute([$hash]);
+        return $st->fetch() ?: null;
+    } catch(Throwable $e) { omurga_log_error_record('error','password_reset_find_failed',['error'=>$e->getMessage()]); return null; }
+}
+function omurga_consume_password_reset(string $token, string $password): array {
+    $reset = omurga_find_password_reset($token);
+    if(!$reset) return ['ok'=>false,'message'=>'Sıfırlama bağlantısı geçersiz veya süresi dolmuş.'];
+    $policy = omurga_password_policy($password, (int)$reset['user_id']);
+    if(!$policy['ok']) return ['ok'=>false,'message'=>implode(' ', $policy['errors'])];
+    try {
+        $t = table_name('password_resets'); $users=table_name('users');
+        db()->beginTransaction();
+        db()->prepare("UPDATE $users SET password=?, password_changed_at=NOW(), password_reset_token=NULL, password_reset_expires=NULL WHERE id=?")->execute([password_hash($password,PASSWORD_DEFAULT), (int)$reset['user_id']]);
+        db()->prepare("UPDATE $t SET used_at=NOW() WHERE id=?")->execute([(int)$reset['id']]);
+        db()->prepare("UPDATE $t SET used_at=NOW() WHERE user_id=? AND used_at IS NULL")->execute([(int)$reset['user_id']]);
+        db()->commit();
+        omurga_security_log('password.reset.success', ['user_id'=>(int)$reset['user_id'], 'ip'=>omurga_client_ip()]);
+        log_activity('auth.password_reset','Şifre sıfırlandı.', (int)$reset['user_id']);
+        return ['ok'=>true,'message'=>'Şifreniz yenilendi. Giriş yapabilirsiniz.'];
+    } catch(Throwable $e) {
+        if(db()->inTransaction()) db()->rollBack();
+        omurga_log_error_record('error','password_reset_consume_failed',['error'=>$e->getMessage()]);
+        return ['ok'=>false,'message'=>'Şifre yenilenirken bir hata oluştu.'];
+    }
 }
 function omurga_is_installed(): bool { $c=omurga_config(); return !empty($c['installed']) && file_exists(OMURGA_ROOT.'/storage/installed.lock'); }
 function guess_base_url(): string { $https=(!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off')||(($_SERVER['SERVER_PORT']??'')==443); $scheme=$https?'https':'http'; $host=$_SERVER['HTTP_HOST']??'localhost'; $script=$_SERVER['SCRIPT_NAME']??'/index.php'; $dir=rtrim(str_replace('\\','/',dirname($script)),'/'); if($dir==='/'||$dir==='.')$dir=''; return $scheme.'://'.$host.$dir; }
@@ -290,9 +518,12 @@ function omurga_normalize_post_status(string $status): string {
     return $status;
 }
 function require_cap(string $cap): void { if(!can($cap)){ render_error_page(403, 'Yetkisiz Erişim', 'Bu işlem için yetkiniz yok.'); } }
+function require_capability(string $cap): void { require_cap($cap); }
 
 function csrf_token(): string { if(empty($_SESSION['csrf_token'])) $_SESSION['csrf_token']=bin2hex(random_bytes(32)); return $_SESSION['csrf_token']; }
 function csrf_field(): string { return '<input type="hidden" name="_csrf" value="'.e(csrf_token()).'">'; }
+function csrf_input(): string { return csrf_field(); }
+function csrf_check(?string $token=null): bool { $t=$token ?? ($_POST['_csrf'] ?? ''); return $t !== '' && hash_equals($_SESSION['csrf_token'] ?? '', $t); }
 function verify_csrf(): void { if($_SERVER['REQUEST_METHOD']==='POST'){ $t=$_POST['_csrf']??''; if(!$t||!hash_equals($_SESSION['csrf_token']??'', $t)){ http_response_code(419); exit('Güvenlik doğrulaması başarısız. Lütfen sayfayı yenileyin.'); } } }
 function setting(string $key, ?string $default=null): ?string { try{ $s=db()->prepare('SELECT setting_value FROM '.table_name('settings').' WHERE setting_key=? LIMIT 1'); $s->execute([$key]); $r=$s->fetch(); return $r?$r['setting_value']:$default; }catch(Throwable $e){ return $default; } }
 function update_setting(string $key,string $value): void { db()->prepare('INSERT INTO '.table_name('settings').' (setting_key,setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)')->execute([$key,$value]); }
@@ -489,20 +720,166 @@ function omurga_safe_existing_file(string $relativePath, array $allowedRoots=['u
     }
     return null;
 }
-function omurga_zip_entry_is_safe(string $name): bool {
+function omurga_zip_entry_normalize(string $name): string {
+    $hasTrailingSlash = str_ends_with($name, '/') || str_ends_with($name, '\\');
     $name = str_replace('\\', '/', trim($name));
-    if($name === '' || str_starts_with($name, '/') || preg_match('#^[a-zA-Z]:/#', $name)) return false;
-    foreach(explode('/', $name) as $part){ if($part === '..') return false; }
-    return true;
+    $name = preg_replace('#/+#', '/', $name) ?? $name;
+    while(str_starts_with($name, './')) $name = substr($name, 2);
+    if($name === '.') $name = '';
+    if($hasTrailingSlash && $name !== '' && !str_ends_with($name, '/')) $name .= '/';
+    return $name;
 }
-function omurga_safe_extract_zip(ZipArchive $zip, string $destination): void {
-    if(!is_dir($destination)) mkdir($destination, 0775, true);
-    for($i=0; $i<$zip->numFiles; $i++){
-        $name = (string)$zip->getNameIndex($i);
-        if(!omurga_zip_entry_is_safe($name)) throw new RuntimeException('Zip içinde güvensiz dosya yolu var: '.$name);
+function omurga_zip_entry_is_system_file(string $name): bool {
+    $name = omurga_zip_entry_normalize($name);
+    if($name === '') return true;
+    $lower = strtolower($name);
+    if(str_starts_with($lower, '__macosx/') || str_contains($lower, '/__macosx/')) return true;
+    $base = strtolower(basename(rtrim($name, '/')));
+    return in_array($base, ['.ds_store','thumbs.db','desktop.ini'], true) || str_starts_with($base, '._');
+}
+function omurga_zip_entry_block_reason(string $rawName, string $name): string {
+    if(str_contains($rawName, "\0") || str_contains($name, "\0")) return 'null byte içeriyor';
+    if($name === '') return '';
+    if(str_starts_with($name, '/')) return 'mutlak yol';
+    if(preg_match('#^[a-zA-Z]:/#', $name)) return 'Windows drive yolu';
+    foreach(explode('/', trim($name, '/')) as $part){ if($part === '..') return 'path traversal'; }
+    return '';
+}
+function omurga_path_within(string $path, string $base): bool {
+    $pathNorm = rtrim(str_replace('\\', '/', $path), '/');
+    $baseNorm = rtrim(str_replace('\\', '/', $base), '/');
+    return $pathNorm === $baseNorm || str_starts_with($pathNorm, $baseNorm.'/');
+}
+function omurga_zip_entry_is_symlink(ZipArchive $zip, int $index): bool {
+    if(!method_exists($zip, 'getExternalAttributesIndex')) return false;
+    $opsys = 0; $attr = 0;
+    if(!$zip->getExternalAttributesIndex($index, $opsys, $attr)) return false;
+    if((int)$opsys !== ZipArchive::OPSYS_UNIX) return false;
+    $mode = ($attr >> 16) & 0xF000;
+    return $mode === 0xA000;
+}
+function omurga_zip_report_empty(): array {
+    return ['entries'=>0,'checked_files'=>0,'ignored_system_files'=>[],'warnings'=>[],'blocked_files'=>[],'allowed_admin_files'=>[],'install_allowed'=>true];
+}
+function omurga_zip_block_message(array $blocked): string {
+    $items = array_map(fn($row) => is_array($row) ? (($row['path'] ?? '').(!empty($row['reason']) ? ' ('.$row['reason'].')' : '')) : (string)$row, $blocked);
+    return "ZIP içinde güvensiz dosya yolu bulundu:\n".implode("\n", array_values(array_filter($items)));
+}
+function omurga_root_relative_path(string $path): string {
+    $path = str_replace('\\', '/', $path);
+    $root = rtrim(str_replace('\\', '/', OMURGA_ROOT), '/');
+    return omurga_path_within($path, $root) ? ltrim(substr($path, strlen($root)), '/') : $path;
+}
+function omurga_extension_payload_security_report(string $root, string $type, string $targetRoot=''): array {
+    $report = omurga_zip_report_empty();
+    $type = $type === 'package' ? 'package' : 'theme';
+    if(!is_dir($root)) return $report;
+    $targetRoot = rtrim(str_replace('\\', '/', $targetRoot), '/');
+    if($targetRoot !== ''){
+        $parent = $type === 'package' ? omurga_packages_dir() : omurga_themes_dir();
+        $parent = rtrim(str_replace('\\', '/', realpath($parent) ?: $parent), '/');
+        if(!omurga_path_within($targetRoot, $parent)){
+            $report['blocked_files'][] = ['path'=>'.','reason'=>($type === 'package' ? 'paket' : 'tema').' kurulum hedefi izinli klasör dışında'];
+            $report['install_allowed'] = false;
+            return $report;
+        }
     }
-    if(!$zip->extractTo($destination)) throw new RuntimeException('Zip dosyası çıkarılamadı.');
+    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::SELF_FIRST);
+    foreach($it as $file){
+        $rel = str_replace('\\','/',substr($file->getPathname(), strlen($root)+1));
+        $rel = omurga_zip_entry_normalize($rel);
+        if($rel === '' || omurga_zip_entry_is_system_file($rel)) continue;
+        if($file->isFile()) $report['checked_files']++;
+        $clean = trim($rel, '/');
+        $lower = strtolower($clean);
+        $reason = '';
+        if($lower === 'config.php') $reason = 'config.php paket dışıdır';
+        elseif($lower === 'bootstrap.php') $reason = 'bootstrap.php çekirdek dosyasıdır';
+        elseif($lower === 'storage/installed.lock') $reason = 'installed.lock paket dışıdır';
+        elseif(str_starts_with($lower, 'core/')) $reason = 'core klasörüne yazılamaz';
+        elseif(str_starts_with($lower, 'install/')) $reason = 'install klasörüne yazılamaz';
+        elseif(str_starts_with($lower, 'admin/') && $targetRoot !== ''){
+            $targetPath = $targetRoot.'/'.$clean;
+            $rootAdmin = rtrim(str_replace('\\', '/', OMURGA_ROOT.'/admin'), '/');
+            if(omurga_path_within($targetPath, $rootAdmin)) $reason = 'Omurga kök admin klasörüne yazmaya çalışıyor';
+            else $report['allowed_admin_files'][] = ['path'=>$rel,'target'=>omurga_root_relative_path($targetPath)];
+        } elseif(str_starts_with($lower, 'admin/')){
+            $reason = 'admin hedef klasörü doğrulanamadı';
+        }
+        if($reason !== '') $report['blocked_files'][] = ['path'=>$rel,'reason'=>$reason];
+    }
+    $report['install_allowed'] = empty($report['blocked_files']);
+    return $report;
 }
+function omurga_zip_report_merge(array ...$reports): array {
+    $out = omurga_zip_report_empty();
+    foreach($reports as $report){
+        $out['entries'] += (int)($report['entries'] ?? 0);
+        $out['checked_files'] = max((int)$out['checked_files'], (int)($report['checked_files'] ?? 0));
+        $out['ignored_system_files'] = array_merge($out['ignored_system_files'], $report['ignored_system_files'] ?? []);
+        $out['warnings'] = array_merge($out['warnings'], $report['warnings'] ?? []);
+        $out['blocked_files'] = array_merge($out['blocked_files'], $report['blocked_files'] ?? []);
+        $out['allowed_admin_files'] = array_merge($out['allowed_admin_files'], $report['allowed_admin_files'] ?? []);
+    }
+    $out['ignored_system_files'] = array_values(array_unique($out['ignored_system_files']));
+    $out['warnings'] = array_values(array_unique($out['warnings']));
+    $seenAllowed = [];
+    $out['allowed_admin_files'] = array_values(array_filter($out['allowed_admin_files'], function($row) use (&$seenAllowed){
+        $key = is_array($row) ? (($row['path'] ?? '').'|'.($row['target'] ?? '')) : (string)$row;
+        if(isset($seenAllowed[$key])) return false;
+        $seenAllowed[$key] = true;
+        return true;
+    }));
+    $out['install_allowed'] = empty($out['blocked_files']);
+    return $out;
+}
+function omurga_safe_extract_zip(ZipArchive $zip, string $destination): array {
+    if(!is_dir($destination) && !@mkdir($destination, 0775, true)) throw new RuntimeException('Zip hedef klasörü oluşturulamadı.');
+    $base = realpath($destination);
+    if(!$base || !is_dir($base)) throw new RuntimeException('Zip hedef klasörü doğrulanamadı.');
+    $base = rtrim(str_replace('\\','/',$base), '/');
+    $report = omurga_zip_report_empty();
+    for($i=0; $i<$zip->numFiles; $i++){
+        $rawName = (string)$zip->getNameIndex($i);
+        $report['entries']++;
+        $name = omurga_zip_entry_normalize($rawName);
+        if($name === '') continue;
+        if(omurga_zip_entry_is_system_file($name)){
+            $report['ignored_system_files'][] = $name;
+            $report['warnings'][] = 'ZIP içinde gereksiz sistem dosyası yok sayıldı: '.$name;
+            continue;
+        }
+        $reason = omurga_zip_entry_block_reason($rawName, $name);
+        if($reason !== '') $report['blocked_files'][] = ['path'=>$rawName,'reason'=>$reason];
+        if(omurga_zip_entry_is_symlink($zip, $i)) $report['blocked_files'][] = ['path'=>$rawName,'reason'=>'symlink entry'];
+        if(!empty($report['blocked_files'])){
+            $report['install_allowed'] = false;
+            throw new RuntimeException(omurga_zip_block_message($report['blocked_files']));
+        }
+        $target = $base.'/'.$name;
+        if(!omurga_path_within($target, $base)) throw new RuntimeException('Zip hedef yolu güvenli değil: '.$rawName);
+        if(str_ends_with($name, '/')){
+            if(!is_dir($target) && !@mkdir($target, 0775, true)) throw new RuntimeException('Zip klasörü oluşturulamadı: '.$name);
+            continue;
+        }
+        $report['checked_files']++;
+        $dir = dirname($target);
+        if(!is_dir($dir) && !@mkdir($dir, 0775, true)) throw new RuntimeException('Zip klasör yolu oluşturulamadı: '.$name);
+        $dirReal = realpath($dir);
+        if(!$dirReal || !omurga_path_within(str_replace('\\','/',$dirReal), $base)) throw new RuntimeException('Zip çıkarma dizini güvenli değil: '.$name);
+        $stream = $zip->getStream($rawName);
+        if(!$stream) throw new RuntimeException('Zip dosyası okunamadı: '.$name);
+        $out = @fopen($target, 'wb');
+        if(!$out){ fclose($stream); throw new RuntimeException('Zip dosyası yazılamadı: '.$name); }
+        stream_copy_to_stream($stream, $out);
+        fclose($stream); fclose($out);
+        @chmod($target, 0644);
+    }
+    $report['ignored_system_files'] = array_values(array_unique($report['ignored_system_files']));
+    $report['warnings'] = array_values(array_unique($report['warnings']));
+    return $report;
+}
+
 
 
 /* Omurga v1.0.2.1.1: Çekirdek koruma, paket izinleri ve bütünlük kontrolü */
@@ -513,9 +890,12 @@ function omurga_core_protected_paths(): array {
     return ['admin','core','install','vendor','bootstrap.php','config.php','config.sample.php','.htaccess'];
 }
 function omurga_core_guard_enabled(): bool {
-    return setting('security_core_guard','1') !== '0' && setting('developer_mode','0') !== '1';
+    return true;
 }
-function omurga_developer_mode_enabled(): bool { return setting('developer_mode','0') === '1'; }
+function omurga_developer_mode_enabled(): bool {
+    return !omurga_is_production() && setting('security_developer_mode','0') === '1';
+}
+function omurga_developer_mode_requested(): bool { return setting('security_developer_mode','0') === '1' || setting('developer_mode','0') === '1'; }
 function omurga_path_to_relative(string $path): string {
     $path=omurga_normalize_path($path);
     $root=rtrim(omurga_normalize_path(OMURGA_ROOT),'/').'/';
@@ -532,7 +912,9 @@ function omurga_path_is_core_protected(string $path): bool {
 }
 function omurga_assert_writable_path(string $path, string $context='dosya işlemi'): void {
     if(omurga_core_guard_enabled() && omurga_path_is_core_protected($path)){
-        throw new RuntimeException('Çekirdek koruması: '.$context.' için korunan alana yazılamaz: '.omurga_path_to_relative($path));
+        $rel = omurga_path_to_relative($path);
+        omurga_security_log('core_guard_blocked', ['context'=>$context,'path'=>$rel,'developer_mode'=>omurga_developer_mode_requested()?'requested':'off','environment'=>omurga_environment()]);
+        throw new RuntimeException('Çekirdek koruması: '.$context.' için korunan alana yazılamaz: '.$rel);
     }
 }
 function omurga_safe_write_file(string $path, string $content, int $flags=0): bool {
@@ -845,6 +1227,190 @@ function omurga_convert_existing_media_to_webp(array $media, bool $replaceRecord
     return ['ok'=>true,'path'=>$rel,'message'=>'WebP oluşturuldu.'];
 }
 
+
+function omurga_upload_error_message(int $code): string {
+    return match($code){
+        UPLOAD_ERR_OK => 'Yükleme başarılı.',
+        UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'Dosya sunucunun izin verdiği boyuttan büyük.',
+        UPLOAD_ERR_PARTIAL => 'Dosya yalnızca kısmen yüklendi. Bağlantıyı kontrol edip tekrar deneyin.',
+        UPLOAD_ERR_NO_FILE => 'Dosya seçilmedi.',
+        UPLOAD_ERR_NO_TMP_DIR => 'Sunucuda geçici yükleme klasörü bulunamadı.',
+        UPLOAD_ERR_CANT_WRITE => 'Sunucu dosyayı diske yazamadı. Klasör izinlerini kontrol edin.',
+        UPLOAD_ERR_EXTENSION => 'Bir PHP eklentisi yüklemeyi durdurdu.',
+        default => 'Dosya yüklenemedi. Hata kodu: '.$code,
+    };
+}
+function omurga_normalize_upload_item(array $files, int $i=0): array {
+    return [
+        'name'=>is_array($files['name'] ?? null) ? (string)($files['name'][$i] ?? '') : (string)($files['name'] ?? ''),
+        'type'=>is_array($files['type'] ?? null) ? (string)($files['type'][$i] ?? '') : (string)($files['type'] ?? ''),
+        'tmp_name'=>is_array($files['tmp_name'] ?? null) ? (string)($files['tmp_name'][$i] ?? '') : (string)($files['tmp_name'] ?? ''),
+        'error'=>is_array($files['error'] ?? null) ? (int)($files['error'][$i] ?? UPLOAD_ERR_NO_FILE) : (int)($files['error'] ?? UPLOAD_ERR_NO_FILE),
+        'size'=>is_array($files['size'] ?? null) ? (int)($files['size'][$i] ?? 0) : (int)($files['size'] ?? 0),
+    ];
+}
+
+function omurga_media_jobs_enabled(): bool { return setting('media_jobs_enabled','1')==='1'; }
+function omurga_media_jobs_table(): string { return table_name('media_jobs'); }
+function omurga_media_jobs_ensure_table(): void {
+    static $done=false; if($done) return; $done=true;
+    if(!omurga_is_installed()) return;
+    try{
+        $t=omurga_media_jobs_table();
+        db()->exec("CREATE TABLE IF NOT EXISTS $t (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            media_id INT UNSIGNED NULL,
+            job_type VARCHAR(60) NOT NULL,
+            status VARCHAR(30) NOT NULL DEFAULT 'pending',
+            attempts INT UNSIGNED NOT NULL DEFAULT 0,
+            error_message TEXT NULL,
+            result_path VARCHAR(500) NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            processed_at DATETIME NULL,
+            updated_at DATETIME NULL,
+            INDEX(media_id), INDEX(job_type), INDEX(status), INDEX(created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }catch(Throwable $e){ if(function_exists('omurga_write_error')) omurga_write_error($e); }
+}
+function omurga_media_job_enqueue(?int $mediaId, string $jobType): void {
+    if(!$mediaId || $mediaId<1) return;
+    omurga_media_jobs_ensure_table();
+    $allowed=['webp_convert','thumbnail_generate','image_size_detect','seo_alt_fill','image_sitemap_refresh'];
+    if(!in_array($jobType,$allowed,true)) return;
+    try{
+        $t=omurga_media_jobs_table();
+        $st=db()->prepare("SELECT id FROM $t WHERE media_id=? AND job_type=? AND status IN ('pending','running') LIMIT 1");
+        $st->execute([$mediaId,$jobType]);
+        if($st->fetch()) return;
+        db()->prepare("INSERT INTO $t (media_id,job_type,status,created_at) VALUES (?,?,'pending',NOW())")->execute([$mediaId,$jobType]);
+    }catch(Throwable $e){ if(function_exists('omurga_write_error')) omurga_write_error($e); }
+}
+function omurga_media_job_enqueue_defaults(int $mediaId, array $mediaRow=[]): void {
+    if(!omurga_media_jobs_enabled()) return;
+    $mime=(string)($mediaRow['mime'] ?? $mediaRow['mime_type'] ?? '');
+    if($mime==='' && !empty($mediaRow['file_path']) && is_file(OMURGA_ROOT.'/'.ltrim((string)$mediaRow['file_path'],'/'))) $mime=mime_content_type(OMURGA_ROOT.'/'.ltrim((string)$mediaRow['file_path'],'/')) ?: '';
+    if(!str_starts_with($mime,'image/')) return;
+    omurga_media_job_enqueue($mediaId,'image_size_detect');
+    omurga_media_job_enqueue($mediaId,'seo_alt_fill');
+    if(setting('media_jobs_thumbnail_enabled','1')==='1') omurga_media_job_enqueue($mediaId,'thumbnail_generate');
+    if(in_array($mime,['image/jpeg','image/png'],true) && setting('media_jobs_webp_enabled','1')==='1') omurga_media_job_enqueue($mediaId,'webp_convert');
+    if(setting('seo_sitemap_images_enabled','1')==='1') omurga_media_job_enqueue($mediaId,'image_sitemap_refresh');
+}
+function omurga_media_job_update(int $jobId, string $status, ?string $error=null, ?string $resultPath=null): void {
+    omurga_media_jobs_ensure_table();
+    try{
+        $t=omurga_media_jobs_table();
+        db()->prepare("UPDATE $t SET status=?, error_message=?, result_path=?, processed_at=IF(? IN ('done','failed'), NOW(), processed_at), updated_at=NOW() WHERE id=?")->execute([$status,$error,$resultPath,$status,$jobId]);
+    }catch(Throwable $e){ if(function_exists('omurga_write_error')) omurga_write_error($e); }
+}
+function omurga_media_fetch(int $mediaId): ?array {
+    try{ $t=table_name('media'); $st=db()->prepare("SELECT * FROM $t WHERE id=? LIMIT 1"); $st->execute([$mediaId]); $r=$st->fetch(); return $r ?: null; }catch(Throwable $e){ return null; }
+}
+function omurga_media_generate_thumbnail(string $path, int $maxWidth=480): ?string {
+    $abs=OMURGA_ROOT.'/'.ltrim($path,'/'); if(!is_file($abs)) return null;
+    $mime=mime_content_type($abs) ?: ''; if(!str_starts_with($mime,'image/')) return null;
+    $info=@getimagesize($abs); if(!$info) return null;
+    $src=omurga_image_driver($abs,$mime); if(!$src) return null;
+    $w=(int)$info[0]; $h=(int)$info[1]; if($w<=0 || $h<=0) return null;
+    $newW=min($maxWidth,$w); $newH=max(1,(int)round($h*$newW/$w));
+    $dst=imagecreatetruecolor($newW,$newH);
+    if(in_array($mime,['image/png','image/webp'],true)){ imagealphablending($dst,false); imagesavealpha($dst,true); $transparent=imagecolorallocatealpha($dst,0,0,0,127); imagefilledrectangle($dst,0,0,$newW,$newH,$transparent); }
+    imagecopyresampled($dst,$src,0,0,0,0,$newW,$newH,$w,$h);
+    $dir=dirname($abs).'/thumbs'; if(!is_dir($dir)) @mkdir($dir,0775,true);
+    $base=pathinfo($abs,PATHINFO_FILENAME); $target=$dir.'/'.$base.'-'.$maxWidth.'.webp';
+    $n=2; while(is_file($target)){ $target=$dir.'/'.$base.'-'.$maxWidth.'-'.$n.'.webp'; $n++; if($n>999) break; }
+    $ok=function_exists('imagewebp') ? @imagewebp($dst,$target,(int)setting('webp_quality','82')) : false;
+    imagedestroy($src); imagedestroy($dst);
+    if(!$ok) return null; @chmod($target,0644); return trim(str_replace(OMURGA_ROOT.'/','',$target),'/');
+}
+function omurga_media_job_process(array $job): array {
+    $jobId=(int)($job['id'] ?? 0); $mediaId=(int)($job['media_id'] ?? 0); $type=(string)($job['job_type'] ?? '');
+    omurga_media_jobs_ensure_table();
+    $jt=omurga_media_jobs_table();
+    try{ db()->prepare("UPDATE $jt SET status='running', attempts=attempts+1, updated_at=NOW() WHERE id=?")->execute([$jobId]); }catch(Throwable $e){}
+    try{
+        $media=omurga_media_fetch($mediaId); if(!$media) throw new RuntimeException('Medya kaydı bulunamadı.');
+        $path=(string)($media['file_path'] ?? $media['path'] ?? ''); $abs=OMURGA_ROOT.'/'.ltrim($path,'/'); if($path==='' || !is_file($abs)) throw new RuntimeException('Medya dosyası bulunamadı.');
+        $result=null;
+        if($type==='webp_convert'){
+            $r=omurga_convert_existing_media_to_webp($media,false,(int)setting('webp_quality','82'));
+            if(empty($r['ok'])) throw new RuntimeException($r['message'] ?? 'WebP oluşturulamadı.');
+            $result=(string)($r['path'] ?? '');
+        }elseif($type==='thumbnail_generate'){
+            $result=omurga_media_generate_thumbnail($path,480);
+            if(!$result) throw new RuntimeException('Küçük görsel oluşturulamadı.');
+        }elseif($type==='image_size_detect'){
+            $info=omurga_image_info($abs); $t=table_name('media'); $cols=db()->query("SHOW COLUMNS FROM $t")->fetchAll(PDO::FETCH_COLUMN);
+            $sets=[]; $vals=[]; foreach(['width'=>$info['width'],'height'=>$info['height'],'file_size'=>filesize($abs) ?: 0,'size'=>filesize($abs) ?: 0] as $c=>$v){ if(in_array($c,$cols,true)){ $sets[]="$c=?"; $vals[]=$v; } }
+            if($sets){ $vals[]=$mediaId; db()->prepare("UPDATE $t SET ".implode(',',$sets)." WHERE id=?")->execute($vals); }
+        }elseif($type==='seo_alt_fill'){
+            $t=table_name('media'); $cols=db()->query("SHOW COLUMNS FROM $t")->fetchAll(PDO::FETCH_COLUMN);
+            if(in_array('alt_text',$cols,true) && trim((string)($media['alt_text'] ?? ''))===''){
+                $alt=omurga_auto_image_alt('', '', $path); db()->prepare("UPDATE $t SET alt_text=? WHERE id=?")->execute([$alt,$mediaId]);
+            }
+        }elseif($type==='image_sitemap_refresh'){
+            if(function_exists('update_setting')) update_setting('seo_image_sitemap_refreshed_at', date('Y-m-d H:i:s'));
+        }else throw new RuntimeException('Bilinmeyen medya işi: '.$type);
+        omurga_media_job_update($jobId,'done',null,$result);
+        return ['ok'=>true,'message'=>'İş tamamlandı.','result_path'=>$result];
+    }catch(Throwable $e){ omurga_media_job_update($jobId,'failed',$e->getMessage()); if(function_exists('omurga_write_error')) omurga_write_error($e); return ['ok'=>false,'message'=>$e->getMessage()]; }
+}
+function omurga_media_jobs_process_pending(int $limit=10): array {
+    omurga_media_jobs_ensure_table(); $out=['processed'=>0,'ok'=>0,'failed'=>0,'messages'=>[]];
+    try{
+        $t=omurga_media_jobs_table(); $limit=max(1,min(50,$limit));
+        $rows=db()->query("SELECT * FROM $t WHERE status IN ('pending','failed') AND attempts < 3 ORDER BY id ASC LIMIT $limit")->fetchAll();
+        foreach($rows as $row){ $out['processed']++; $r=omurga_media_job_process($row); if($r['ok']??false) $out['ok']++; else { $out['failed']++; $out['messages'][]=$r['message'] ?? 'Hata'; } }
+    }catch(Throwable $e){ if(function_exists('omurga_write_error')) omurga_write_error($e); $out['messages'][]=$e->getMessage(); }
+    return $out;
+}
+
+function omurga_store_media_upload(array $file, array $options=[]): ?array {
+    unset($GLOBALS['omurga_last_uploaded_original_path'], $GLOBALS['omurga_last_uploaded_original_filename']);
+    $error=(int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if($error===UPLOAD_ERR_NO_FILE) return null;
+    if($error!==UPLOAD_ERR_OK) throw new RuntimeException(omurga_upload_error_message($error));
+    $tmp=(string)($file['tmp_name'] ?? '');
+    if($tmp==='' || !is_file($tmp)) throw new RuntimeException('Geçici yükleme dosyası bulunamadı.');
+    $mime=mime_content_type($tmp) ?: (string)($file['type'] ?? '');
+    $allowed=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif','application/pdf'=>'pdf','video/mp4'=>'mp4'];
+    if(!isset($allowed[$mime])) throw new RuntimeException('Bu dosya türü desteklenmiyor: '.($mime ?: 'bilinmiyor'));
+    $maxSize=(int)($options['max_size'] ?? (64*1024*1024));
+    if((int)($file['size'] ?? 0)>$maxSize) throw new RuntimeException('Dosya çok büyük. En fazla '.omurga_human_size($maxSize).' yüklenebilir.');
+    $relDir=omurga_media_rel_dir();
+    $dir=OMURGA_ROOT.'/'.$relDir;
+    if(!is_dir($dir) && !mkdir($dir,0775,true)) throw new RuntimeException('Yükleme klasörü oluşturulamadı: '.$relDir);
+    if(!is_writable($dir)) throw new RuntimeException('Yükleme klasörü yazılabilir değil: '.$relDir);
+    $titleHint=trim((string)($options['title_hint'] ?? ''));
+    $altText=trim((string)($options['alt_text'] ?? ''));
+    $originalName=(string)($file['name'] ?? 'upload');
+    $name=omurga_prepare_upload_name_for_dir($dir, $originalName, $titleHint ?: $altText);
+    $originalPath=$relDir.'/'.$name;
+    $target=$dir.'/'.$name;
+    $GLOBALS['omurga_last_uploaded_original_filename']=basename($originalName);
+    $GLOBALS['omurga_last_uploaded_original_path']=$originalPath;
+    if(!@move_uploaded_file($tmp,$target)){
+        // Some hosts mark uploaded temp files differently behind security layers; keep a safe fallback for valid temp files.
+        if(!@copy($tmp,$target)) throw new RuntimeException('Dosya hedef klasöre taşınamadı. Upload/temp ve uploads izinlerini kontrol edin.');
+    }
+    @chmod($target,0644);
+    if(str_starts_with($mime,'image/')) omurga_resize_image_if_needed($target,$mime,(int)setting('media_max_width','1600'),(int)setting('media_jpeg_quality','86'));
+    $finalPath=$originalPath;
+    $createWebp=!empty($options['create_webp']);
+    $queueEnabled=omurga_media_jobs_enabled();
+    if(!$queueEnabled && $createWebp && in_array($mime,['image/jpeg','image/png'],true)){
+        $webp=create_webp_copy($target,$mime,(int)setting('webp_quality','82'));
+        if($webp && is_file($webp)){ @chmod($webp,0644); $finalPath=$relDir.'/'.basename($webp); }
+    }
+    $alt=omurga_auto_image_alt($altText, $titleHint, $finalPath);
+    $mediaId=insert_media_record($finalPath, $alt, $options['user_id'] ?? ($_SESSION['omurga_user_id'] ?? null), $originalPath===$finalPath?null:$originalPath);
+    if($queueEnabled && str_starts_with($mime,'image/')){
+        omurga_media_job_enqueue_defaults($mediaId, ['file_path'=>$finalPath,'mime'=>$mime]);
+    }
+    $abs=OMURGA_ROOT.'/'.$finalPath;
+    return ['id'=>$mediaId,'src'=>$finalPath,'thumb'=>image_url($finalPath),'alt'=>$alt ?: basename($finalPath),'name'=>basename($finalPath),'mime'=>is_file($abs)?(mime_content_type($abs) ?: $mime):$mime,'size'=>is_file($abs)?filesize($abs):0,'jobs_queued'=>$queueEnabled && str_starts_with($mime,'image/')];
+}
+
 function save_uploaded_file(string $field, bool $createWebp=true): ?string {
     unset($GLOBALS['omurga_last_uploaded_original_path'], $GLOBALS['omurga_last_uploaded_original_filename']);
     if(empty($_FILES[$field]['name'])||($_FILES[$field]['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK) return null;
@@ -863,7 +1429,7 @@ function save_uploaded_file(string $field, bool $createWebp=true): ?string {
     }
     return $relDir.'/'.$name;
 }
-function insert_media_record(string $path, string $alt='', ?int $userId=null, ?string $originalPath=null): void {
+function insert_media_record(string $path, string $alt='', ?int $userId=null, ?string $originalPath=null): int {
     try{
         $abs=OMURGA_ROOT.'/'.$path; $mime=file_exists($abs)?(mime_content_type($abs) ?: ''):''; $info=file_exists($abs)?omurga_image_info($abs):['width'=>0,'height'=>0];
         $t=table_name('media');
@@ -900,7 +1466,9 @@ function insert_media_record(string $path, string $alt='', ?int $userId=null, ?s
         if(!$fields) throw new RuntimeException('Medya tablosu alanları okunamadı.');
         $marks=implode(',', array_fill(0,count($fields),'?'));
         db()->prepare("INSERT INTO $t (".implode(',',$fields).") VALUES ($marks)")->execute($params);
+        $newId=(int)db()->lastInsertId();
         unset($GLOBALS['omurga_last_uploaded_original_path'], $GLOBALS['omurga_last_uploaded_original_filename']);
+        return $newId;
     }catch(Throwable $e){ unset($GLOBALS['omurga_last_uploaded_original_path'], $GLOBALS['omurga_last_uploaded_original_filename']); omurga_write_error($e); throw $e; }
 }
 function robots_txt_content(): string {
@@ -988,8 +1556,8 @@ function omurga_seo_head(array $ctx=[]): string {
 ";
 }
 function omurga_seo_normalize_path(string $path): string { $p='/'.trim(parse_url($path, PHP_URL_PATH) ?: $path, '/'); return $p==='/'?'/':rtrim($p,'/'); }
-function omurga_seo_apply_redirect(string $slug): bool { if(setting('seo_redirects_enabled','1')!=='1') return false; if($slug==='' || str_starts_with($slug,'admin/')) return false; try{ omurga_migrate_seo_pro_1015(); $r=table_name('seo_redirects'); $path=omurga_seo_normalize_path($slug); $st=db()->prepare("SELECT * FROM $r WHERE active=1 AND source_path=? LIMIT 1"); $st->execute([$path]); $row=$st->fetch(); if(!$row) return false; db()->prepare("UPDATE $r SET hits=hits+1,last_hit_at=NOW() WHERE id=?")->execute([(int)$row['id']]); $target=(string)$row['target_url']; if($target!=='' && !preg_match('#^https?://#i',$target)) $target=omurga_url(ltrim($target,'/')); header('Location: '.$target, true, in_array((int)$row['status_code'],[301,302,307,308],true)?(int)$row['status_code']:301); return true; }catch(Throwable $e){ return false; } }
-function omurga_seo_log_404(string $slug): void { if(setting('seo_404_logging_enabled','1')!=='1') return; if($slug==='' || str_starts_with($slug,'admin/')) return; try{ omurga_migrate_seo_pro_1015(); $l=table_name('seo_404_logs'); $path=omurga_seo_normalize_path($slug); $ref=mb_substr((string)($_SERVER['HTTP_REFERER'] ?? ''),0,500); $ua=mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''),0,255); $ip=mb_substr((string)($_SERVER['REMOTE_ADDR'] ?? ''),0,64); db()->prepare("INSERT INTO $l (path,referrer,user_agent,ip,last_seen_at) VALUES (?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE hits=hits+1, referrer=VALUES(referrer), user_agent=VALUES(user_agent), ip=VALUES(ip), last_seen_at=NOW()")->execute([$path,$ref,$ua,$ip]); }catch(Throwable $e){} }
+function omurga_seo_apply_redirect(string $slug): bool { if(setting('seo_redirects_enabled','1')!=='1') return false; if($slug==='' || str_starts_with($slug,'admin/')) return false; try{ omurga_migrate(); $r=table_name('seo_redirects'); $path=omurga_seo_normalize_path($slug); $st=db()->prepare("SELECT * FROM $r WHERE active=1 AND source_path=? LIMIT 1"); $st->execute([$path]); $row=$st->fetch(); if(!$row) return false; db()->prepare("UPDATE $r SET hits=hits+1,last_hit_at=NOW() WHERE id=?")->execute([(int)$row['id']]); $target=(string)$row['target_url']; if($target!=='' && !preg_match('#^https?://#i',$target)) $target=omurga_url(ltrim($target,'/')); header('Location: '.$target, true, in_array((int)$row['status_code'],[301,302,307,308],true)?(int)$row['status_code']:301); return true; }catch(Throwable $e){ return false; } }
+function omurga_seo_log_404(string $slug): void { if(setting('seo_404_logging_enabled','1')!=='1') return; if($slug==='' || str_starts_with($slug,'admin/')) return; try{ omurga_migrate(); $l=table_name('seo_404_logs'); $path=omurga_seo_normalize_path($slug); $ref=mb_substr((string)($_SERVER['HTTP_REFERER'] ?? ''),0,500); $ua=mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''),0,255); $ip=mb_substr((string)($_SERVER['REMOTE_ADDR'] ?? ''),0,64); db()->prepare("INSERT INTO $l (path,referrer,user_agent,ip,last_seen_at) VALUES (?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE hits=hits+1, referrer=VALUES(referrer), user_agent=VALUES(user_agent), ip=VALUES(ip), last_seen_at=NOW()")->execute([$path,$ref,$ua,$ip]); }catch(Throwable $e){} }
 
 function setting_json(string $key, array $default=[]): array { $raw=setting($key, ''); if(!$raw) return $default; $data=json_decode($raw,true); return is_array($data)?$data:$default; }
 function update_setting_json(string $key, array $value): void { update_setting($key, json_encode($value, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT)); }
@@ -3048,6 +3616,146 @@ function omurga_extension_action_label(int $cmp, bool $exists): string {
     return 'sürümü düşürüldü';
 }
 
+function omurga_extension_action_key(int $cmp, bool $exists): string {
+    if(!$exists) return 'install';
+    if($cmp>0) return 'update';
+    if($cmp===0) return 'overwrite';
+    return 'downgrade';
+}
+function omurga_extension_action_title(int $cmp, bool $exists, string $kind='extension'): string {
+    $label=$kind==='theme' ? 'tema' : ($kind==='package' ? 'paket' : 'öğe');
+    if(!$exists) return 'Yeni '.$label.' kurulacak';
+    if($cmp>0) return 'Yeni sürüm bulundu';
+    if($cmp===0) return 'Aynı sürüm üzerine yazılacak';
+    return 'Eski sürüme dönülecek';
+}
+function omurga_extension_action_description(int $cmp, bool $exists, string $kind='extension'): string {
+    $label=$kind==='theme' ? 'tema' : ($kind==='package' ? 'paket' : 'öğe');
+    if(!$exists) return 'Bu '.$label.' sistemde yok. Kurulumdan sonra pasif kalır; istersen yükleme sonrası etkinleştirebilirsin.';
+    if($cmp>0) return 'Yüklenen sürüm kurulu sürümden daha yeni. Mevcut '.$label.' yedeklenerek güncellenecek.';
+    if($cmp===0) return 'Kurulu sürüm ile yüklenen sürüm aynı. Onaylarsan mevcut dosyalar yedeklenip üzerine yazılacak.';
+    return 'Yüklenen sürüm kurulu sürümden daha eski. Bu işlem sürüm düşürme olarak yapılacak ve önce otomatik yedek alınacak.';
+}
+function omurga_extension_recommended_policy(int $cmp, bool $exists): string {
+    if(!$exists) return 'auto';
+    if($cmp>0) return 'only_newer';
+    if($cmp===0) return 'only_same';
+    return 'only_lower';
+}
+function omurga_extension_staging_dir(): string {
+    $dir=OMURGA_ROOT.'/storage/tmp/extension-staging';
+    if(!is_dir($dir)) @mkdir($dir,0775,true);
+    return $dir;
+}
+function omurga_stage_extension_zip(array $file, string $type): array {
+    $type=$type==='theme' ? 'theme' : 'package';
+    $err=(int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if($err!==UPLOAD_ERR_OK) throw new RuntimeException(omurga_upload_error_message($err));
+    if(empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) throw new RuntimeException('Yüklenen zip dosyası alınamadı.');
+    $name=(string)($file['name'] ?? 'upload.zip');
+    if(strtolower(pathinfo($name,PATHINFO_EXTENSION))!=='zip') throw new RuntimeException('Sadece .zip dosyası yüklenebilir.');
+    $dir=omurga_extension_staging_dir();
+    if(!is_dir($dir) || !is_writable($dir)) throw new RuntimeException('Geçici yükleme klasörü yazılabilir değil: storage/tmp/extension-staging');
+    $token=$type.'-'.date('YmdHis').'-'.bin2hex(random_bytes(8));
+    $target=$dir.'/'.$token.'.zip';
+    if(!move_uploaded_file($file['tmp_name'],$target)) throw new RuntimeException('Yüklenen zip geçici alana taşınamadı.');
+    @chmod($target,0644);
+    return ['token'=>$token,'path'=>$target,'name'=>$name,'size'=>(int)($file['size'] ?? filesize($target))];
+}
+function omurga_staged_extension_zip_path(string $token, string $type): string {
+    $type=$type==='theme' ? 'theme' : 'package';
+    $token=preg_replace('/[^a-z0-9_-]/i','',(string)$token);
+    if($token==='' || !str_starts_with($token,$type.'-')) throw new RuntimeException('Geçersiz yükleme oturumu.');
+    $path=omurga_extension_staging_dir().'/'.$token.'.zip';
+    $real=realpath($path); $base=realpath(omurga_extension_staging_dir());
+    if(!$real || !$base || !omurga_path_within(str_replace('\\','/',$real), str_replace('\\','/',$base)) || !is_file($real)) throw new RuntimeException('Yükleme oturumu bulunamadı veya süresi doldu.');
+    return $real;
+}
+function omurga_clear_staged_extension_zip(string $token, string $type): void {
+    try{ $p=omurga_staged_extension_zip_path($token,$type); @unlink($p); }catch(Throwable $e){}
+}
+function omurga_extension_file_count_and_size(string $dir): array {
+    $files=0; $bytes=0;
+    if(is_dir($dir)){
+        $it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
+        foreach($it as $f){ if($f->isFile()){ $files++; $bytes+=(int)$f->getSize(); } }
+    }
+    return ['files'=>$files,'bytes'=>$bytes,'size'=>omurga_human_bytes($bytes)];
+}
+function omurga_analyze_theme_zip(string $zipPath): array {
+    $pack=omurga_validate_theme_zip($zipPath);
+    try{
+        $slug=(string)$pack['slug'];
+        $target=omurga_themes_dir().'/'.$slug;
+        $exists=is_dir($target);
+        $existingInfo=$exists ? (omurga_theme_info($slug) ?: []) : [];
+        $installed=(string)($existingInfo['version'] ?? '0.0.0');
+        $uploaded=(string)($pack['info']['version'] ?? '1.0.0');
+        $cmp=omurga_compare_versions($installed,$uploaded);
+        $official=omurga_validate_theme_directory_standard($pack['root'],$pack['info']);
+        $security=omurga_scan_extension_security($pack['root'],'theme',$pack['info']);
+        $risk=omurga_theme_contains_dangerous_code($pack['root']);
+        if($risk && !in_array($risk,$security,true)) $security[]=$risk;
+        $stats=omurga_extension_file_count_and_size($pack['root']);
+        $zipReport=$pack['zip_report'] ?? omurga_zip_report_empty();
+        return [
+            'type'=>'theme','slug'=>$slug,'name'=>(string)($pack['info']['name'] ?? $slug),'author'=>(string)($pack['info']['author'] ?? ''),
+            'installed_version'=>$exists ? $installed : '', 'uploaded_version'=>$uploaded, 'exists'=>$exists, 'compare'=>$cmp,
+            'action_key'=>omurga_extension_action_key($cmp,$exists), 'action_title'=>omurga_extension_action_title($cmp,$exists,'theme'),
+            'action_description'=>omurga_extension_action_description($cmp,$exists,'theme'), 'recommended_policy'=>omurga_extension_recommended_policy($cmp,$exists),
+            'warnings'=>array_values(array_unique(array_merge($official['warnings'] ?? [], $zipReport['warnings'] ?? []))), 'errors'=>array_values(array_unique($official['errors'] ?? [])),
+            'security_issues'=>array_values(array_unique($security)), 'permissions'=>$official['permissions'] ?? [],
+            'files'=>$stats['files'], 'size'=>$stats['size'], 'valid'=>empty($official['errors']) && !empty($zipReport['install_allowed']),
+            'zip_report'=>$zipReport, 'ignored_system_files'=>$zipReport['ignored_system_files'] ?? [], 'blocked_files'=>$zipReport['blocked_files'] ?? [], 'allowed_admin_files'=>$zipReport['allowed_admin_files'] ?? [],
+            'checked_files'=>(int)($zipReport['checked_files'] ?? $stats['files']), 'install_allowed'=>!empty($zipReport['install_allowed']),
+        ];
+    } finally { omurga_rrmdir($pack['tmp'] ?? ''); }
+}
+function omurga_analyze_package_zip(string $zipPath): array {
+    if(!class_exists('ZipArchive')) throw new RuntimeException('Paket yüklemek için ZipArchive aktif olmalı.');
+    $tmp=OMURGA_ROOT.'/storage/tmp/package-analyze-'.date('YmdHis').'-'.bin2hex(random_bytes(3));
+    if(!is_dir($tmp) && !@mkdir($tmp,0775,true)) throw new RuntimeException('Geçici analiz klasörü oluşturulamadı.');
+    $zip=new ZipArchive();
+    if($zip->open($zipPath)!==true){ omurga_rrmdir($tmp); throw new RuntimeException('Zip dosyası açılamadı.'); }
+    try{
+        $zipReport=omurga_safe_extract_zip($zip,$tmp); $zip->close();
+        $root=$tmp;
+        if(!is_file($root.'/package.json')){
+            $dirs=array_values(array_filter(glob($tmp.'/*') ?: [], 'is_dir'));
+            if(count($dirs)===1 && is_file($dirs[0].'/package.json')) $root=$dirs[0];
+        }
+        if(!is_file($root.'/package.json')) throw new RuntimeException('package.json bulunamadı.');
+        $meta=omurga_read_package_json($root.'/package.json');
+        if(!$meta) throw new RuntimeException('package.json geçersiz.');
+        $slug=omurga_package_slug($meta['slug'] ?? '');
+        if($slug==='') throw new RuntimeException('Paket slug geçersiz.');
+        $target=omurga_package_path($slug);
+        $payloadReport=omurga_extension_payload_security_report($root,'package',$target);
+        $zipReport=omurga_zip_report_merge($zipReport,$payloadReport);
+        if(!empty($zipReport['blocked_files'])) throw new RuntimeException(omurga_zip_block_message($zipReport['blocked_files']));
+        $standard=omurga_validate_package_directory_standard($root,$meta);
+        $exists=is_dir($target);
+        $existing=$exists ? (omurga_read_package_json($target.'/package.json') ?: []) : [];
+        $installed=(string)($existing['version'] ?? '0.0.0');
+        $uploaded=(string)($meta['version'] ?? '1.0.0');
+        $cmp=omurga_compare_versions($installed,$uploaded);
+        $security=omurga_scan_extension_security($root,'package',$meta);
+        $stats=omurga_extension_file_count_and_size($root);
+        return [
+            'type'=>'package','slug'=>$slug,'name'=>(string)($meta['name'] ?? $slug),'author'=>(string)($meta['author'] ?? ''),
+            'installed_version'=>$exists ? $installed : '', 'uploaded_version'=>$uploaded, 'exists'=>$exists, 'compare'=>$cmp,
+            'action_key'=>omurga_extension_action_key($cmp,$exists), 'action_title'=>omurga_extension_action_title($cmp,$exists,'package'),
+            'action_description'=>omurga_extension_action_description($cmp,$exists,'package'), 'recommended_policy'=>omurga_extension_recommended_policy($cmp,$exists),
+            'warnings'=>array_values(array_unique(array_merge($standard['warnings'] ?? [], $zipReport['warnings'] ?? []))), 'errors'=>array_values(array_unique($standard['errors'] ?? [])),
+            'security_issues'=>array_values(array_unique($security)), 'permissions'=>$standard['permissions'] ?? [],
+            'files'=>$stats['files'], 'size'=>$stats['size'], 'valid'=>empty($standard['errors']) && !empty($zipReport['install_allowed']), 'compatible'=>empty($meta['requirement_messages'] ?? []),
+            'requirement_messages'=>$meta['requirement_messages'] ?? [],
+            'zip_report'=>$zipReport, 'ignored_system_files'=>$zipReport['ignored_system_files'] ?? [], 'blocked_files'=>$zipReport['blocked_files'] ?? [], 'allowed_admin_files'=>$zipReport['allowed_admin_files'] ?? [],
+            'checked_files'=>(int)($zipReport['checked_files'] ?? $stats['files']), 'install_allowed'=>!empty($zipReport['install_allowed']),
+        ];
+    } finally { omurga_rrmdir($tmp); }
+}
+
 function omurga_themes_dir(): string { return OMURGA_ROOT . '/themes'; }
 function omurga_theme_dir(?string $slug=null): string { return omurga_themes_dir() . '/' . ($slug ?: omurga_active_theme()); }
 function omurga_theme_url(?string $path='', ?string $slug=null): string {
@@ -3199,7 +3907,7 @@ function omurga_validate_theme_zip(string $zipPath): array {
     if(!is_dir(dirname($tmp))) mkdir(dirname($tmp),0775,true);
     $zip=new ZipArchive();
     if($zip->open($zipPath)!==true) throw new RuntimeException('Tema zip dosyası açılamadı.');
-    omurga_safe_extract_zip($zip, $tmp); $zip->close();
+    $zipReport=omurga_safe_extract_zip($zip, $tmp); $zip->close();
     $root=$tmp;
     if(!file_exists($root.'/theme.json')){
         $children=array_values(array_filter(glob($tmp.'/*') ?: [], 'is_dir'));
@@ -3209,6 +3917,10 @@ function omurga_validate_theme_zip(string $zipPath): array {
     $data=json_decode(file_get_contents($root.'/theme.json'), true);
     if(!is_array($data)) { omurga_rrmdir($tmp); throw new RuntimeException('theme.json okunamadı.'); }
     $slug=slugify($data['slug'] ?? $data['id'] ?? $data['name'] ?? basename($root));
+    if($slug==='') { omurga_rrmdir($tmp); throw new RuntimeException('Tema slug geçersiz.'); }
+    $payloadReport=omurga_extension_payload_security_report($root,'theme',omurga_themes_dir().'/'.$slug);
+    $zipReport=omurga_zip_report_merge($zipReport,$payloadReport);
+    if(!empty($zipReport['blocked_files'])) { omurga_rrmdir($tmp); throw new RuntimeException(omurga_zip_block_message($zipReport['blocked_files'])); }
     $engine=omurga_infer_theme_engine_from_dir($root, $data);
     if($engine==='tpl') { omurga_rrmdir($tmp); throw new RuntimeException('Eski şablon formatı resmi tema standardı değildir. Lütfen .omg tema yükleyin.'); }
     $official=omurga_validate_theme_directory_standard($root,$data);
@@ -3224,7 +3936,7 @@ function omurga_validate_theme_zip(string $zipPath): array {
     }
     $required=omurga_theme_required_files($engine);
     foreach($required as $req){ if(!file_exists($root.'/'.$req)){ omurga_rrmdir($tmp); throw new RuntimeException('Tema eksik: '.$req.' dosyası yok.'); } }
-    return ['tmp'=>$tmp,'root'=>$root,'slug'=>$slug,'info'=>$data];
+    return ['tmp'=>$tmp,'root'=>$root,'slug'=>$slug,'info'=>$data,'zip_report'=>$zipReport];
 }
 function omurga_extension_policy_allows(int $cmp, bool $exists, string $policy): bool {
     if(!$exists) return true;
@@ -3654,14 +4366,31 @@ function omurga_api_upsert_post(array $data, string $type='post', ?int $id=null)
     return $postId;
 }
 function omurga_api_dispatch(): void {
+    omurga_api_cors_headers();
     if(!omurga_api_enabled()) omurga_api_error('REST API kapalı.',403,'api_disabled');
     omurga_migrate();
     $method=strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
     $path=omurga_api_route_path();
     $parts=$path===''?[]:array_values(array_filter(explode('/',$path), 'strlen'));
     if($method==='OPTIONS') omurga_api_json(['success'=>true]);
-    if(!$parts){ omurga_api_json(['success'=>true,'name'=>'Omurga REST API','version'=>'v1','omurga_version'=>OMURGA_VERSION,'endpoints'=>['/api/status','/api/posts','/api/pages','/api/categories','/api/tags','/api/media']]); }
-    if($parts[0]==='status') omurga_api_json(['success'=>true,'version'=>OMURGA_VERSION,'site'=>setting('site_name','Omurga'),'time'=>date('c')]);
+    $apiVersion='v1';
+    if($parts && preg_match('/^v[0-9]+$/', (string)$parts[0])){
+        $apiVersion=(string)array_shift($parts);
+        if($apiVersion !== 'v1') omurga_api_error('Bu API sürümü desteklenmiyor.', 404, 'unsupported_api_version', ['supported'=>['v1']]);
+    }
+    if(setting('api_rate_limit_enabled','1')==='1'){
+        $token=omurga_api_current_token();
+        $identity=$token ? ('token:'.($token['id'] ?? $token['last4'] ?? 'unknown')) : ('ip:'.omurga_client_ip());
+        $limit=(int)setting('api_rate_limit_per_hour','120');
+        $rl=omurga_rate_limit_hit('api:'.$identity, $limit, 3600);
+        if(!headers_sent()){
+            header('X-RateLimit-Limit: '.(int)$rl['limit']);
+            header('X-RateLimit-Remaining: '.(int)$rl['remaining']);
+        }
+        if(empty($rl['allowed'])) omurga_api_error('API istek limiti aşıldı.',429,'rate_limited',['retry_after'=>(int)$rl['retry_after']]);
+    }
+    if(!$parts){ omurga_api_json(['success'=>true,'name'=>'Omurga REST API','version'=>'v1','omurga_version'=>OMURGA_VERSION,'endpoints'=>['/api/v1/status','/api/v1/posts','/api/v1/pages','/api/v1/categories','/api/v1/tags','/api/v1/media']]); }
+    if($parts[0]==='status') omurga_api_json(['success'=>true,'version'=>OMURGA_VERSION,'api_version'=>$apiVersion,'site'=>setting('site_name','Omurga'),'time'=>date('c')]);
     $resource=$parts[0]; $id=$parts[1] ?? null;
     $publicOnly=omurga_api_current_token() ? false : true;
     try{
@@ -3790,32 +4519,113 @@ function omurga_migrate_seo_pro_1015(): void {
     }catch(Throwable $e){ if(function_exists('omurga_write_error')) omurga_write_error($e); }
 }
 
-function omurga_migrate(): void {
-    omurga_migrate_07();
-    omurga_migrate_08();
-    omurga_migrate_12();
-    omurga_migrate_14();
-    omurga_migrate_15();
-    omurga_migrate_16();
-    omurga_migrate_164();
-    omurga_migrate_1667();
-    omurga_migrate_17();
-    omurga_migrate_19();
-    omurga_migrate_20();
-    omurga_migrate_22();
-    omurga_migrate_26();
-    omurga_migrate_27();
-    omurga_migrate_346();
-    omurga_migrate_361();
-    omurga_migrate_366();
-    omurga_migrate_369();
-    omurga_migrate_400_data_model();
-    omurga_migrate_media_v2();
-    omurga_migrate_trash_system();
-    omurga_migrate_autosave_system();
-    omurga_migrate_membership_system();
-    omurga_migrate_seo_center_1010();
-    omurga_migrate_seo_pro_1015();
+
+function omurga_migrate_media_jobs_115(): void {
+    static $done=false; if($done) return; $done=true;
+    if(!omurga_is_installed()) return;
+    try{
+        omurga_media_jobs_ensure_table();
+        foreach([
+            'media_jobs_enabled'=>'1',
+            'media_jobs_webp_enabled'=>'1',
+            'media_jobs_thumbnail_enabled'=>'1',
+            'media_jobs_batch_limit'=>'10'
+        ] as $key=>$value){ if(setting($key, null)===null) update_setting($key,$value); }
+        update_setting('omurga_version', OMURGA_VERSION); update_setting('db_version', OMURGA_VERSION);
+    }catch(Throwable $e){ if(function_exists('omurga_write_error')) omurga_write_error($e); }
+}
+
+
+function omurga_migrate_account_security_116(): void {
+    static $done=false; if($done) return; $done=true;
+    if(!omurga_is_installed()) return;
+    try{
+        $users=table_name('users');
+        $cols=db()->query("SHOW COLUMNS FROM $users")->fetchAll(PDO::FETCH_COLUMN);
+        if(!in_array('password_changed_at',$cols,true)) db()->exec("ALTER TABLE $users ADD password_changed_at DATETIME NULL AFTER last_login_ip");
+        if(!in_array('two_factor_enabled',$cols,true)) db()->exec("ALTER TABLE $users ADD two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER password_changed_at");
+        if(!in_array('two_factor_secret',$cols,true)) db()->exec("ALTER TABLE $users ADD two_factor_secret VARCHAR(190) NULL AFTER two_factor_enabled");
+        if(!in_array('two_factor_recovery_codes',$cols,true)) db()->exec("ALTER TABLE $users ADD two_factor_recovery_codes MEDIUMTEXT NULL AFTER two_factor_secret");
+        if(!in_array('force_password_change',$cols,true)) db()->exec("ALTER TABLE $users ADD force_password_change TINYINT(1) NOT NULL DEFAULT 0 AFTER two_factor_recovery_codes");
+        $pr=table_name('password_resets');
+        db()->exec("CREATE TABLE IF NOT EXISTS $pr (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            user_id INT UNSIGNED NOT NULL,
+            email VARCHAR(190) NOT NULL,
+            token_hash VARCHAR(64) NOT NULL,
+            expires_at DATETIME NOT NULL,
+            used_at DATETIME NULL,
+            ip_address VARCHAR(64) NULL,
+            user_agent VARCHAR(255) NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY token_hash (token_hash),
+            INDEX(user_id), INDEX(email), INDEX(expires_at), INDEX(used_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        foreach([
+            'account_password_reset_enabled'=>'1',
+            'account_password_reset_minutes'=>'60',
+            'account_password_min_length'=>'8',
+            'account_two_factor_ready'=>'1'
+        ] as $key=>$value){ if(setting($key, null)===null) update_setting($key,$value); }
+        update_setting('omurga_version', OMURGA_VERSION);
+        update_setting('db_version', OMURGA_VERSION);
+    }catch(Throwable $e){ if(function_exists('omurga_write_error')) omurga_write_error($e); }
+}
+
+function omurga_migration_plan(): array {
+    return [
+        ['core_007_activity_backup', 'Aktivite kayıtları, yedek tablosu ve kullanıcı login alanları', 'omurga_migrate_07'],
+        ['core_008_updates_settings', 'Güncelleme logları ve bakım ayarları', 'omurga_migrate_08'],
+        ['core_012_tags', 'Etiket ve yazı-etiket ilişkileri', 'omurga_migrate_12'],
+        ['core_014_user_profile', 'Kullanıcı profil alanları', 'omurga_migrate_14'],
+        ['core_015_comments', 'Yorum sistemi alanları', 'omurga_migrate_15'],
+        ['core_016_builder', 'Builder ve yerleşim tabloları', 'omurga_migrate_16'],
+        ['core_0164_theme_options', 'Tema seçenekleri ve ayarları', 'omurga_migrate_164'],
+        ['core_01667_notifications', 'Bildirim sistemi alanları', 'omurga_migrate_1667'],
+        ['core_017_packages', 'Paket sistemi alanları', 'omurga_migrate_17'],
+        ['core_019_admin_ui', 'Admin arayüz ve sistem ayarları', 'omurga_migrate_19'],
+        ['core_020_media', 'Medya alanları', 'omurga_migrate_20'],
+        ['core_022_forms', 'Form sistemi alanları', 'omurga_migrate_22'],
+        ['core_026_permissions', 'Rol ve yetki genişletmeleri', 'omurga_migrate_26'],
+        ['core_027_revisions', 'Yazı revizyon sistemi', 'omurga_migrate_27'],
+        ['core_346_theme_support', 'Tema destek ve uyumluluk alanları', 'omurga_migrate_346'],
+        ['core_361_theme_panel', 'Tema panel ve menü alanları', 'omurga_migrate_361'],
+        ['core_366_editor', 'Editör alanları ve içerik senkronizasyonu', 'omurga_migrate_366'],
+        ['core_369_custom_fields', 'Özel alan genişletmeleri', 'omurga_migrate_369'],
+        ['core_400_data_model', '1.0 veri modeli uyumluluğu', 'omurga_migrate_400_data_model'],
+        ['media_v2', 'Medya v2 ve görsel SEO alanları', 'omurga_migrate_media_v2'],
+        ['trash_system', 'Çöp kutusu sistemi', 'omurga_migrate_trash_system'],
+        ['autosave_system', 'Otomatik kayıt sistemi', 'omurga_migrate_autosave_system'],
+        ['membership_system', 'Üyelik ve ön yüz kullanıcı merkezi', 'omurga_migrate_membership_system'],
+        ['seo_center_1010', 'SEO Merkezi, RSS, Google News RSS ve IndexNow kuyruğu', 'omurga_migrate_seo_center_1010'],
+        ['seo_pro_1015', 'Yönlendirme, 404 izleme, gelişmiş sitemap ve schema ayarları', 'omurga_migrate_seo_pro_1015'],
+        ['security_114_api_login', 'API rate limit, login deneme kayıtları ve güvenlik tabloları', 'omurga_migrate_security_114'],
+        ['media_jobs_115', 'Medya işleme kuyruğu, WebP ve thumbnail işleri', 'omurga_migrate_media_jobs_115'],
+    ];
+}
+
+function omurga_register_core_migrations(): void {
+    foreach (omurga_migration_plan() as $item) {
+        omurga_migration_register($item[0], OMURGA_VERSION, $item[1]);
+    }
+}
+
+function omurga_migrate(bool $force=false): void {
+    static $done=false;
+    if($done && !$force) return;
+    if(!omurga_is_installed()) return;
+    omurga_register_core_migrations();
+    try{
+        if(!$force && setting('db_version','') === OMURGA_VERSION && omurga_migrations_all_applied()) { $done=true; return; }
+    }catch(Throwable $e){}
+    foreach(omurga_migration_plan() as $item){
+        [$key,$description,$callback] = $item;
+        if(function_exists($callback)){
+            omurga_migration_run($key, OMURGA_VERSION, $description, function() use ($callback){ $callback(); });
+        }
+    }
+    try{ update_setting('omurga_version', OMURGA_VERSION); update_setting('db_version', OMURGA_VERSION); }catch(Throwable $e){}
+    $done=true;
 }
 
 
@@ -4322,8 +5132,15 @@ function render_error_page(int $code, string $title, string $message): void {
     exit;
 }
 
+omurga_send_security_headers();
+set_error_handler(function(int $severity, string $message, string $file='', int $line=0){
+    if (!(error_reporting() & $severity)) return false;
+    omurga_log_error_record('php_error', $message, ['severity'=>$severity,'file'=>$file,'line'=>$line]);
+    return false;
+});
 set_exception_handler(function(Throwable $e){
     omurga_write_error($e);
+    omurga_log_error_record('exception', $e->getMessage(), ['file'=>$e->getFile(),'line'=>$e->getLine()]);
     if(!headers_sent()) render_error_page(500, 'Sistem Hatası', 'Beklenmeyen bir hata oluştu. Detaylar sistem kayıtlarına yazıldı.');
     echo 'Sistem hatası'; exit;
 });
@@ -4565,8 +5382,8 @@ function omurga_security_center_report(): array {
     };
     $integrity=function_exists('omurga_core_integrity_check') ? omurga_core_integrity_check() : ['status'=>'missing','message'=>'Bütünlük kontrolü yok'];
     $add('Çekirdek bütünlüğü', (string)($integrity['message'] ?? 'Bilinmiyor'), (($integrity['status'] ?? '')==='ok'), (($integrity['status'] ?? '')==='missing'?'warning':'error'), 'Çekirdek dosya hash kayıtları ile karşılaştırılır.');
-    $add('Çekirdek koruması', setting('security_core_guard','1')==='1'?'Açık':'Kapalı', setting('security_core_guard','1')==='1', 'error', 'Tema ve paketlerin core/admin/install/bootstrap alanlarına yazmasını engeller.');
-    $add('Geliştirici modu', setting('security_developer_mode','0')==='1'?'Açık':'Kapalı', setting('security_developer_mode','0')!=='1', 'warning', 'Normal sitelerde kapalı kalmalıdır.');
+    $add('Çekirdek koruması', omurga_core_guard_enabled()?'Zorunlu aktif':'Kapalı', omurga_core_guard_enabled(), 'error', 'Tema ve paketlerin core/admin/install/bootstrap alanlarına yazmasını engeller.');
+    $add('Geliştirici modu', omurga_developer_mode_enabled()?'Açık':(omurga_developer_mode_requested()?'Production nedeniyle pasif':'Kapalı'), !omurga_developer_mode_enabled(), 'warning', 'Production ortamında korumayı kapatamaz; yalnızca geliştirme ortamında ayrıntılı log/uyarı içindir.');
     $add('PHP dosya düzenleme', setting('security_php_file_edit','0')==='1'?'Açık':'Kapalı', setting('security_php_file_edit','0')!=='1', 'warning', 'Tema düzenleyicide PHP düzenleme kapalı olmalıdır.');
     $add('Paket yükleme', setting('security_plugin_upload','1')==='1'?'Açık':'Kapalı', true, 'ok');
     $add('Paket silme izni', setting('security_plugin_delete','0')==='1'?'Açık':'Kapalı', setting('security_plugin_delete','0')!=='1', 'warning', 'Silme işlemi gerektiğinde açılabilir.');
@@ -4985,7 +5802,7 @@ function omurga_install_package_zip(string $zipPath, array $options=[]): array {
     if(!is_dir($tmpBase) && !@mkdir($tmpBase,0775,true)) throw new RuntimeException('Geçici klasör oluşturulamadı.');
     $zip=new ZipArchive();
     if($zip->open($zipPath)!==true){ omurga_rrmdir($tmpBase); throw new RuntimeException('Zip dosyası açılamadı.'); }
-    omurga_safe_extract_zip($zip, $tmpBase); $zip->close();
+    $zipReport=omurga_safe_extract_zip($zip, $tmpBase); $zip->close();
     $root=$tmpBase;
     if(!is_file($root.'/package.json')){
         $dirs=array_values(array_filter(glob($tmpBase.'/*') ?: [], 'is_dir'));
@@ -4994,19 +5811,22 @@ function omurga_install_package_zip(string $zipPath, array $options=[]): array {
     if(!is_file($root.'/package.json')){ omurga_rrmdir($tmpBase); throw new RuntimeException('package.json bulunamadı.'); }
     $meta=omurga_read_package_json($root.'/package.json');
     if(!$meta){ omurga_rrmdir($tmpBase); throw new RuntimeException('package.json geçersiz.'); }
+    $slug=omurga_package_slug($meta['slug'] ?? '');
+    if($slug===''){ omurga_rrmdir($tmpBase); throw new RuntimeException('Paket slug geçersiz.'); }
+    $target=omurga_package_path($slug);
+    $payloadReport=omurga_extension_payload_security_report($root,'package',$target);
+    $zipReport=omurga_zip_report_merge($zipReport,$payloadReport);
+    if(!empty($zipReport['blocked_files'])){ omurga_rrmdir($tmpBase); throw new RuntimeException(omurga_zip_block_message($zipReport['blocked_files'])); }
     $standard=omurga_validate_package_directory_standard($root, $meta);
     if(!$standard['valid']){ omurga_rrmdir($tmpBase); throw new RuntimeException('Paket resmi standarda uymuyor: '.implode(' | ', $standard['errors'])); }
     $meta['permissions']=$standard['permissions'];
     if(!empty($meta['permissions']) && empty($options['permissions_accepted'])){ omurga_rrmdir($tmpBase); throw new RuntimeException('Paket izinleri onaylanmadan kurulamaz. İstenen izinler: '.omurga_permissions_html_summary($meta['permissions'])); }
-    $slug=omurga_package_slug($meta['slug'] ?? '');
-    if($slug===''){ omurga_rrmdir($tmpBase); throw new RuntimeException('Paket slug geçersiz.'); }
     // Omurga 1.0 Beta: paket güvenlik taraması bilgilendirme modundadır.
     // Riskli fonksiyon tespit edilirse kurulum/etkinleştirme engellenmez; Güvenlik Merkezi raporlar.
     $securityIssues=omurga_scan_extension_security($root, 'package', $meta);
     if($securityIssues && function_exists('log_activity')){
         log_activity('security.package_notice','Paket güvenlik taraması bilgilendirme uyarısı: '.$slug, null, 'security', 'package', null, ['issues'=>array_slice($securityIssues,0,10)]);
     }
-    $target=omurga_package_path($slug);
     $existing=is_dir($target) ? (omurga_read_package_json($target.'/package.json') ?: []) : [];
     $exists=is_dir($target);
     $installedVersion=(string)($existing['version'] ?? '0.0.0');
@@ -5617,8 +6437,7 @@ function omurga_seo_post_row(int $postId): ?array {
 function omurga_seo_queue_add(string $url, string $service, string $objectType='post', ?int $objectId=null, string $status='pending', ?int $httpCode=null, string $response=''): void {
     if(setting('seo_index_queue_enabled','1')!=='1') return;
     try{
-        omurga_migrate_seo_center_1010();
-    omurga_migrate_seo_pro_1015();
+        omurga_migrate();
         $q=table_name('seo_index_queue');
         db()->prepare("INSERT INTO $q (object_type,object_id,url,service,status,http_code,response,attempts,sent_at) VALUES (?,?,?,?,?,?,?,?,?)")
           ->execute([$objectType,$objectId,$url,$service,$status,$httpCode,$response,$status==='pending'?0:1,$status==='pending'?null:date('Y-m-d H:i:s')]);

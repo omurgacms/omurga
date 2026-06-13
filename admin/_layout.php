@@ -43,10 +43,10 @@ function omg_admin_location(){
     'index.php'=>['Başlangıç','Genel bakış'],
     'post-edit.php'=>['İçerikler','Yeni yazı / düzenle'], 'addnews.php'=>['İçerikler','Yeni yazı'], 'posts.php'=>['İçerikler','Yazılar'], 'pages.php'=>['İçerikler','Sayfalar'], 'page-edit.php'=>['İçerikler','Sayfa düzenle'], 'categories.php'=>['İçerikler','Kategoriler'], 'tags.php'=>['İçerikler','Etiketler'], 'comments.php'=>['İçerikler','Yorumlar'], 'custom-fields.php'=>['İçerikler','Özel Alanlar'],
     'themes.php'=>['Tasarım','Temalar'], 'theme-panel.php'=>['Tasarım','Tema paneli'], 'theme-editor.php'=>['Tasarım','Tema düzenleyici'], 'layout.php'=>['Tasarım','Sayfa düzeni'], 'layout-header-footer.php'=>['Tasarım','Üst / Alt alanlar'], 'templates.php'=>['Tasarım','Şablonlar'], 'blocks.php'=>['Tasarım','Blok merkezi'], 'menus.php'=>['Tasarım','Menü yönetimi'], 'ads.php'=>['Tasarım','Reklam alanları'], 'design.php'=>['Tasarım','Tema ayarları'],
-    'media.php'=>['Medya','Kütüphane'], 'media-webp.php'=>['Medya','WebP dönüşüm'], 'media-unused.php'=>['Medya','Kullanılmayan dosyalar'],
+    'media.php'=>['Medya','Kütüphane'], 'media-jobs.php'=>['Medya','Medya İşleri'], 'media-webp.php'=>['Medya','WebP dönüşüm'], 'media-unused.php'=>['Medya','Kullanılmayan dosyalar'],
     'forms.php'=>['Formlar','Başvurular'], 'packages.php'=>['Paketler','Paket yönetimi'], 'plugin-page.php'=>['Paketler','Paket sayfası'],
     'user-management.php'=>['Kullanıcılar','Kullanıcı Yönetimi'], 'users.php'=>['Kullanıcılar','Kullanıcı yönetimi'], 'roles.php'=>['Kullanıcılar','Roller'], 'permissions.php'=>['Kullanıcılar','Yetkiler'],
-    'api.php'=>['Sistem','REST API'], 'rest-api.php'=>['Sistem','REST API'], 'api-settings.php'=>['Sistem','REST API'], 'rest-api-settings.php'=>['Sistem','REST API'], 'settings-api.php'=>['Sistem','REST API'], 'notifications.php'=>['Sistem','Bildirimler'], 'revisions.php'=>['Sistem','Revizyonlar'], 'backups.php'=>['Sistem','Yedekleme'], 'rollback.php'=>['Sistem','Geri dön'], 'cache.php'=>['Sistem','Performans / Cache / Temizlik'], 'performance.php'=>['Sistem','Performans / Cache / Temizlik'], 'logs.php'=>['Sistem','Aktivite kayıtları'], 'security.php'=>['Sistem','Güvenlik'], 'diagnostics.php'=>['Sistem','Kurulum sonrası test'], 'updates.php'=>['Sistem','Güncellemeler'], 'system.php'=>['Sistem','Sistem sağlığı'],
+    'api.php'=>['Sistem','REST API'], 'rest-api.php'=>['Sistem','REST API'], 'api-settings.php'=>['Sistem','REST API'], 'rest-api-settings.php'=>['Sistem','REST API'], 'settings-api.php'=>['Sistem','REST API'], 'notifications.php'=>['Sistem','Bildirimler'], 'revisions.php'=>['Sistem','Revizyonlar'], 'backups.php'=>['Sistem','Yedekleme'], 'rollback.php'=>['Sistem','Geri dön'], 'cache.php'=>['Sistem','Performans / Cache / Temizlik'], 'performance.php'=>['Sistem','Performans / Cache / Temizlik'], 'logs.php'=>['Sistem','Aktivite kayıtları'], 'login-security.php'=>['Sistem','Giriş Güvenliği'], 'account-security.php'=>['Sistem','Hesap Güvenliği'], 'error-logs.php'=>['Sistem','Hata Kayıtları'], 'security.php'=>['Sistem','Güvenlik'], 'diagnostics.php'=>['Sistem','Kurulum sonrası test'], 'updates.php'=>['Sistem','Güncellemeler'], 'system.php'=>['Sistem','Sistem sağlığı'], 'migrations.php'=>['Sistem','Migration Durumu'],
     'settings.php'=>['Ayarlar','Genel ayarlar'], 'seo.php'=>['Ayarlar','SEO Merkezi'], 'seo-test.php'=>['Ayarlar','SEO Test'], 'permalinks.php'=>['Ayarlar','Kalıcı bağlantılar'], 'language-check.php'=>['Ayarlar','Dil kontrolü'],
   ];
   return $map[$current] ?? ['Panel','Geçerli sayfa'];
@@ -59,7 +59,9 @@ $omgLoc = omg_admin_location();
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?=e(om_t('admin.dashboard','Başlangıç'))?> - Omurga</title>
-  <link rel="stylesheet" href="../assets/css/omurga.css?v=1.1.0-beta">
+  <link rel="icon" type="image/png" href="../assets/images/omurga-icon.png">
+  <link rel="apple-touch-icon" href="../assets/images/omurga-icon.png">
+  <link rel="stylesheet" href="../assets/css/omurga.css?v=1.2.0-rc.1">
 </head>
 <body class="omurga-admin-page dle-skin">
 <script>
@@ -164,6 +166,7 @@ document.addEventListener('DOMContentLoaded', function(){
     </button>
     <div class="dle-user-menu" id="omurgaUserMenu" role="menu" aria-labelledby="omurgaUserMenuBtn">
       <a role="menuitem" href="users.php?profile=1">Profilim</a>
+      <a role="menuitem" href="account-security.php">Hesap Güvenliği</a>
       <a role="menuitem" href="settings.php">Hesap Ayarları</a>
       <a role="menuitem" href="notifications.php">Bildirimler</a>
       <a role="menuitem" class="danger" href="logout.php">Oturumu Kapat</a>
@@ -206,8 +209,9 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php endforeach; ?>
   <?php }, 'Tema ayarı, blok ve yerleşim'); ?>
 
-  <?php omg_nav_group('media',om_t('admin.media','Medya'),'▧',['media.php','media-webp.php','media-unused.php'], function(){ ?>
+  <?php omg_nav_group('media',om_t('admin.media','Medya'),'▧',['media.php','media-jobs.php','media-webp.php','media-unused.php'], function(){ ?>
     <?php omg_nav_item('media.php',om_t('admin.media_library','Medya Kütüphanesi'),'▧','media.php'); ?>
+    <?php omg_nav_item('media-jobs.php','Medya İşleri','↻','media-jobs.php'); ?>
     <?php omg_nav_item('media-webp.php',om_t('admin.webp_convert','WebP Dönüştür'),'◇','media-webp.php'); ?>
     <?php omg_nav_item('media-unused.php',om_t('admin.unused_files','Kullanılmayan Dosyalar'),'⌫','media-unused.php'); ?>
   <?php }, 'Görsel ve dosya yönetimi'); ?>
@@ -266,7 +270,7 @@ document.addEventListener('DOMContentLoaded', function(){
   <?php endif; ?>
 
   <?php if(can('users.manage') || current_user_role()==='admin'): ?>
-  <?php omg_nav_group('system',om_t('admin.system','Sistem'),'⚙',['api.php','rest-api.php','api-settings.php','rest-api-settings.php','settings-api.php','notifications.php','revisions.php','backups.php','rollback.php','cache.php','performance.php','logs.php','security.php','diagnostics.php','updates.php','system.php'], function(){ ?>
+  <?php omg_nav_group('system',om_t('admin.system','Sistem'),'⚙',['api.php','rest-api.php','api-settings.php','rest-api-settings.php','settings-api.php','notifications.php','revisions.php','backups.php','rollback.php','cache.php','performance.php','logs.php','login-security.php','account-security.php','error-logs.php','security.php','diagnostics.php','health-check.php','system-tests.php','migrations.php','updates.php','system.php'], function(){ ?>
     <?php if(can('api.manage') || can('settings.manage') || can('system.manage')): ?><?php omg_nav_item('api.php','REST API','{ }','api.php'); ?><?php endif; ?>
     <?php omg_nav_item('notifications.php',om_t('admin.notifications','Bildirimler'),'🔔','notifications.php'); ?>
     <?php omg_nav_item('revisions.php',om_t('admin.revisions','Revizyonlar'),'↶','revisions.php'); ?>
@@ -274,8 +278,14 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php omg_nav_item('rollback.php','Rollback / Geri Dön','↺','rollback.php'); ?>
     <?php omg_nav_item('performance.php','Performans / Cache / Temizlik','⚡',['performance.php','cache.php']); ?>
     <?php omg_nav_item('logs.php',om_t('admin.logs','Aktivite Kayıtları'),'▧','logs.php'); ?>
+    <?php omg_nav_item('login-security.php','Giriş Güvenliği','↯','login-security.php'); ?>
+    <?php omg_nav_item('account-security.php','Hesap Güvenliği','◉','account-security.php'); ?>
+    <?php omg_nav_item('error-logs.php','Hata Kayıtları','⚠','error-logs.php'); ?>
     <?php omg_nav_item('security.php',om_t('admin.security','Güvenlik'),'🛡','security.php'); ?>
     <?php omg_nav_item('diagnostics.php',om_t('admin.diagnostics','Kurulum Sonrası Test'),'✓','diagnostics.php'); ?>
+    <?php omg_nav_item('health-check.php','Sağlık Kontrolü','☑','health-check.php'); ?>
+    <?php omg_nav_item('system-tests.php','Sistem Testleri','☷','system-tests.php'); ?>
+    <?php omg_nav_item('migrations.php','Migration Durumu','⇄','migrations.php'); ?>
     <?php if(can('system.update') || can('settings.manage') || can('system.manage')): ?><?php omg_nav_item('updates.php','Güncellemeler','↥','updates.php'); ?><?php endif; ?>
     <?php omg_nav_item('system.php',om_t('admin.system_health','Sistem Sağlığı'),'⚙','system.php'); ?>
   <?php }, 'Bakım, güvenlik ve güncelleme'); ?>

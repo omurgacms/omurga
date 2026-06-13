@@ -196,26 +196,34 @@
       if(grid && !append) grid.innerHTML='<div class="om-media-empty">'+esc(err.message || 'Medya listesi alınamadı.')+'</div>';
     });
   }
+  function currentPostTitle(){
+    const title=document.getElementById('titleInput') || document.querySelector('input[name="title"]');
+    return title ? (title.value || title.getAttribute('value') || '') : '';
+  }
   function uploadMediaFiles(files){
     if(!files || !files.length || !window.fetch) return;
     const status=document.getElementById('omMediaUploadStatus');
     const alt=document.getElementById('omMediaUploadAlt');
+    const hint=document.getElementById('omMediaUploadTitleHint');
     const webp=document.getElementById('omMediaUploadWebp');
+    const fileInput=document.getElementById('omMediaQuickUpload');
     const csrf=modal ? (modal.querySelector('input[name="_csrf"]') || modal.querySelector('input[name="csrf_token"]')) : null;
     const fd=new FormData();
     Array.from(files).forEach(file=>fd.append('files[]', file));
+    const titleHint=(hint && hint.value) || currentPostTitle();
+    if(titleHint) fd.append('title_hint', titleHint);
     if(alt) fd.append('alt_text', alt.value || '');
     if(webp && webp.checked) fd.append('make_webp', '1');
     if(csrf) fd.append(csrf.name, csrf.value);
     if(status) status.textContent='Yükleniyor...';
+    if(fileInput) fileInput.disabled=true;
     fetch(mediaUploadEndpoint(), {method:'POST', body:fd, credentials:'same-origin'}).then(async r=>{
       const text=await r.text();
       let data=null;
-      try{ data=JSON.parse(text); }catch(e){ throw new Error((text||'Yükleme başarısız.').slice(0,180)); }
-      if(!r.ok && data && data.message) throw new Error(data.message);
+      try{ data=JSON.parse(text); }catch(e){ throw new Error((text||'Yükleme başarısız. Sunucu JSON yerine farklı bir cevap döndürdü.').slice(0,240)); }
+      if(!r.ok || !data || !data.ok) throw new Error((data && data.message) || 'Yükleme başarısız.');
       return data;
     }).then(data=>{
-      if(!data || !data.ok) throw new Error((data && data.message) || 'Yükleme başarısız.');
       renderMediaItems(data.items || [], false);
       if(status) status.textContent=data.message || 'Yüklendi.';
       if(data.items && data.items.length){
@@ -223,7 +231,8 @@
         if(mediaMode === 'gallery' && galleryTargetTextarea) appendGalleryImages(data.items.map(x=>x.src));
         else chooseMedia(first.src, first.alt || first.name || '');
       }
-    }).catch(err=>{ if(status) status.textContent=err.message || 'Yükleme başarısız.'; });
+    }).catch(err=>{ if(status) status.textContent=err.message || 'Yükleme başarısız.'; })
+      .finally(()=>{ if(fileInput) fileInput.disabled=false; });
   }
   bindMediaItems(document);
   document.querySelectorAll('[data-om-media-target]').forEach(btn=>{
@@ -238,6 +247,15 @@
       const selector = btn.dataset.omMediaGallery;
       const textarea = selector ? document.querySelector(selector) : null;
       openMedia('gallery', textarea);
+    });
+  });
+
+  document.querySelectorAll('[data-om-clear-image]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const input = document.querySelector(btn.dataset.omClearImage || '');
+      const preview = document.querySelector(btn.dataset.preview || '');
+      if(input){ input.value=''; input.dispatchEvent(new Event('input', {bubbles:true})); }
+      if(preview){ preview.removeAttribute('src'); preview.style.display='none'; }
     });
   });
 

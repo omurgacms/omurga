@@ -26,14 +26,21 @@ function base_url_guess(){
 $errors=[];
 $step=(int)($_POST['step'] ?? ($_GET['step'] ?? 1));
 
+foreach (['storage','storage/cache','storage/logs','storage/backups','storage/updates','uploads','packages','themes'] as $omDir) {
+    if (!is_dir(OMURGA_ROOT . '/' . $omDir)) @mkdir(OMURGA_ROOT . '/' . $omDir, 0775, true);
+}
 $requirements = [
     'PHP 8.0+' => version_compare(PHP_VERSION, '8.0.0', '>='),
     'PDO MySQL' => extension_loaded('pdo_mysql'),
     'JSON' => extension_loaded('json'),
     'Mbstring' => extension_loaded('mbstring'),
+    'ZipArchive' => class_exists('ZipArchive'),
     'GD / WebP desteği' => function_exists('imagewebp'),
     'uploads yazılabilir' => is_writable(OMURGA_ROOT . '/uploads'),
-    'storage yazılabilir' => is_writable(OMURGA_ROOT . '/storage'),
+    'storage/cache yazılabilir' => is_writable(OMURGA_ROOT . '/storage/cache'),
+    'storage/logs yazılabilir' => is_writable(OMURGA_ROOT . '/storage/logs'),
+    'packages yazılabilir' => is_writable(OMURGA_ROOT . '/packages'),
+    'themes yazılabilir' => is_writable(OMURGA_ROOT . '/themes'),
 ];
 
 if ($_SERVER['REQUEST_METHOD']==='POST' && $step===2) {
@@ -87,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && $step===6) {
             $pdo=new PDO("mysql:host={$db['host']};dbname={$db['name']};charset=utf8mb4", $db['user'], $db['pass'], [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
             $p=preg_replace('/[^a-zA-Z0-9_]/','',$db['prefix']);
             $schema=[];
-            $schema[]="CREATE TABLE IF NOT EXISTS {$p}users (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL, email VARCHAR(190) NOT NULL UNIQUE, username VARCHAR(80) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL, role VARCHAR(40) NOT NULL DEFAULT 'admin', status VARCHAR(20) NOT NULL DEFAULT 'active', last_login_at DATETIME NULL, last_login_ip VARCHAR(64) NULL, password_reset_token VARCHAR(128) NULL, password_reset_expires DATETIME NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+            $schema[]="CREATE TABLE IF NOT EXISTS {$p}users (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL, email VARCHAR(190) NOT NULL UNIQUE, username VARCHAR(80) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL, role VARCHAR(40) NOT NULL DEFAULT 'admin', status VARCHAR(20) NOT NULL DEFAULT 'active', last_login_at DATETIME NULL, last_login_ip VARCHAR(64) NULL, password_reset_token VARCHAR(128) NULL, password_reset_expires DATETIME NULL, password_changed_at DATETIME NULL, two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0, two_factor_secret VARCHAR(190) NULL, two_factor_recovery_codes MEDIUMTEXT NULL, force_password_change TINYINT(1) NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
             $schema[]="CREATE TABLE IF NOT EXISTS {$p}categories (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL, slug VARCHAR(180) NOT NULL UNIQUE, description TEXT NULL, sort_order INT NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
             $schema[]="CREATE TABLE IF NOT EXISTS {$p}posts (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, title VARCHAR(220) NOT NULL, slug VARCHAR(240) NOT NULL UNIQUE, spot TEXT NULL, content MEDIUMTEXT NULL, editor_type VARCHAR(20) NOT NULL DEFAULT 'classic', content_blocks MEDIUMTEXT NULL, type VARCHAR(40) NOT NULL DEFAULT 'post', status VARCHAR(30) NOT NULL DEFAULT 'draft', category_id INT UNSIGNED NULL, featured_image VARCHAR(255) NULL, video_url VARCHAR(500) NULL, gallery_images MEDIUMTEXT NULL, social_image VARCHAR(255) NULL, sort_order INT NOT NULL DEFAULT 100, seo_title VARCHAR(220) NULL, meta_description VARCHAR(255) NULL, focus_keyword VARCHAR(160) NULL, social_title VARCHAR(220) NULL, social_description VARCHAR(255) NULL, canonical_url VARCHAR(500) NULL, seo_noindex TINYINT(1) NOT NULL DEFAULT 0, comments_enabled TINYINT(1) NOT NULL DEFAULT 0, design_template VARCHAR(80) NULL, author_id INT UNSIGNED NULL, published_at DATETIME NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP, deleted_at DATETIME NULL, INDEX(status), INDEX(type), INDEX(category_id), INDEX(deleted_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
             $schema[]="CREATE TABLE IF NOT EXISTS {$p}tags (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(120) NOT NULL, slug VARCHAR(140) NOT NULL UNIQUE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
@@ -97,6 +104,7 @@ $schema[]="CREATE TABLE IF NOT EXISTS {$p}post_meta (post_id INT UNSIGNED NOT NU
             $schema[]="CREATE TABLE IF NOT EXISTS {$p}forms (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, form_type VARCHAR(60) NOT NULL DEFAULT 'contact', name VARCHAR(160) NOT NULL, phone VARCHAR(60) NULL, email VARCHAR(190) NULL, message TEXT NULL, status VARCHAR(40) NOT NULL DEFAULT 'new', meta MEDIUMTEXT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX(form_type), INDEX(status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
             $schema[]="CREATE TABLE IF NOT EXISTS {$p}form_definitions (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, title VARCHAR(180) NOT NULL, slug VARCHAR(190) NOT NULL UNIQUE, form_type VARCHAR(60) NOT NULL DEFAULT 'contact', description TEXT NULL, fields MEDIUMTEXT NULL, status VARCHAR(30) NOT NULL DEFAULT 'active', submit_label VARCHAR(80) NOT NULL DEFAULT 'Gönder', success_message VARCHAR(255) NOT NULL DEFAULT 'Başvurunuz alındı. En kısa sürede dönüş yapılacaktır.', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP, INDEX(status), INDEX(form_type)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
             $schema[]="CREATE TABLE IF NOT EXISTS {$p}comments (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, post_id INT UNSIGNED NOT NULL, parent_id INT UNSIGNED NULL, author_name VARCHAR(120) NOT NULL, author_email VARCHAR(190) NOT NULL, author_ip VARCHAR(64) NULL, content TEXT NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'pending', user_id INT UNSIGNED NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP, INDEX(post_id), INDEX(parent_id), INDEX(status), INDEX(author_ip), INDEX(created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+            $schema[]="CREATE TABLE IF NOT EXISTS {$p}password_resets (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, email VARCHAR(190) NOT NULL, token_hash VARCHAR(64) NOT NULL UNIQUE, expires_at DATETIME NOT NULL, used_at DATETIME NULL, ip_address VARCHAR(64) NULL, user_agent VARCHAR(255) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX(user_id), INDEX(email), INDEX(expires_at), INDEX(used_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
             $schema[]="CREATE TABLE IF NOT EXISTS {$p}settings (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, setting_key VARCHAR(120) NOT NULL UNIQUE, setting_value MEDIUMTEXT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
             $schema[]="CREATE TABLE IF NOT EXISTS {$p}activity_logs (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NULL, action VARCHAR(120) NOT NULL, module VARCHAR(80) NULL, entity_type VARCHAR(80) NULL, entity_id INT UNSIGNED NULL, level VARCHAR(20) NOT NULL DEFAULT 'info', message TEXT NULL, details LONGTEXT NULL, ip VARCHAR(64) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX(user_id), INDEX(action), INDEX(module), INDEX(level), INDEX(created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
             $schema[]="CREATE TABLE IF NOT EXISTS {$p}post_autosaves (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, autosave_key VARCHAR(120) NOT NULL, post_id INT UNSIGNED NULL, user_id INT UNSIGNED NULL, content_type VARCHAR(40) NOT NULL DEFAULT 'post', payload LONGTEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uniq_autosave_user_key (user_id, autosave_key), INDEX(post_id), INDEX(user_id), INDEX(updated_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
@@ -116,8 +124,8 @@ $schema[]="CREATE TABLE IF NOT EXISTS {$p}post_meta (post_id INT UNSIGNED NOT NU
             $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['active_theme',$activeTheme]);
             $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['webp_quality','82']);
             $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['robots_index','1']);
-            $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['omurga_version','1.0.11-beta']);
-            $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['db_version','1.0.11-beta']);
+            $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['omurga_version','1.2.0-rc.1']);
+            $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['db_version','1.2.0-rc.1']);
             $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['autosave_enabled','1']);
             $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['autosave_interval_seconds','30']);
             $pdo->prepare("INSERT INTO {$p}settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)")->execute(['schema_version','4.0.0']);
@@ -276,7 +284,9 @@ $schema[]="CREATE TABLE IF NOT EXISTS {$p}post_meta (post_id INT UNSIGNED NOT NU
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Omurga Kurulum</title>
-<link rel="stylesheet" href="../assets/css/omurga.css">
+<link rel="icon" type="image/png" href="../assets/images/omurga-icon.png">
+<link rel="apple-touch-icon" href="../assets/images/omurga-icon.png">
+<link rel="stylesheet" href="../assets/css/omurga.css?v=1.2.0-rc.1">
 <style>
 :root{--om-dark:#0f172a;--om-dark2:#162033;--om-orange:#f97316;--om-orange2:#fb923c;--om-soft:#fff7ed;--om-line:#e5e7eb;--om-muted:#64748b;--om-green:#16a34a;--om-red:#dc2626}
 .install-body{min-height:100vh;display:block;padding:0;background:radial-gradient(circle at 14% 12%,rgba(249,115,22,.35),transparent 25%),radial-gradient(circle at 86% 18%,rgba(59,130,246,.22),transparent 28%),linear-gradient(135deg,#0b1220,#111827 48%,#1e293b);color:#0f172a}

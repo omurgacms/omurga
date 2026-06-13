@@ -1,47 +1,40 @@
 <?php
 require_once dirname(__DIR__).'/bootstrap.php';
 header('Content-Type: application/json; charset=utf-8');
-function om_media_api_json(array $payload, int $status=200): void { http_response_code($status); echo json_encode($payload, JSON_UNESCAPED_UNICODE); exit; }
+function om_media_api_json(array $payload, int $status=200): void { http_response_code($status); echo json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); exit; }
 try{
     require_admin();
     if(!can('media.manage') && !can('media.upload') && current_user_role()!=='admin') throw new RuntimeException('Medya yükleme yetkin yok.');
     if($_SERVER['REQUEST_METHOD']!=='POST') throw new RuntimeException('Geçersiz istek.');
-    $csrf = (string)($_POST['_csrf'] ?? $_POST['csrf_token'] ?? '');
+    $csrf=(string)($_POST['_csrf'] ?? $_POST['csrf_token'] ?? '');
     if(!$csrf || !hash_equals($_SESSION['csrf_token'] ?? '', $csrf)){
         om_media_api_json(['ok'=>false,'message'=>'Güvenlik doğrulaması başarısız. Lütfen sayfayı yenileyip tekrar deneyin.'], 419);
     }
-    if(empty($_FILES['files'])) throw new RuntimeException('Dosya seçilmedi.');
-    $files=$_FILES['files'];
-    $names=is_array($files['name']) ? $files['name'] : [$files['name']];
-    $items=[]; $skipped=0; $createWebp=!empty($_POST['make_webp']);
+    if(empty($_FILES['files']) && empty($_FILES['file'])) throw new RuntimeException('Dosya seçilmedi.');
+    $files=$_FILES['files'] ?? $_FILES['file'];
+    $names=is_array($files['name'] ?? null) ? $files['name'] : [($files['name'] ?? '')];
+    $items=[]; $errors=[]; $skipped=0;
+    $titleHint=trim((string)($_POST['title_hint'] ?? $_POST['media_title_hint'] ?? $_POST['post_title'] ?? ''));
+    $altText=trim((string)($_POST['alt_text'] ?? ''));
+    $createWebp=!empty($_POST['make_webp']);
     for($i=0;$i<count($names);$i++){
-        $one=[
-            'name'=>$names[$i],
-            'type'=>is_array($files['type']) ? ($files['type'][$i] ?? '') : ($files['type'] ?? ''),
-            'tmp_name'=>is_array($files['tmp_name']) ? ($files['tmp_name'][$i] ?? '') : ($files['tmp_name'] ?? ''),
-            'error'=>is_array($files['error']) ? ($files['error'][$i] ?? UPLOAD_ERR_NO_FILE) : ($files['error'] ?? UPLOAD_ERR_NO_FILE),
-            'size'=>is_array($files['size']) ? ($files['size'][$i] ?? 0) : ($files['size'] ?? 0),
-        ];
-        if(($one['error'] ?? UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK){ $skipped++; continue; }
-        $tmp=$one['tmp_name']; $mime=mime_content_type($tmp) ?: '';
-        $allowed=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif','application/pdf'=>'pdf','video/mp4'=>'mp4'];
-        if(!isset($allowed[$mime])){ $skipped++; continue; }
-        if(($one['size']??0)>64*1024*1024){ $skipped++; continue; }
-        $relDir=omurga_media_rel_dir(); $dir=OMURGA_ROOT.'/'.$relDir; if(!is_dir($dir)) mkdir($dir,0775,true);
-        $name=omurga_prepare_upload_name_for_dir($dir, (string)$one['name'], trim($_POST['title_hint'] ?? $_POST['alt_text'] ?? ''));
-        $originalPath=$relDir.'/'.$name; $target=$dir.'/'.$name; $GLOBALS['omurga_last_uploaded_original_filename']=basename((string)($one['name'] ?? $files['name'][$i] ?? '')); $GLOBALS['omurga_last_uploaded_original_path']=$originalPath;
-        if(!move_uploaded_file($tmp,$target)){ $skipped++; continue; }
-        if(str_starts_with($mime,'image/')) omurga_resize_image_if_needed($target,$mime,(int)setting('media_max_width','1600'),(int)setting('media_jpeg_quality','86'));
-        $finalPath=$originalPath;
-        if($createWebp && in_array($mime,['image/jpeg','image/png'],true)){
-            $webp=create_webp_copy($target,$mime,(int)setting('webp_quality','82'));
-            if($webp) $finalPath=$relDir.'/'.basename($webp);
-        }
-        $alt=omurga_auto_image_alt(trim($_POST['alt_text'] ?? ''), trim($_POST['title_hint'] ?? ''), $finalPath);
-        insert_media_record($finalPath, $alt, $_SESSION['omurga_user_id'] ?? null, $originalPath===$finalPath?null:$originalPath);
-        $items[]=['src'=>$finalPath,'thumb'=>image_url($finalPath),'alt'=>$alt ?: basename($finalPath),'name'=>basename($finalPath),'mime'=>mime_content_type(OMURGA_ROOT.'/'.$finalPath) ?: $mime];
+        try{
+            $item=omurga_store_media_upload(omurga_normalize_upload_item($files,$i), [
+                'title_hint'=>$titleHint,
+                'alt_text'=>$altText,
+                'create_webp'=>$createWebp,
+                'max_size'=>64*1024*1024,
+                'user_id'=>$_SESSION['omurga_user_id'] ?? null,
+            ]);
+            if($item) $items[]=$item;
+        }catch(Throwable $e){ $skipped++; $errors[]=$e->getMessage(); omurga_write_error($e); }
     }
-    echo json_encode(['ok'=>true,'items'=>$items,'skipped'=>$skipped,'message'=>count($items).' dosya yüklendi'.($skipped?' · '.$skipped.' atlandı':'')], JSON_UNESCAPED_UNICODE);
+    if(!$items){
+        $message=$errors ? implode(' | ', array_slice(array_unique($errors),0,3)) : 'Dosya yüklenemedi.';
+        om_media_api_json(['ok'=>false,'items'=>[],'skipped'=>$skipped,'message'=>$message], 400);
+    }
+    om_media_api_json(['ok'=>true,'items'=>$items,'skipped'=>$skipped,'errors'=>$errors,'message'=>count($items).' dosya yüklendi'.($skipped?' · '.$skipped.' atlandı':'')]);
 }catch(Throwable $e){
+    omurga_write_error($e);
     om_media_api_json(['ok'=>false,'message'=>$e->getMessage()], 400);
 }

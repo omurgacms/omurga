@@ -1,2 +1,0 @@
-<?php require_once dirname(__DIR__, 2).'/functions.php'; $settings=$settings ?? ($block['settings'] ?? []); ?>
-<?php if(omh_bool('show_mobile_nav', true)): ?><nav class="omh-mobile-bottom"><a href="<?=omh_e(omh_url())?>">⌂<span>Anasayfa</span></a><a href="#">⚡<span>Son Dakika</span></a><a href="#">▶<span>Video</span></a><a href="#">✎<span>Yazarlar</span></a><a href="#" data-omh-menu>☰<span>Menü</span></a></nav><?php endif; ?>

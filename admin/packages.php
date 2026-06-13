@@ -3,22 +3,37 @@ require_once __DIR__.'/_layout.php';
 require_cap('plugins.manage');
 verify_csrf();
 
-$notice=''; $error='';
+$notice=''; $error=''; $uploadReport=null; $uploadStage=null;
 
 if($_SERVER['REQUEST_METHOD']==='POST'){
     $action=$_POST['action'] ?? '';
     $slug=omurga_package_slug($_POST['slug'] ?? '');
     try{
-        if($action==='upload_package'){
-            $file=$_FILES['package_zip'] ?? [];
-            if(empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) throw new RuntimeException('Paket dosyası alınamadı.');
-            if(($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) throw new RuntimeException('Yükleme hatası: '.(int)$file['error']);
-            if(strtolower(pathinfo((string)($file['name'] ?? ''), PATHINFO_EXTENSION)) !== 'zip') throw new RuntimeException('Sadece .zip paketleri yüklenebilir.');
-            $result=omurga_install_package_zip($file['tmp_name'], [
+        if($action==='analyze_package_upload'){
+            $stage=omurga_stage_extension_zip($_FILES['package_zip'] ?? [], 'package');
+            $uploadReport=omurga_analyze_package_zip($stage['path']);
+            $uploadStage=$stage;
+            $notice='Paket zip yüklendi ve analiz edildi. Kurulum için aşağıdaki raporu onayla.';
+        }
+        if($action==='confirm_package_upload'){
+            $token=(string)($_POST['stage_token'] ?? '');
+            $zipPath=omurga_staged_extension_zip_path($token,'package');
+            $result=omurga_install_package_zip($zipPath, [
                 'activate_after_upload'=>!empty($_POST['activate_after_upload']),
                 'version_policy'=>(string)($_POST['version_policy'] ?? 'auto'),
                 'permissions_accepted'=>!empty($_POST['permissions_accepted']),
             ]);
+            omurga_clear_staged_extension_zip($token,'package');
+            $notice='Paket '.$result['install_action'].': '.$result['name'].' ('.(($result['installed_version'] ?? '') ?: 'yok').' → '.$result['uploaded_version'].')'.(!empty($result['active_after_upload']) ? ' — etkinleştirildi.' : ' — pasif bırakıldı.').(!empty($result['backup']) ? ' — önceki sürüm yedeklendi.' : '');
+        }
+        if($action==='upload_package'){
+            $stage=omurga_stage_extension_zip($_FILES['package_zip'] ?? [], 'package');
+            $result=omurga_install_package_zip($stage['path'], [
+                'activate_after_upload'=>!empty($_POST['activate_after_upload']),
+                'version_policy'=>(string)($_POST['version_policy'] ?? 'auto'),
+                'permissions_accepted'=>!empty($_POST['permissions_accepted']),
+            ]);
+            omurga_clear_staged_extension_zip($stage['token'],'package');
             $notice='Paket '.$result['install_action'].': '.$result['name'].' ('.(($result['installed_version'] ?? '') ?: 'yok').' → '.$result['uploaded_version'].')'.(!empty($result['active_after_upload']) ? ' — etkinleştirildi.' : ' — pasif bırakıldı.').(!empty($result['backup']) ? ' — önceki sürüm yedeklendi.' : '');
         }
         if($action==='activate' && $slug){ omurga_activate_package($slug); $notice='Paket etkinleştirildi.'; }
@@ -47,20 +62,53 @@ $packages=omurga_all_packages();
   <h2>Paket Yükle / Güncelle</h2>
   <p class="muted">.zip içinde <code>package.json</code> bulunan paketleri yükleyebilirsin. Paket yüklenince artık otomatik etkinleşmez; aşağıdan isteğe bağlı etkinleştirme seçilir.</p>
   <div class="alert pending"><b>İzin sistemi:</b> Paket özel yetki istiyorsa kurulum için izin onayı gerekir. <code>database</code>, <code>media</code>, <code>cron</code>, <code>users</code>, <code>network</code>, <code>storage</code>, <code>settings</code>, <code>admin_pages</code>, <code>blocks</code> izinleri desteklenir.</div>
-  <form method="post" enctype="multipart/form-data" class="inline-form">
-    <?=csrf_field()?>
-    <input type="hidden" name="action" value="upload_package">
-    <input type="file" name="package_zip" accept=".zip,application/zip" required>
-    <label><input type="checkbox" name="activate_after_upload" value="1"> Yükledikten sonra etkinleştir</label>
-    <label><input type="checkbox" name="permissions_accepted" value="1"> Paket manifestindeki izinleri okudum ve kabul ediyorum</label>
-    <select name="version_policy">
-      <option value="auto">Aynı paket varsa: yüksekse güncelle, aynıysa yenile, düşükse sürüm düşür</option>
-      <option value="only_newer">Sadece daha yüksek sürümse güncelle</option>
-      <option value="only_same">Sadece aynı sürümü yeniden kur</option>
-      <option value="only_lower">Sadece düşük sürüme düşür</option>
-    </select>
-    <button class="btn primary">Paket Yükle</button>
-  </form>
+  <div class="upload-wizard">
+    <div class="upload-steps"><span class="active">1 ZIP seç</span><span>2 Analiz</span><span>3 Onayla</span></div>
+    <form method="post" enctype="multipart/form-data" class="upload-form omurga-loading-form" data-loading-title="Paket yükleniyor..." data-loading-text="ZIP dosyası sunucuya aktarılıyor, manifest ve izinler analiz ediliyor.">
+      <?=csrf_field()?>
+      <input type="hidden" name="action" value="analyze_package_upload">
+      <label class="upload-drop"><strong>Paket ZIP dosyası seç</strong><span>package.json içeren .zip paketini yükle. Büyük dosyalarda işlem birkaç saniye sürebilir.</span><input type="file" name="package_zip" accept=".zip,application/zip" required></label>
+      <label><input type="checkbox" name="activate_after_upload" value="1"> Kurulumdan sonra etkinleştir</label>
+      <button class="btn primary">Yükle ve Kontrol Et</button>
+    </form>
+    <p class="muted">Sunucu limiti: upload_max_filesize <?=e((string)ini_get('upload_max_filesize'))?>, post_max_size <?=e((string)ini_get('post_max_size'))?>.</p>
+  </div>
+  <?php if($uploadReport && ($uploadReport['type'] ?? '')==='package' && $uploadStage): ?>
+    <div class="install-report">
+      <h3><?=e($uploadReport['action_title'])?></h3>
+      <p><?=e($uploadReport['action_description'])?></p>
+      <div class="omg-summary-strip"><span><b><?=e($uploadReport['name'])?></b> Paket</span><span><b><?=e($uploadReport['slug'])?></b> Slug</span><span><b><?=e($uploadReport['installed_version'] ?: 'yok')?></b> Kurulu</span><span><b><?=e($uploadReport['uploaded_version'])?></b> Yüklenen</span><span><b><?=e($uploadReport['size'])?></b> Boyut</span></div>
+      <details class="object-details" open>
+        <summary>ZIP güvenlik kontrolü</summary>
+        <div class="omg-summary-strip">
+          <span><b><?=e((string)($uploadReport['checked_files'] ?? ($uploadReport['files'] ?? 0)))?></b> kontrol edilen dosya</span>
+          <span><b><?=e((string)count($uploadReport['ignored_system_files'] ?? []))?></b> yok sayılan sistem dosyası</span>
+          <span><b><?=e((string)count($uploadReport['allowed_admin_files'] ?? []))?></b> izinli admin dosyası</span>
+          <span><b><?=e((string)count($uploadReport['blocked_files'] ?? []))?></b> engellenen dosya</span>
+          <span><b><?=!empty($uploadReport['install_allowed'])?'Evet':'Hayır'?></b> kuruluma izin</span>
+        </div>
+        <?php if(!empty($uploadReport['ignored_system_files'])): ?><div class="alert pending"><b>Yok sayılan sistem dosyaları:</b><br><?=nl2br(e(implode("\n", array_slice($uploadReport['ignored_system_files'],0,12))))?></div><?php endif; ?>
+        <?php if(!empty($uploadReport['allowed_admin_files'])): ?><div class="alert success"><b>Paket içi admin dosyaları izinli:</b><br><?=nl2br(e(implode("\n", array_map(fn($b)=>($b['path'] ?? '').' → '.($b['target'] ?? ''), array_slice($uploadReport['allowed_admin_files'],0,12)))))?></div><?php endif; ?>
+        <?php if(!empty($uploadReport['blocked_files'])): ?><div class="alert error"><b>Engellenen dosyalar:</b><br><?=nl2br(e(implode("\n", array_map(fn($b)=>($b['path'] ?? '').(!empty($b['reason'])?' - '.$b['reason']:''), $uploadReport['blocked_files']))))?></div><?php endif; ?>
+      </details>
+      <?php if(!empty($uploadReport['errors'])): ?><div class="alert error"><b>Kurulumu engelleyen hata:</b> <?=e(implode(' | ', $uploadReport['errors']))?></div><?php endif; ?>
+      <?php if(!empty($uploadReport['requirement_messages'])): ?><div class="alert error"><b>Uyumluluk:</b> <?=e(implode(' | ', $uploadReport['requirement_messages']))?></div><?php endif; ?>
+      <?php if(!empty($uploadReport['warnings'])): ?><div class="alert pending"><b>Uyarılar:</b> <?=e(implode(' | ', $uploadReport['warnings']))?></div><?php endif; ?>
+      <?php if(!empty($uploadReport['permissions'])): ?><div class="alert pending"><b>İstenen izinler:</b><pre class="codebox"><?=e(omurga_permissions_html_summary($uploadReport['permissions']))?></pre></div><?php else: ?><div class="alert success">Paket özel izin istemiyor.</div><?php endif; ?>
+      <?php if(!empty($uploadReport['security_issues'])): ?><div class="alert pending"><b>Güvenlik notları:</b><br><?=nl2br(e(implode("\n", array_slice($uploadReport['security_issues'],0,8))))?></div><?php else: ?><div class="alert success">Güvenlik taramasında kritik risk bulunmadı.</div><?php endif; ?>
+      <?php if(empty($uploadReport['errors']) && empty($uploadReport['requirement_messages'])): ?>
+      <form method="post" class="inline-form omurga-loading-form" data-loading-title="Paket kuruluyor..." data-loading-text="Mevcut sürüm yedekleniyor ve yeni paket dosyaları güvenli şekilde yazılıyor.">
+        <?=csrf_field()?><input type="hidden" name="action" value="confirm_package_upload"><input type="hidden" name="stage_token" value="<?=e($uploadStage['token'])?>"><input type="hidden" name="version_policy" value="<?=e($uploadReport['recommended_policy'])?>">
+        <label><input type="checkbox" name="activate_after_upload" value="1"> Kurulumdan sonra etkinleştir</label>
+        <label><input type="checkbox" name="permissions_accepted" value="1" required> Paket izinlerini okudum ve kabul ediyorum</label>
+        <button class="btn primary"><?=e($uploadReport['action_key']==='update' ? $uploadReport['uploaded_version'].' sürümüne güncelle' : ($uploadReport['action_key']==='overwrite' ? 'Aynı sürüm üzerine yaz' : ($uploadReport['action_key']==='downgrade' ? 'Eski sürüme dön' : 'Paketi kur')))?></button>
+        <a class="btn light" href="packages.php">İptal</a>
+      </form>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
+  <div class="omurga-loading-overlay" hidden><div><strong>Yükleniyor...</strong><p>Lütfen bekleyin.</p></div></div>
+  <script>document.addEventListener('submit',function(e){var f=e.target;if(!f.classList||!f.classList.contains('omurga-loading-form'))return;var o=document.querySelector('.omurga-loading-overlay');if(o){o.hidden=false;o.querySelector('strong').textContent=f.dataset.loadingTitle||'Yükleniyor...';o.querySelector('p').textContent=f.dataset.loadingText||'İşlem devam ediyor, lütfen bekleyin.';}f.querySelectorAll('button').forEach(function(b){b.disabled=true;});});</script>
 </section>
 
 <section class="card" style="margin-top:18px">

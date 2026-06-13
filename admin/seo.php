@@ -1,6 +1,5 @@
 <?php require '_layout.php'; verify_csrf(); require_cap('seo.view');
-if(function_exists('omurga_migrate_seo_center_1010')) omurga_migrate_seo_center_1010();
-if(function_exists('omurga_migrate_seo_pro_1015')) omurga_migrate_seo_pro_1015();
+omurga_migrate();
 $notice='';
 if($_SERVER['REQUEST_METHOD']==='POST'){
     if(!can('seo.manage') && !can('settings.manage') && current_user_role()!=='admin') { http_response_code(403); exit('Yetki yok'); }

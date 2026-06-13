@@ -1,5 +1,9 @@
 # Security Policy / Güvenlik Politikası
 
+## Omurga CMS 1.2.0 RC1
+
+1.2.0 RC1 is a stabilization and release candidate build. It is not a new feature release, and feature work is frozen. Security fixes, installer compatibility, media/theme/package safety, migration stability, admin reliability and production-safe error handling are in scope.
+
 ## English
 
 Omurga CMS is currently in beta. Please do not publicly disclose security vulnerabilities before maintainers have time to investigate.
@@ -18,7 +22,8 @@ Send a private report to the project maintainers with:
 
 | Version | Status |
 |---|---|
-| 1.1.0 Beta | Supported beta |
+| 1.2.0 RC1 | Supported release candidate |
+| 1.1.x Beta | Upgrade recommended |
 | Older beta versions | Upgrade recommended |
 
 ---
@@ -41,5 +46,6 @@ Proje geliştiricilerine özel olarak şu bilgilerle bildirim yapın:
 
 | Sürüm | Durum |
 |---|---|
-| 1.1.0 Beta | Desteklenen beta |
+| 1.2.0 RC1 | Desteklenen release candidate |
+| 1.1.x Beta | Yükseltme önerilir |
 | Eski beta sürümler | Yükseltme önerilir |

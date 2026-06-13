@@ -18,7 +18,7 @@ if(!$omMediaPickerItems){
     <div class="om-media-uploadbar">
       <?=csrf_field()?>
       <label class="om-media-upload-label">Bilgisayardan yükle<input type="file" id="omMediaQuickUpload" accept="image/*,.pdf,video/mp4" multiple></label>
-      <input id="omMediaUploadAlt" placeholder="Alt metin / başlık">
+      <input type="hidden" id="omMediaUploadTitleHint" value=""><input id="omMediaUploadAlt" placeholder="Alt metin / başlık">
       <label class="check-line"><input type="checkbox" id="omMediaUploadWebp" checked> JPG/PNG için WebP oluştur</label>
       <span id="omMediaUploadStatus" class="muted"></span>
     </div>

@@ -98,7 +98,7 @@ $profile=site_profile();
     <table class="stats-table mini-table">
       <tr><td>Aktif profil</td><td><?=e((string)($profile['label'] ?? site_type()))?></td></tr>
       <tr><td>Aktif tema</td><td><?=e(omurga_active_theme())?></td></tr>
-      <tr><td>Omurga sürümü</td><td><?=e(OMURGA_VERSION)?></td></tr>
+      <tr><td>Omurga sürümü</td><td><?=e(defined('OMURGA_VERSION_NAME') ? OMURGA_VERSION_NAME : OMURGA_VERSION)?></td></tr>
       <tr><td>Taslak içerik</td><td><?=$draftCount?></td></tr>
       <tr><td>Form başvurusu</td><td><?=$formCount?></td></tr>
     </table>

@@ -63,26 +63,20 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         }
         if($action==='upload'){
             $files=$_FILES['files'] ?? null; if(!$files || empty($files['name'][0])) throw new RuntimeException('Dosya seçilmedi.');
-            $count=count($files['name']); $ok=0; $createdWebp=0; $skipped=0;
+            $count=count($files['name']); $ok=0; $createdWebp=0; $skipped=0; $errors=[];
             for($i=0;$i<$count;$i++){
-                if(($files['error'][$i]??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK){ $skipped++; continue; }
-                $tmp=$files['tmp_name'][$i]; $mime=mime_content_type($tmp) ?: '';
-                $allowed=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif','application/pdf'=>'pdf','video/mp4'=>'mp4'];
-                if(!isset($allowed[$mime])){ $skipped++; continue; }
-                if(($files['size'][$i]??0)>64*1024*1024){ $skipped++; continue; }
-                $relDir=omurga_media_rel_dir(); $dir=dirname(__DIR__).'/'.$relDir; if(!is_dir($dir)) mkdir($dir,0775,true);
-                $name=omurga_prepare_upload_name_for_dir($dir, $files['name'][$i], trim($_POST['title_hint']??'')); $originalPath=$relDir.'/'.$name; $target=$dir.'/'.$name; $GLOBALS['omurga_last_uploaded_original_filename']=basename((string)($one['name'] ?? $files['name'][$i] ?? '')); $GLOBALS['omurga_last_uploaded_original_path']=$originalPath;
-                if(!move_uploaded_file($tmp,$target)){ $skipped++; continue; }
-                if(str_starts_with($mime,'image/')) omurga_resize_image_if_needed($target,$mime,(int)setting('media_max_width','1600'),(int)setting('media_jpeg_quality','86'));
-                $finalPath=$originalPath;
-                if(!empty($_POST['make_webp']) && in_array($mime,['image/jpeg','image/png'],true)){
-                    $webp=create_webp_copy($target,$mime,(int)setting('webp_quality','82'));
-                    if($webp){ $finalPath=$relDir.'/'.basename($webp); $createdWebp++; }
-                }
-                $alt=omurga_auto_image_alt(trim($_POST['alt_text']??''), trim($_POST['title_hint']??''), $finalPath);
-                insert_media_record($finalPath, $alt, $_SESSION['omurga_user_id'] ?? null, $originalPath===$finalPath ? null : $originalPath);
-                $ok++;
+                try{
+                    $item=omurga_store_media_upload(omurga_normalize_upload_item($files,$i), [
+                        'title_hint'=>trim($_POST['title_hint']??''),
+                        'alt_text'=>trim($_POST['alt_text']??''),
+                        'create_webp'=>!empty($_POST['make_webp']),
+                        'max_size'=>64*1024*1024,
+                        'user_id'=>$_SESSION['omurga_user_id']??null,
+                    ]);
+                    if($item){ $ok++; if(strtolower(pathinfo($item['src'] ?? '', PATHINFO_EXTENSION))==='webp') $createdWebp++; }
+                }catch(Throwable $e){ $skipped++; $errors[]=$e->getMessage(); omurga_write_error($e); }
             }
+            if(!$ok) throw new RuntimeException($errors ? implode(' | ', array_slice(array_unique($errors),0,3)) : 'Dosya yüklenemedi.');
             $msg=$ok.' dosya yüklendi'.($createdWebp?' · '.$createdWebp.' WebP üretildi.':'').($skipped?' · '.$skipped.' dosya atlandı.':'');
         }
     }catch(Throwable $e){ $err=$e->getMessage(); }
@@ -111,12 +105,12 @@ $months=[]; try{$months=db()->query("SELECT DISTINCT DATE_FORMAT(created_at, '%Y
 $queryBase=$_GET; unset($queryBase['page']);
 function media_qs_v34(array $extra=[]): string { global $queryBase; return http_build_query(array_merge($queryBase,$extra)); }
 ?>
-<div class="toolbar"><h1>Medya Kütüphanesi</h1><div><a class="btn light" href="media-webp.php">WebP Dönüştür</a><a class="btn light" href="media-unused.php">Kullanılmayan Dosyalar</a><a class="btn light" href="settings.php#media">Medya Ayarları</a></div></div>
+<div class="toolbar"><h1>Medya Kütüphanesi</h1><div><a class="btn light" href="media-jobs.php">Medya İşleri</a><a class="btn light" href="media-webp.php">WebP Dönüştür</a><a class="btn light" href="media-unused.php">Kullanılmayan Dosyalar</a><a class="btn light" href="settings.php#media">Medya Ayarları</a></div></div>
 <?php if($msg): ?><div class="alert success"><?=e($msg)?></div><?php endif; ?><?php if($err): ?><div class="alert error"><?=e($err)?></div><?php endif; ?>
 
 <div class="media-v34-shell">
   <section class="media-v34-main">
-    <div class="card media-v34-uploader"><h2>Dosya Yükle</h2><p style="color:var(--muted)">Toplu yükleme desteklenir. Görseller küçültülebilir, JPG/PNG isteğe bağlı WebP olarak kaydedilir. PDF ve MP4 dosyaları da kütüphaneye alınabilir.</p><form method="post" enctype="multipart/form-data" class="media-v34-upload-form"><?=csrf_field()?><input type="hidden" name="action" value="upload"><label>Dosyalar<input type="file" name="files[]" accept="image/*,.pdf,video/mp4" multiple required></label><label>Dosya adı ipucu<input name="title_hint" placeholder="Örn: kurum-tanitimi veya site-gorseli"></label><label>Alt metin<input name="alt_text" placeholder="Görseli açıklayan kısa metin"></label><label class="check-line"><input type="checkbox" name="make_webp" value="1" checked> JPG/PNG için WebP oluştur</label><button class="btn primary">Yükle</button></form></div>
+    <div class="card media-v34-uploader"><h2>Dosya Yükle</h2><p style="color:var(--muted)">Toplu yükleme desteklenir. Görseller küçültülebilir, JPG/PNG isteğe bağlı WebP olarak kaydedilir. PDF ve MP4 dosyaları da kütüphaneye alınabilir.</p><form method="post" enctype="multipart/form-data" class="media-v34-upload-form"><?=csrf_field()?><input type="hidden" name="action" value="upload"><label>Dosyalar<input type="file" name="files[]" accept="image/*,.pdf,video/mp4" multiple required></label><label>Dosya adı ipucu<input name="title_hint" placeholder="Örn: kurum-tanitimi veya site-gorseli"></label><label>Alt metin<input name="alt_text" placeholder="Görseli açıklayan kısa metin"></label><label class="check-line"><input type="checkbox" name="make_webp" value="1" checked> JPG/PNG için WebP işi kuyruğa alınsın</label><button class="btn primary">Yükle</button></form></div>
 
     <div class="card media-v34-filter"><form method="get" class="media-v34-filter-grid"><label>Arama<input name="q" value="<?=e($q)?>" placeholder="Dosya adı, alt metin, yol"></label><label>Tür<select name="type"><option value="">Tümü</option><option value="image" <?=$type==='image'?'selected':''?>>Görseller</option><option value="webp" <?=$type==='webp'?'selected':''?>>WebP</option><option value="pdf" <?=$type==='pdf'?'selected':''?>>PDF</option><option value="video" <?=$type==='video'?'selected':''?>>Video</option><option value="other" <?=$type==='other'?'selected':''?>>Diğer</option></select></label><label>Tarih<select name="month"><option value="">Tüm tarihler</option><?php foreach($months as $m): ?><option value="<?=e($m)?>" <?=$month===$m?'selected':''?>><?=e($m)?></option><?php endforeach; ?></select></label><label>Kullanım<select name="usage"><option value="">Tümü</option><option value="unused" <?=$usage==='unused'?'selected':''?>>Bu sayfada kullanılmayan</option></select></label><label>Sıralama<select name="order"><option value="created_at" <?=$order==='created_at'?'selected':''?>>Yeni eklenen</option><option value="file_name" <?=$order==='file_name'?'selected':''?>>Dosya adı</option><option value="file_size" <?=$order==='file_size'?'selected':''?>>Boyut</option><option value="mime" <?=$order==='mime'?'selected':''?>>Tür</option><option value="width" <?=$order==='width'?'selected':''?>>Ölçü</option></select></label><label>Görünüm<select name="view"><option value="grid" <?=$view==='grid'?'selected':''?>>Grid</option><option value="list" <?=$view==='list'?'selected':''?>>Liste</option></select></label><button class="btn primary">Filtrele</button><a class="btn light" href="media.php">Temizle</a></form></div>
 

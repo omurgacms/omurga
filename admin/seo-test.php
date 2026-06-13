@@ -1,6 +1,5 @@
 <?php require __DIR__.'/_layout.php'; require_cap('seo.view');
-if(function_exists('omurga_migrate_seo_center_1010')) omurga_migrate_seo_center_1010();
-if(function_exists('omurga_migrate_seo_pro_1015')) omurga_migrate_seo_pro_1015();
+omurga_migrate();
 
 function omurga_admin_test_badge(bool $ok): string { return $ok ? '<span class="badge ok">Tamam</span>' : '<span class="badge warn">Kontrol gerekli</span>'; }
 function omurga_admin_table_exists(string $name): bool { try{ db()->query('SELECT 1 FROM '.table_name($name).' LIMIT 1'); return true; }catch(Throwable $e){ return false; } }
